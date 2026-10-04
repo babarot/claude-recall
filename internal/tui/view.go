@@ -379,17 +379,17 @@ func (m Model) renderHelp() string {
 		}
 		if m.expanded && m.focus == focusConv {
 			pairs = [][2]string{{"{down.1} {up.1}", "scroll"}, {"{search.0}", "search"}, {"{focus_next.0}", "sessions"},
-				{"{read.0} {quit.0} esc", "close"}, {"{resume.0}", "resume"}, {"{copy_id.0}", "copy id"}, {"{help.0}", "keys"}}
+				{"{read.0} {quit.0} esc", "close"}, {"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{copy_id.0}", "copy id"}, {"{help.0}", "keys"}}
 			break
 		}
 		if m.expanded {
 			pairs = [][2]string{{"{down.1} {up.1}", "next session"}, {"{focus_next.0}", "conversation"}, {"{read.0}", "close"},
-				{"{resume.0}", "resume"}, {"{grow.0}/{shrink.0}", "resize"}, {"{help.0}", "keys"}}
+				{"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{grow.0}/{shrink.0}", "resize"}, {"{help.0}", "keys"}}
 			break
 		}
 		if m.focus != focusList {
 			pairs = [][2]string{{"{up.0}{down.0}", "scroll " + strings.ToLower(frameTitles[m.focus])}, {"{focus_next.0}", "next"},
-				{"esc", "back to list"}, {"{resume.0}", "resume"}, {"{copy_id.0}", "copy id"}, {"{quit.0}", "quit"}}
+				{"esc", "back to list"}, {"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{copy_id.0}", "copy id"}, {"{quit.0}", "quit"}}
 			break
 		}
 		fallthrough
@@ -398,18 +398,30 @@ func (m Model) renderHelp() string {
 		if m.scope != "" && m.scope == m.startFolder {
 			here = "all folders"
 		}
-		// ? goes early so a narrow terminal still shows where the rest are.
-		pairs = [][2]string{{"{resume.0}", "resume"}, {"{read.0}", "read"}, {"{help.0}", "keys"}, {"{search.0}", "filter"},
-			{"{scope.0}", here}, {"{list.folders_open.0}", "folders"}, {"{recall.0}", "recall"}, {"{focus_next.0}", "focus"}, {"{copy_id.0}", "copy id"},
+		// recall sits by resume, the other way back to a session, and ? goes
+		// early so a narrow terminal still shows where the rest are.
+		pairs = [][2]string{{"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{read.0}", "read"}, {"{help.0}", "keys"}, {"{search.0}", "filter"},
+			{"{scope.0}", here}, {"{list.folders_open.0}", "folders"}, {"{focus_next.0}", "focus"}, {"{copy_id.0}", "copy id"},
 			{"{copy_command.0}", "copy cmd"}, {"{grow.0}/{shrink.0}", "resize"}, {"{sort.0}", "sort"}, {"{quit.0}", "quit"}}
 		if m.sidebarShown() {
-			pairs[5] = [2]string{"{list.folders_close.0}", "close folders"}
+			pairs[6] = [2]string{"{list.folders_close.0}", "close folders"}
 		}
+	}
+	// resume is struck through, as the folder is, when the session's folder
+	// is gone; it keeps its place so the footer does not shift.
+	gone := false
+	if r := m.current(); r != nil && m.mode == modeList {
+		gone = r.gone
 	}
 	var parts []string
 	for _, p := range m.byDefaultKey(pairs) {
 		// A hint whose keys were all remapped away is left out.
-		if k := m.hintKeys(p[0]); k != "" {
+		k := m.hintKeys(p[0])
+		switch {
+		case k == "":
+		case gone && p[0] == "{resume.0}":
+			parts = append(parts, m.st.gone.Render(k+" "+p[1]))
+		default:
 			parts = append(parts, m.st.key.Render(k)+" "+m.st.muted.Render(p[1]))
 		}
 	}

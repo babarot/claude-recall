@@ -231,6 +231,19 @@ func TestEnterOnMissingFolderNamesRecall(t *testing.T) {
 	}
 }
 
+func TestFooterStrikesResumeForMissingFolder(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 200, 30)
+	struck := m.st.gone.Render("enter resume")
+	// First row: bbbbbbbb, whose folder is gone.
+	if footer := m.renderHelp(); !strings.Contains(footer, struck) || !strings.HasPrefix(ansi.Strip(footer), " enter resume · c recall") {
+		t.Fatalf("footer %q", footer)
+	}
+	// Second row: aaaaaaaa, whose folder exists.
+	if footer := press(t, m, "down").renderHelp(); strings.Contains(footer, struck) {
+		t.Fatalf("footer %q", footer)
+	}
+}
+
 func TestRecall(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
 	m = press(t, m, "c") // first row: bbbbbbbb, whose folder is gone
