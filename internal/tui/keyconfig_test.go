@@ -54,7 +54,7 @@ func TestWithKeys(t *testing.T) {
 	}
 	footer := ansi.Strip(m.renderHelp())
 	// The keys keep their places; what they do changes.
-	if !strings.HasPrefix(footer, " enter read · space resume") || strings.Contains(footer, "sort") {
+	if !strings.HasPrefix(footer, " enter read · c recall · space resume") || strings.Contains(footer, "sort") {
 		t.Fatalf("footer %q", footer)
 	}
 	if r := press(t, m, "enter"); !r.expanded {
@@ -142,8 +142,7 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 	if m, err = m.WithKeys(map[string]config.KeyList{"recall": list("enter"), "resume": list("c")}); err != nil {
 		t.Fatal(err)
 	}
-	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " enter recall · space read") ||
-		!strings.Contains(footer, "← folders · c resume · tab focus") {
+	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " enter recall · c resume · space read") {
 		t.Fatalf("footer %q", footer)
 	}
 	// A key none of the defaults have goes after them.
@@ -151,7 +150,7 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 	if m, err = m.WithKeys(map[string]config.KeyList{"resume": list("x")}); err != nil {
 		t.Fatal(err)
 	}
-	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " space read") || !strings.HasSuffix(footer, "q quit · x resume") {
+	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " c recall · space read") || !strings.HasSuffix(footer, "q quit · x resume") {
 		t.Fatalf("footer %q", footer)
 	}
 	// Setting both keeps the key on the one set, the other moving away.

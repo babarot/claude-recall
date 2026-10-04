@@ -98,7 +98,7 @@ func TestRemappedKeys(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	m.km.Session.Resume = keys("space")
 	m.km.Session.Read = keys("enter")
-	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " enter read · space resume") {
+	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " enter read · c recall · space resume") {
 		t.Fatalf("footer %q", footer)
 	}
 	if r := press(t, m, "enter"); !r.expanded || r.Result != nil {
