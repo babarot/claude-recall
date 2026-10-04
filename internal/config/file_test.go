@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -103,16 +104,43 @@ func TestTemplateLoadsAsTheDefaults(t *testing.T) {
 	if got, _ := Load(path); got.TUI.Scope != ScopeAll {
 		t.Fatal("the existing file was replaced")
 	}
-	// Every setting is in the template, and the README shows the template.
+	// Every setting is in the template, and docs/configuration.md shows it.
 	for _, k := range knownKeys() {
 		section, name, _ := strings.Cut(k, ".")
 		if !strings.Contains(Template, "# "+name+" = ") || !strings.Contains(Template, "["+section+"]") {
 			t.Errorf("template lacks %s", k)
 		}
 	}
-	readme, _ := os.ReadFile("../../README.md")
-	if !strings.Contains(string(readme), Template) {
-		t.Error("README.md should show the config template as written")
+	doc, _ := os.ReadFile("../../docs/configuration.md")
+	if !strings.Contains(string(doc), uncommented(Template)) {
+		t.Error("docs/configuration.md should show the config template with its settings uncommented")
+	}
+}
+
+// uncommented is the template as docs/configuration.md shows it: without
+// the line that says to uncomment, and with every setting and table
+// uncommented, which sets each to its default.
+func uncommented(tmpl string) string {
+	setting := regexp.MustCompile(`(?m)^# ([a-z_]+ = .*|\[[a-z.]+\])$`)
+	_, body, _ := strings.Cut(tmpl, "\n\n")
+	return setting.ReplaceAllString(body, "$1")
+}
+
+// The template uncommented sets everything to its default.
+func TestUncommentedTemplate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	os.WriteFile(path, []byte(uncommented(Template)), 0o644)
+	got, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DBPath() != DefaultDBPath() {
+		t.Errorf("db is %s, the default is %s", got.DBPath(), DefaultDBPath())
+	}
+	got.Core.DB = ""
+	got.Keys = nil // the TUI checks these against its keymap
+	if want := Default(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }
 

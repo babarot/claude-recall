@@ -67,6 +67,7 @@ A session ID from the TUI (`y`) works too: "look up session a1b2c3 with claude-r
 | `a` | Ask Claude to find sessions, when you remember what it was about but not what to type |
 | `Space` | Read the conversation over the detail pane; `/` searches it, `n` `N` go through the matches |
 | `←` `→` | Show or hide the folder list, to narrow to one repository or folder |
+| `Tab` | Move the focus along the folder list, the sessions and the detail pane's frames, to scroll a frame |
 | `s` | Choose the sort order |
 | `?` | Show every key |
 | `q` | Quit |
@@ -198,105 +199,25 @@ Sessions are imported from `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` w
 
 ## Configuration
 
-`~/.config/claude-recall/config.toml` (or `$XDG_CONFIG_HOME/claude-recall/config.toml`). `recall` writes it the first time the TUI runs, with every setting at its default and commented out; uncomment a line to change it. An unknown key, or a key in the wrong section, is reported instead of ignored.
-
-`db` and `port` are the defaults of `--db` and `--port`, so the MCP server and the `SessionEnd` import use the archive you set here too. A mistake under `[tui]` stops only the TUI.
+`~/.config/claude-recall/config.toml` (or `$XDG_CONFIG_HOME/claude-recall/config.toml`). `recall` writes it the first time the TUI runs, with every setting at its default and commented out; a setting left out is its default, so set only what you change:
 
 ```toml
-# claude-recall settings. Uncomment a line to change it.
-
 [core]
-# The archive database, for every command, the MCP server and the web UI,
-# unless --db says otherwise: an absolute path or one starting with ~/.
-# db = "~/.claude/vault.db"
+db = "~/.claude/vault.db"   # the archive, unless --db says otherwise
 
 [ui]
-# Where the web UI (recall ui) listens, and where recall ui stop and
-# recall ui status look for it, unless --port says otherwise.
-# port = 6276
+port = 6276                 # the web UI, unless --port says otherwise
 
 [tui]
-# Where the detail pane goes: "bottom" (default), "right", or "auto" to put it
-# on the right when the terminal is at least detail_auto_width columns wide.
-# detail_position = "bottom"
-# detail_auto_width = 160
-# Initial height of the detail pane below the list, in lines (at least 10).
-# detail_height = 16
-# Color scheme: "auto" (default) picks catppuccin-mocha on a dark terminal and
-# catppuccin-latte on a light one. Also: tokyo-night, dracula, nord,
-# gruvbox-dark, and ansi (the terminal's own 16 colors).
-# theme = "auto"
-# Which sessions to start with: "folder" (default) for the repository recall is
-# started in, when it has sessions, or "all".
-# scope = "folder"
-# a asks Claude Code (claude -p, on your Claude plan) to find sessions.
-# The model: a family and version such as "sonnet-5.5", "opus-5.5" or
-# "haiku-4.5", or a full model ID. Whether to show what an answer cost (the
-# price claude reports; on a Claude plan it counts toward your usage rather
-# than being billed), and why Claude picked each session.
-# ask_model = "sonnet-5.5"
-# ask_show_cost = true
-# ask_reasons = true
-# The scrollbar on the right edge of a detail frame whose content scrolls. The
-# thumb: "thin" (│), "heavy" (┃, default) or "block" (█). Its color: a hex
-# color such as "#f5a3b5" or an ANSI color number (0-255); empty (default) is
-# the frame's border color, so "thin" needs a color to stand out.
-# scrollbar_thumb = "heavy"
-# scrollbar_color = ""
-# Show the images pasted into a session in the spread Conversation (Space),
-# where they were pasted. Needs a terminal that draws Kitty graphics with
-# Unicode placeholders, such as Ghostty or Kitty; elsewhere they come out as
-# stray characters, so it is off by default.
-# images = false
+theme = "auto"              # or tokyo-night, dracula, nord, gruvbox-dark, ansi
+detail_position = "bottom"  # or "right", or "auto" on a wide terminal
 
 [keys]
-# Which keys do what in the TUI, by operation: a key or a list of keys,
-# replacing the operation's own, or [] to turn it off. A key given to an
-# operation leaves the ones that have it by default: continue = "enter"
-# takes enter from resume. Every operation is below with its keys;
-# docs/tui.md says how keys are written. ctrl+c and esc are fixed. For
-# example, to resume with space and read with enter, uncomment those two
-# lines and swap their keys.
-#
-# Anywhere:
-# quit = "q"
-# help = "?"
-# focus_next = ["tab", "]"]
-# focus_prev = ["shift+tab", "["]
-# ask = "a"
-# sort = "s"
-# scope = "."
-#
-# The selected session, from the list, a frame or the spread conversation:
-# resume = "enter"
-# continue = "c"
-# read = "space"
-# copy_id = "y"
-# copy_command = "Y"
-# grow = ["+", "="]
-# shrink = "-"
-#
-# Moving and searching, in every pane:
-# up = ["up", "k", "ctrl+p"]
-# down = ["down", "j", "ctrl+n"]
-# page_up = ["pgup", "ctrl+b", "ctrl+u"]
-# page_down = ["pgdown", "ctrl+f", "ctrl+d"]
-# top = ["home", "g"]
-# bottom = ["end", "G"]
-# search = "/"
-# next_match = "n"
-# prev_match = "N"
-#
-# Keys that work in one pane go in its table, after the lines above.
-# The session list:
-# [keys.list]
-# folders_open = ["left", "h"]
-# folders_close = ["right", "l"]
-#
-# The folder list:
-# [keys.folders]
-# back = ["right", "l", "enter"]
+resume = "space"            # swap the keys of resume and read
+read = "enter"
 ```
+
+A mistake in it is reported with the line it is on, not ignored. See [docs/configuration.md](docs/configuration.md) for every setting, and [Changing keys](docs/tui.md#changing-keys) for `[keys]`.
 
 ## CLI
 
@@ -401,6 +322,8 @@ go run ./cmd/recall ui --foreground
 ```
 
 Work against a copy of the archive (`sqlite3 ~/.claude/vault.db ".backup '/tmp/vault-copy.db'"`), not the live file.
+
+After a change to how the TUI looks, re-record the demo GIF with `make demo` (see [demo/README.md](demo/README.md)).
 
 [docs/architecture.md](docs/architecture.md) covers how sessions flow into the archive, the schema and the web UI's live updates. The [ADRs](docs/adr) record the larger decisions, such as why claude-recall moved from Deno to Go ([ADR-004](docs/adr/004-go-port.md)).
 
