@@ -25,7 +25,7 @@ var helpGroups = []helpGroup{
 	{"Sessions", [][2]string{
 		{move, "move; {top.1} {bottom.1} top and bottom, {page_up.0} {page_down.0} by page"},
 		{"{resume.0}", "resume the session"},
-		{"{continue.0}", "continue it in a new claude, which recalls it"},
+		{"{recall.0}", "recall it in a new claude, through recall's MCP server"},
 		{"{read.0}", "read the conversation over the pane"},
 		{"{copy_id.0}  {copy_command.0}", "copy the session ID, the resume command"},
 		{"{search.0}", "filter (see below)"},

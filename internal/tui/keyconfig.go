@@ -15,8 +15,8 @@ import (
 
 // The keys under [keys] in the config file replace operations' keys. A key
 // given to an operation leaves the operations that have it by default and
-// would meet it in one place: continue = "enter" takes enter from resume,
-// as if enter were set to continue. Every mistake is reported rather than
+// would meet it in one place: recall = "enter" takes enter from resume,
+// as if enter were set to recall. Every mistake is reported rather than
 // ignored, since a key that is silently never matched looks like a bug in
 // the TUI: an unknown operation, a key written in a way no key press is
 // ever read as, a fixed key, and two operations set in the file sharing a
@@ -119,7 +119,7 @@ func (k *keyMap) refs() map[string]*key.Binding {
 	return map[string]*key.Binding{
 		"quit": &k.Global.Quit, "help": &k.Global.Help, "focus_next": &k.Global.FocusNext, "focus_prev": &k.Global.FocusPrev,
 		"ask": &k.Global.Ask, "sort": &k.Global.Sort, "scope": &k.Global.Scope,
-		"resume": &k.Session.Resume, "continue": &k.Session.Continue, "read": &k.Session.Read, "copy_id": &k.Session.CopyID,
+		"resume": &k.Session.Resume, "recall": &k.Session.Recall, "read": &k.Session.Read, "copy_id": &k.Session.CopyID,
 		"copy_command": &k.Session.CopyCommand, "grow": &k.Session.Grow, "shrink": &k.Session.Shrink,
 		"up": &k.Nav.Up, "down": &k.Nav.Down, "page_up": &k.Nav.PageUp, "page_down": &k.Nav.PageDown,
 		"top": &k.Nav.Top, "bottom": &k.Nav.Bottom, "search": &k.Nav.Search,

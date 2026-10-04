@@ -216,53 +216,53 @@ func TestEnterRefusesMissingFolder(t *testing.T) {
 	}
 }
 
-func TestEnterOnMissingFolderNamesContinue(t *testing.T) {
+func TestEnterOnMissingFolderNamesRecall(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
-	if r := press(t, m, "enter"); !strings.Contains(r.toast, "c continues it in a new claude") {
+	if r := press(t, m, "enter"); !strings.Contains(r.toast, "c recalls it in a new claude") {
 		t.Fatalf("toast %q", r.toast)
 	}
-	// With continue turned off, the toast does not name a key.
-	m, err := m.WithKeys(map[string]config.KeyList{"continue": list()})
+	// With recall turned off, the toast does not name a key.
+	m, err := m.WithKeys(map[string]config.KeyList{"recall": list()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r := press(t, m, "enter"); !strings.Contains(r.toast, "no longer exists") || strings.Contains(r.toast, "continues") {
+	if r := press(t, m, "enter"); !strings.Contains(r.toast, "no longer exists") || strings.Contains(r.toast, "recalls") {
 		t.Fatalf("toast %q", r.toast)
 	}
 }
 
-func TestContinue(t *testing.T) {
+func TestRecall(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
 	m = press(t, m, "c") // first row: bbbbbbbb, whose folder is gone
-	if !m.cont.open || !strings.Contains(screen(m), "Continue in a new claude") {
+	if !m.recall.open || !strings.Contains(screen(m), "Recall in a new claude") {
 		t.Fatalf("c should open the box:\n%s", screen(m))
 	}
 	// Keys go to the box, not the list: q is typed, not quit.
 	m = typeText(t, m, " the q docs ")
 	m = press(t, m, "enter")
-	if m.Continue == nil || *m.Continue != (Continue{SessionID: "bbbbbbbb-2222", Topic: "the q docs"}) {
-		t.Fatalf("continue %+v", m.Continue)
+	if m.Recall == nil || *m.Recall != (Recall{SessionID: "bbbbbbbb-2222", Topic: "the q docs"}) {
+		t.Fatalf("recall %+v", m.Recall)
 	}
 	if m.Result != nil {
 		t.Fatalf("result %+v", m.Result)
 	}
 }
 
-func TestContinueEmptyTopicAndEsc(t *testing.T) {
+func TestRecallEmptyTopicAndEsc(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
-	if r := press(t, m, "down", "c", "enter"); r.Continue == nil || *r.Continue != (Continue{SessionID: "aaaaaaaa-1111"}) {
-		t.Fatalf("continue %+v", r.Continue)
+	if r := press(t, m, "down", "c", "enter"); r.Recall == nil || *r.Recall != (Recall{SessionID: "aaaaaaaa-1111"}) {
+		t.Fatalf("recall %+v", r.Recall)
 	}
 	r := press(t, m, "c", "esc")
-	if r.cont.open || r.Continue != nil {
-		t.Fatalf("esc should close the box: open %v continue %+v", r.cont.open, r.Continue)
+	if r.recall.open || r.Recall != nil {
+		t.Fatalf("esc should close the box: open %v recall %+v", r.recall.open, r.Recall)
 	}
 }
 
-func TestContinuePaste(t *testing.T) {
+func TestRecallPaste(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
 	m = update(t, press(t, m, "c"), tea.PasteMsg{Content: "retry policy"})
-	if got := m.cont.input.Value(); got != "retry policy" {
+	if got := m.recall.input.Value(); got != "retry policy" {
 		t.Fatalf("input %q", got)
 	}
 }

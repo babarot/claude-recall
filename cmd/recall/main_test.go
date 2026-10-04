@@ -323,9 +323,9 @@ func TestConfigKeysErrors(t *testing.T) {
 	}
 }
 
-func TestContinueArgs(t *testing.T) {
-	recall := []string{"/bin/recall", "mcp", "--db", "/tmp/vault.db"}
-	args := continueArgs(recall, tui.Continue{SessionID: "abc-123"})
+func TestRecallArgs(t *testing.T) {
+	self := []string{"/bin/recall", "mcp", "--db", "/tmp/vault.db"}
+	args := recallArgs(self, tui.Recall{SessionID: "abc-123"})
 	if len(args) != 5 || args[1] != "--mcp-config" || args[3] != "--allowedTools" {
 		t.Fatalf("args %q", args)
 	}
@@ -339,7 +339,7 @@ func TestContinueArgs(t *testing.T) {
 	if args[4] != "mcp__recall__recall_search,mcp__recall__recall_list,mcp__recall__recall_export" {
 		t.Fatalf("allowed tools %q", args[4])
 	}
-	topic := continueArgs(recall, tui.Continue{SessionID: "abc-123", Topic: "the retry policy"})[0]
+	topic := recallArgs(self, tui.Recall{SessionID: "abc-123", Topic: "the retry policy"})[0]
 	if !strings.Contains(topic, "recall session abc-123") || !strings.Contains(topic, "about: the retry policy") {
 		t.Fatalf("prompt %q", topic)
 	}

@@ -10,7 +10,7 @@ The title is the session's `/rename` name, or else the title Claude Code generat
 |-----|--------|
 | `↑` `↓` / `j` `k` | Move (`g` `G` for top and bottom, PgUp and PgDn or `ctrl+d` and `ctrl+u` by page) |
 | `Enter` | Resume the session: `claude -r <id>` from the session's folder |
-| `c` | Continue the session in a new claude (see [Continuing in a new claude](#continuing-in-a-new-claude)) |
+| `c` | Recall the session in a new claude (see [Recalling in a new claude](#recalling-in-a-new-claude)) |
 | `y` | Copy the session ID, to hand it to another agent ("look this session up with claude-recall") |
 | `Y` | Copy the resume command |
 | `Space` | Read the conversation over the detail pane (see [Reading a conversation](#reading-a-conversation)) |
@@ -66,9 +66,9 @@ It runs signed in as you, a Claude plan included, so recall needs no API key. It
 - `Enter` jumps to one (clearing a folder or filter that hides it), `f` narrows the list to all of them in Claude's order with the reason under each row, and `r` asks again. `Esc` clears the narrowed list.
 - The reason stays in Conversation for a session Claude picked.
 
-## Continuing in a new claude
+## Recalling in a new claude
 
-`claude -r` cannot resume a session whose folder is gone, such as one in a removed worktree (`Enter` says so and names this key), or whose transcript Claude Code has deleted. `c` continues any session another way: recall quits and starts a new claude in the folder recall was started in, with recall's MCP server, asking it to recall the session, the way you would ask in a session yourself:
+`claude -r` cannot resume a session whose folder is gone, such as one in a removed worktree (`Enter` says so and names this key), or whose transcript Claude Code has deleted. `c` recalls any session instead: recall quits and starts a new claude in the folder recall was started in, with recall's MCP server, asking it to recall the session, the way you would ask in a session yourself:
 
 ```console
 claude "Use the recall tools to recall session <id> ..." \
@@ -76,7 +76,7 @@ claude "Use the recall tools to recall session <id> ..." \
   --allowedTools mcp__recall__recall_search,mcp__recall__recall_list,mcp__recall__recall_export
 ```
 
-- The box takes what to recall about it ("the retry policy"); left empty, Claude says what was being done and how far it got. Either way it then waits for you.
+- The box takes what to recall about it ("the retry policy"); left empty, Claude picks up where it left off, saying what was being done and how far it got. Either way it then waits for you.
 - It is an ordinary session: your settings, CLAUDE.md and MCP servers apply. Only the recall tools are allowed without asking.
 - The new session starts from what the old one said, not from its files: a removed worktree's changes are not brought back.
 
@@ -121,7 +121,7 @@ Click a session to select it, click a frame to focus it, scroll the wheel over t
 
 ## Changing keys
 
-Under `[keys]` in the [config file](configuration.md), an operation takes a key or a list of keys in place of its own, or `[]` to turn it off. A key you give an operation leaves the operations that have it by default where they would meet: `continue = "enter"` makes `Enter` continue and leaves `resume` with no key, as if `Enter` itself were set, and `resume = "j"` leaves `down` its arrow and `ctrl+n`. The footer and the `?` key list show the keys you set. In the footer a key keeps the place it has by default, so with `continue = "enter"` and `resume = "c"`, `Enter` still comes first, now continuing. The file `recall` writes on first run lists every operation with its keys, commented out, so a key is changed by uncommenting its line and editing it; a file written by an older `recall` lacks them, and [every setting](configuration.md#every-setting) is there to copy them from.
+Under `[keys]` in the [config file](configuration.md), an operation takes a key or a list of keys in place of its own, or `[]` to turn it off. A key you give an operation leaves the operations that have it by default where they would meet: `recall = "enter"` makes `Enter` recall and leaves `resume` with no key, as if `Enter` itself were set, and `resume = "j"` leaves `down` its arrow and `ctrl+n`. The footer and the `?` key list show the keys you set. In the footer a key keeps the place it has by default, so with `recall = "enter"` and `resume = "c"`, `Enter` still comes first, now recalling. The file `recall` writes on first run lists every operation with its keys, commented out, so a key is changed by uncommenting its line and editing it; a file written by an older `recall` lacks them, and [every setting](configuration.md#every-setting) is there to copy them from.
 
 ```toml
 [keys]
@@ -144,7 +144,7 @@ An operation that works in one pane only goes in that pane's table, `[keys.list]
 | `sort` | `s` | Choose the sort order |
 | `scope` | `.` | Switch between the folder recall was started in and all folders |
 | `resume` | `enter` | Resume the session |
-| `continue` | `c` | Continue the session in a new claude |
+| `recall` | `c` | Recall the session in a new claude |
 | `read` | `space` | Read the conversation over the detail pane, or put it back |
 | `copy_id` | `y` | Copy the session ID |
 | `copy_command` | `Y` | Copy the resume command |

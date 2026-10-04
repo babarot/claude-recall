@@ -144,7 +144,7 @@ What can change are the global keys, the session panes' keys, the folder list's 
 | Key | What it does | Operation |
 |---|---|---|
 | `enter` | Resume the session | `resume` |
-| `c` | Continue the session in a new claude | `continue` |
+| `c` | Recall the session in a new claude | `recall` |
 | `space` | Spread the conversation, put it back | `read` |
 | `y` | Copy the session ID | `copy_id` |
 | `Y` | Copy the resume command | `copy_command` |
@@ -256,7 +256,7 @@ read   = ["enter"]
   - Accepted: a printable character (capitals included), a named key (`enter` `space` `tab` `backspace` `up` `down` `left` `right` `home` `end` `pgup` `pgdown` `insert` `delete` `f1` to `f12`), and either with `ctrl+` or `alt+`. `shift+` goes with named keys only (`shift+tab`, `shift+up` and so on)
   - A shifted character is written as itself (`Y`, `?`). bubbletea sends shift+y as `Y`, not `shift+y`, so `shift+y` would never match. `shift+` with a printable character is an error whose message gives the way to write it (`Y`)
   - Anything else (`ctrl-d`, `Enter` and so on) is an error, rather than a key that silently never works
-- The footer and the `?` list show the changed keys. The footer is ordered by key: a key shows where it is by default (with `continue = ["enter"]` and `resume = ["c"]`, `enter continue` still comes first), and an operation on a key that no operation has by default goes after the rest. The `?` list groups operations by meaning, so it keeps the operations' order
+- The footer and the `?` list show the changed keys. The footer is ordered by key: a key shows where it is by default (with `recall = ["enter"]` and `resume = ["c"]`, `enter recall` still comes first), and an operation on a key that no operation has by default goes after the rest. The `?` list groups operations by meaning, so it keeps the operations' order
 - These are errors when the file is read, reported rather than ignored, as an unknown setting is:
   - An unknown operation
   - A key that cannot be written (the fixed keys included)
@@ -275,7 +275,7 @@ Inside a modal, the key that opened it (`help` and `sort`) does not overlap that
 
 The folder list's `enter` (back to the sessions) and the sessions' `enter` (resume) never show up in the same place, so they do not conflict. Swapping `resume = ["space"]` and `read = ["enter"]` overlaps nowhere, so it is valid.
 
-A key written in the config file that a default key has is not an error: the key is taken from the default operation, so that what is written wins, as if the key itself had been given to that operation. `continue = ["enter"]` alone leaves `resume` with no key (and out of the footer and the `?` list). `resume = ["j"]` takes `j` from "down", which keeps its arrow and `ctrl+n`. The key is taken from the operation itself, so `j` is no longer "down" even where the two would not meet (the folder list, where `resume` does not work). Only operations written in the file that overlap one another (`resume = ["j"]` with `down = ["j"]`) and keys that overlap fixed keys are errors.
+A key written in the config file that a default key has is not an error: the key is taken from the default operation, so that what is written wins, as if the key itself had been given to that operation. `recall = ["enter"]` alone leaves `resume` with no key (and out of the footer and the `?` list). `resume = ["j"]` takes `j` from "down", which keeps its arrow and `ctrl+n`. The key is taken from the operation itself, so `j` is no longer "down" even where the two would not meet (the folder list, where `resume` does not work). Only operations written in the file that overlap one another (`resume = ["j"]` with `down = ["j"]`) and keys that overlap fixed keys are errors.
 
 ## Decided
 
@@ -291,6 +291,7 @@ Added since:
 - With the focus on the spread conversation, `q` (the `quit` key) puts the pane back instead of quitting (#45). With the focus on the list, it quits as before
 - In a field, `ctrl+v` and the terminal's own paste (`cmd+v`) paste the clipboard (#47). `ctrl+v` is a fixed key of the field layer, outside the config file
 - A mistake under `[keys]` is reported with where it is in the config file (#44)
-- `c` (`continue`) continues the session in a new claude that recalls it, and a key written in the config file takes over from the default operation that has it, rather than being a conflict (#48)
+- `c` recalls the session in a new claude, and a key written in the config file takes over from the default operation that has it, rather than being a conflict (#48)
+- `c` was named `continue` in #48 and renamed `recall` before a release: `claude --continue` resumes the same session, the opposite of a new claude that reads the old one back, and recall is what the new claude is asked to do
 
 For users, the keys are described in [docs/tui.md](../tui.md#changing-keys).

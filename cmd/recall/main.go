@@ -561,13 +561,13 @@ func runTUI(o *options, c *cobra.Command) error {
 	if wd, err := os.Getwd(); err == nil {
 		model = model.StartIn(wd)
 	}
-	// Asking Claude, and a session continued in a new claude, get this
+	// Asking Claude, and a session recalled in a new claude, get this
 	// recall's MCP server on the same database. Asking runs from a
 	// directory of its own so no project's settings apply.
-	recall := []string{"recall", "mcp", "--db", o.db}
+	self := []string{"recall", "mcp", "--db", o.db}
 	if exe, err := os.Executable(); err == nil {
-		recall[0] = exe
-		model = model.AskWith(recall, filepath.Join(filepath.Dir(config.StatePath()), "ask"))
+		self[0] = exe
+		model = model.AskWith(self, filepath.Join(filepath.Dir(config.StatePath()), "ask"))
 	}
 	final, err := tea.NewProgram(model).Run()
 	if err != nil {
@@ -578,9 +578,9 @@ func runTUI(o *options, c *cobra.Command) error {
 		return nil
 	}
 	switch {
-	case m.Continue != nil:
+	case m.Recall != nil:
 		d.Close()
-		return continueSession(recall, *m.Continue)
+		return recallSession(self, *m.Recall)
 	case m.Result != nil:
 		d.Close()
 		return resume(*m.Result)
@@ -601,29 +601,29 @@ func resume(r tui.Resume) error {
 	return syscall.Exec(claude, []string{"claude", "-r", r.SessionID}, os.Environ())
 }
 
-// continueSession replaces this process with a new claude, in the folder
+// recallSession replaces this process with a new claude, in the folder
 // recall was started in, that recalls the session through recall's MCP
-// server (the command line recall).
-func continueSession(recall []string, c tui.Continue) error {
+// server, run as the command line self.
+func recallSession(self []string, r tui.Recall) error {
 	claude, err := exec.LookPath("claude")
 	if err != nil {
 		return errors.New("claude is not on PATH")
 	}
-	return syscall.Exec(claude, append([]string{"claude"}, continueArgs(recall, c)...), os.Environ())
+	return syscall.Exec(claude, append([]string{"claude"}, recallArgs(self, r)...), os.Environ())
 }
 
-// continueArgs are claude's arguments for continuing a session: recall's MCP
+// recallArgs are claude's arguments for recalling a session: recall's MCP
 // server beside the user's own, its read-only tools allowed, and a first
 // prompt asking to recall the session, as one would in a session.
-func continueArgs(recall []string, c tui.Continue) []string {
+func recallArgs(self []string, r tui.Recall) []string {
 	mcp, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{
-		"recall": map[string]any{"command": recall[0], "args": recall[1:]},
+		"recall": map[string]any{"command": self[0], "args": self[1:]},
 	}})
-	prompt := "Use the recall tools to recall session " + c.SessionID +
+	prompt := "Use the recall tools to recall session " + r.SessionID +
 		" (recall_export), then pick up where it left off: say briefly what was being done and how far it got, and wait for my instructions."
-	if c.Topic != "" {
-		prompt = "Use the recall tools to recall session " + c.SessionID +
-			" (recall_export, or recall_search for the parts you need) about: " + c.Topic +
+	if r.Topic != "" {
+		prompt = "Use the recall tools to recall session " + r.SessionID +
+			" (recall_export, or recall_search for the parts you need) about: " + r.Topic +
 			"\nSay briefly what it says about that, and wait for my instructions."
 	}
 	// The prompt goes first: --mcp-config and --allowedTools take every
