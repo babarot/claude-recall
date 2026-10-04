@@ -21,8 +21,11 @@ The title is the session's `/rename` name, or else the title Claude Code generat
 | `←` `→` / `h` `l` | Show or hide the folder list (see [Folders](#folders)) |
 | `+` `-` | Make the detail pane taller or shorter |
 | `Tab` `Shift+Tab` (or `]` `[`) | Move focus along the folder list (when shown), the sessions and the detail pane's frames, in the order they are laid out; `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` then scroll it, `Esc` returns to the list |
+| `Esc` | Go back a step: clear the filter, the search or Claude's answer, return to the list, put the pane back |
 | `?` | Show every key, grouped by where it works; `?`, `Esc` or `q` closes the list |
 | `q` | Quit; over the spread conversation, put the pane back |
+
+Every key but `ctrl+c` and `Esc` can be changed; see [Changing keys](#changing-keys).
 
 ## Filter
 
@@ -44,6 +47,7 @@ While typing:
 
 - Two letters of a key, such as `bra`, show the rest faintly; `Tab` or `→` types it.
 - `folder:` (and `in:`), `branch:` and `worktree:` suggest their values as you type. While the suggestions show, `↑` `↓` and `Enter` pick one, `Tab` completes the highlighted one and `Esc` closes them. The mouse clicks and scrolls them too.
+- `ctrl+v`, or the terminal's own paste (`cmd+v`), pastes into it, as it does into the folder search, the conversation search and the Ask box.
 
 ## Ask Claude
 
@@ -101,6 +105,8 @@ The detail pane has three frames:
 
 Below the list, Details sits under Conversation in a few wide lines and What was done runs down the right. A taller pane shows more of the conversation and of What was done. The height you pick is remembered in `~/.local/state/claude-recall/state.json`.
 
+A frame whose content does not fit shows a scrollbar on its right edge; `scrollbar_thumb` and `scrollbar_color` under `[tui]` change how it looks.
+
 ### Reading a conversation
 
 `Space` spreads the conversation over the detail pane, wrapped, and the pane grows to leave the list a few rows (`+` `-` or dragging its edge change how many, and they are remembered). `Tab` back to the list and `j` `k` read the next session in place; `Space` or `Esc` puts the pane back, and so does `q` while the conversation has the focus (from the list, `q` quits and `Esc` first clears the filter and Claude's answer, if any).
@@ -115,7 +121,7 @@ Click a session to select it, click a frame to focus it, scroll the wheel over t
 
 ## Changing keys
 
-Under `[keys]` in the [config file](../README.md#configuration), an operation takes a key or a list of keys in place of its own, or `[]` to turn it off. A key you give an operation leaves the operations that have it by default where they would meet: `continue = "enter"` makes `Enter` continue and leaves `resume` with no key, as if `Enter` itself were set, and `resume = "j"` leaves `down` its arrow and `ctrl+n`. The footer and the `?` key list show the keys you set. In the footer a key keeps the place it has by default, so with `continue = "enter"` and `resume = "c"`, `Enter` still comes first, now continuing. The file `recall` writes on first run lists every operation with its keys, commented out, so a key is changed by uncommenting its line and editing it; a file written by an older `recall` lacks them, and the README shows the whole file to copy them from.
+Under `[keys]` in the [config file](configuration.md), an operation takes a key or a list of keys in place of its own, or `[]` to turn it off. A key you give an operation leaves the operations that have it by default where they would meet: `continue = "enter"` makes `Enter` continue and leaves `resume` with no key, as if `Enter` itself were set, and `resume = "j"` leaves `down` its arrow and `ctrl+n`. The footer and the `?` key list show the keys you set. In the footer a key keeps the place it has by default, so with `continue = "enter"` and `resume = "c"`, `Enter` still comes first, now continuing. The file `recall` writes on first run lists every operation with its keys, commented out, so a key is changed by uncommenting its line and editing it; a file written by an older `recall` lacks them, and [every setting](configuration.md#every-setting) is there to copy them from.
 
 ```toml
 [keys]
@@ -159,8 +165,8 @@ Keys are written as key presses are read:
 - A named key: `enter`, `space`, `tab`, `backspace`, `up`, `down`, `left`, `right`, `home`, `end`, `pgup`, `pgdown`, `insert`, `delete`, `f1` to `f12`.
 - With modifiers in the order `ctrl+`, `alt+`, `shift+`, and a letter lower-cased: `ctrl+d`, `ctrl+shift+y`, `alt+enter`, `shift+tab`.
 
-`ctrl+c` and `esc` cannot be given to an operation, and neither can the keys inside the sort menu and the Ask box, or those of a field being typed in. An unknown operation, a key written another way and two operations set in the file that would share a key in one place (`resume = "j"` with `down = "j"`) are reported when `recall` starts, rather than ignored.
+`ctrl+c` and `esc` cannot be given to an operation, and neither can the keys inside the sort menu and the Ask box, or those of a field being typed in. An unknown operation, a key written another way and two operations set in the file that would share a key in one place (`resume = "j"` with `down = "j"`) are reported when `recall` starts, with the line they are on, rather than ignored.
 
 ## Settings
 
-The `[tui]` section of the config file holds the TUI's settings: where the detail pane goes and how tall it starts, the color scheme, which sessions to start with, and the model and display of `a`. See [Configuration](../README.md#configuration) in the README for the whole file.
+The `[tui]` section of the config file holds the TUI's settings: where the detail pane goes and how tall it starts, the color scheme, which sessions to start with, the model and display of `a`, the scrollbar and images. See [docs/configuration.md](configuration.md) for every setting.

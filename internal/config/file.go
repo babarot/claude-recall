@@ -240,8 +240,8 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # operation leaves the ones that have it by default: continue = "enter"
 # takes enter from resume. Every operation is below with its keys;
 # docs/tui.md says how keys are written. ctrl+c and esc are fixed. For
-# example, to resume with space and read with enter, uncomment those two
-# lines and swap their keys.
+# example, to resume with space and read with enter, swap the keys of
+# resume and read.
 #
 # Anywhere:
 # quit = "q"
