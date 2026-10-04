@@ -407,10 +407,21 @@ func (m Model) renderHelp() string {
 			pairs[6] = [2]string{"{list.folders_close.0}", "close folders"}
 		}
 	}
+	// resume is struck through, as the folder is, when the session's folder
+	// is gone; it keeps its place so the footer does not shift.
+	gone := false
+	if r := m.current(); r != nil && m.mode == modeList {
+		gone = r.gone
+	}
 	var parts []string
 	for _, p := range m.byDefaultKey(pairs) {
 		// A hint whose keys were all remapped away is left out.
-		if k := m.hintKeys(p[0]); k != "" {
+		k := m.hintKeys(p[0])
+		switch {
+		case k == "":
+		case gone && p[0] == "{resume.0}":
+			parts = append(parts, m.st.gone.Render(k+" "+p[1]))
+		default:
 			parts = append(parts, m.st.key.Render(k)+" "+m.st.muted.Render(p[1]))
 		}
 	}
