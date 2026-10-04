@@ -1,249 +1,247 @@
-# TUI のキー操作の設計
+# The TUI's key bindings
 
-TUI のキー操作を、どの場面で何が効くかという設計から決め直す。この設計を実装の土台にして、段階 1 でキー処理をキーマップに寄せ（挙動はこの設計どおりに揃える）、段階 2 で利用者が config からキーを変えられるようにする。
+A design of the TUI's keys, starting from which key does what and where. Implementation builds on it in two stages: stage 1 moves key handling into a keymap (with the behavior made to match this design), and stage 2 lets users change keys from the config file.
 
-## 目的
+## Goals
 
-- どのキーが、どの場面で、何をするかを、コードを読まずに説明できるようにする
-- 場面ごとにばらばらな意味やキーを揃える
-- 処理、フッター、`?` のキー一覧、ドキュメントが同じ定義から作られるようにする
-- 利用者がキーを変えられるようにする（例: `enter` と `space` の入れ替え）
+- Say which key does what, and where, without reading the code
+- Make keys and their meanings agree across panes
+- Build the handling, the footer, the `?` key list and the docs from one definition
+- Let users change keys (for example, swap `enter` and `space`)
 
-対象は TUI（`recall` / `recall tui`）のキーボード操作。マウス操作と CLI は対象外。
+In scope: the keyboard in the TUI (`recall` / `recall tui`). Out of scope: the mouse and the CLI.
 
-## 用語
+## Terms
 
-| 用語 | 意味 |
+| Term | Meaning |
 |---|---|
-| モーダル | 画面の上に開き、閉じるまでキーを独占するもの。キー一覧（`?`）、ソートのメニュー（`s`）、Ask Claude の箱（`a`） |
-| 文字入力 | 文字を打つ欄。フィルタ（`/`）、フォルダ検索、会話検索、Ask の質問 |
-| ペイン | フォーカスを持てる領域。セッション一覧、フォルダ一覧、詳細の枠（Conversation、What was done、Details）、広げた会話 |
-| 全体 | ペインに関係なく効くキー |
-| セッション操作 | 選んでいるセッションに対する操作（再開、会話を広げる、ID のコピーなど） |
+| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`) and the Ask Claude box (`a`) |
+| Field | Where text is typed: the filter (`/`), the folder search, the conversation search and Ask's question |
+| Pane | An area that can have the focus: the session list, the folder list, the detail frames (Conversation, What was done, Details) and the spread conversation |
+| Global | Keys that work whatever pane has the focus |
+| Session operation | An operation on the selected session (resume, read the conversation, copy its ID and so on) |
 
-## 現状
+## Before
 
-キーは `"enter"` のような文字列のまま、場面ごとの `switch` で比べている。処理は次の順に手書きでつながっている。
+Keys were compared as strings such as `"enter"` in a `switch` per place, and handled in this hand-written order:
 
-1. Ask の箱、ソートのメニュー、キー一覧のどれかが開いていれば、そこが受け取って終わる
-2. `?` は、文字入力中でなければキー一覧を開く
-3. フィルタの入力中はフィルタが受け取る
-4. それ以外は `updateList` が受け取り、その中で次の順に見る
-   - フォルダ検索、会話検索の入力中はそこが受け取って終わる
-   - `tab` `]` `[` `.` `a` はどこでも効く
-   - フォルダ一覧にフォーカスがあれば、フォルダ一覧が受け取って終わる
-   - `enter` `y` `Y` は選んでいるセッションへの操作として効く
-   - 詳細の枠にフォーカスがあれば、枠がスクロール系を受け取り、それ以外は一覧のキーとして処理する（`goto list`）
-   - 一覧のキー
+1. If the Ask box, the sort menu or the key list was open, it took the key and that was it
+2. `?` opened the key list unless a field was being typed in
+3. While the filter was being typed in, the filter took the key
+4. Otherwise `updateList` took it and looked, in order:
+   - While the folder search or the conversation search was being typed in, that took it
+   - `tab` `]` `[` `.` `a` worked anywhere
+   - With the focus on the folder list, the folder list took it
+   - `enter` `y` `Y` worked on the selected session
+   - With the focus on a detail frame, the frame took the scrolling keys, and any other key was handled as a list key (`goto list`)
+   - The list's keys
 
-### 揃っていないところ
+### What did not agree
 
-1. 閉じるキーが場面ごとに違う。キー一覧は `?` `esc` `q`、Ask の答えは `esc` `q`、Ask の実行中は `esc` だけ、ソートは `esc` `s` `q`
-2. ページ送りの `ctrl+d` `ctrl+u` が、枠とフォルダ一覧では効くが、一覧では効かない
-3. 詳細の枠で知らないキーを押すと、一覧のキーとして動く（`q` で終了、`space` で広げる、`/` でフィルタ）。一方 `s` だけは「枠を読んでいる間は効かない」と特別扱いしている。どれが流れてどれが流れないかが、コードを読まないとわからない
-4. `a` と `.` はフォルダ一覧や枠でも効くが、`s` は効かない
-5. `ctrl+c` での終了を、場面ごとに別々に書いている
-6. キーの説明が、処理、フッター（`view.go` の `renderHelp`）、`?` の一覧（`help.go`）、README と `docs/tui.md` の 4 か所に別々に書かれていて、ずれやすい
+1. The keys that close differed by place. The key list closed with `?` `esc` `q`, Ask's answer with `esc` `q`, a running ask with `esc` only, the sort menu with `esc` `s` `q`
+2. Paging with `ctrl+d` `ctrl+u` worked in the frames and the folder list but not in the session list
+3. A key a detail frame did not know acted as a list key (`q` quit, `space` spread the conversation, `/` opened the filter), while `s` alone was special-cased not to work while reading a frame. Which keys fell through and which did not could only be told from the code
+4. `a` and `.` worked in the folder list and the frames, `s` did not
+5. Quitting on `ctrl+c` was written separately in each place
+6. Keys were described in four places, apart from one another: the handling, the footer (`renderHelp` in `view.go`), the `?` list (`help.go`), and the README and `docs/tui.md`
 
-## 設計の原則
+## Principles
 
-### 1. 層
+### 1. Layers
 
-キーは上の層から順に見る。ある層が受け取ったキーは、下の層に流れない。
+Keys are looked up from the top layer down. A key a layer takes does not go to the layers below it.
 
-| 順 | 層 | 受け取るもの |
+| Order | Layer | Takes |
 |---|---|---|
-| 1 | 固定 | `ctrl+c`（どこでも終了） |
-| 2 | モーダル | 開いているモーダルが、すべてのキーを受け取る |
-| 3 | 文字入力 | 入力中の欄が、すべてのキーを受け取る（確定、取り消し、欄ごとの補助キーを除き、文字として入力される） |
-| 4 | ペイン | フォーカスしているペインが、自分の宣言したキーを受け取る |
-| 5 | 全体 | ペインが受け取らなかったキー |
+| 1 | Fixed | `ctrl+c` (quit, anywhere) |
+| 2 | Modal | Every key, while a modal is open |
+| 3 | Field | Every key, while a field is being typed in (typed as text, except its submit, cancel and own helper keys) |
+| 4 | Pane | The keys the focused pane declares |
+| 5 | Global | Keys no pane took |
 
-ペインからペインへキーが流れることはない。今の「枠で知らないキーは一覧のキーとして動く」をやめ、枠が受け取らなかったキーは全体の層にだけ流れる。
+Keys never go from one pane to another. A key a detail frame does not take no longer acts as a list key; it goes to the global layer only.
 
-### 2. ペインのまとまり
+### 2. Two kinds of pane
 
-ペインを 2 つに分ける。
+- Session panes: the session list, the detail frames and the spread conversation. They all show the selected session, so the session operations work in them
+- The folder list: where a folder is picked, so the session operations do not work (`enter` there means "back to the sessions")
 
-- セッションのペイン: セッション一覧、詳細の枠、広げた会話。どれも「選んでいるセッション」を見ているので、セッション操作が効く
-- フォルダ一覧: フォルダを選ぶ場所なので、セッション操作は効かない（`enter` は「一覧に戻る」の意味）
+The session operations are keys shared by the session panes, not global keys.
 
-セッション操作はセッションのペインの共通キーとし、全体の層には置かない。
+### 3. Shared verbs
 
-### 3. 共通の動詞
+A key means the same in every pane.
 
-どのペインでも、同じキーは同じ意味にする。
-
-| 動詞 | キー | 意味 |
+| Verb | Keys | Meaning |
 |---|---|---|
-| 下へ、上へ | `j` `k` `↓` `↑` `ctrl+n` `ctrl+p` | 一覧では移動、枠では 1 行スクロール |
-| ページ | `ctrl+d` `ctrl+u` `pgdown` `pgup` `ctrl+f` `ctrl+b` | 1 画面分。一覧は見えている行数だけ移動、枠は 2 行、フォルダ一覧は 1 行を前の画面と重ねる（どれも今と同じ） |
-| 端へ | `g` `G` `home` `end` | 先頭、末尾 |
-| 探す | `/` | フォーカスしているものの中を探す（下の「`/` の規則」） |
-| 次と前の一致 | `n` `N` | 検索の結果があるペインで、次と前の一致に移る |
-| 戻る | `esc` | 1 段戻る（下の「`esc` の規則」） |
+| Down, up | `j` `k` `↓` `↑` `ctrl+n` `ctrl+p` | Move in a list, scroll a frame a line |
+| Page | `ctrl+d` `ctrl+u` `pgdown` `pgup` `ctrl+f` `ctrl+b` | A screen's worth. The list moves by the rows it shows, a frame keeps 2 lines of the last screen, the folder list 1 (all as before) |
+| Ends | `g` `G` `home` `end` | The top, the bottom |
+| Search | `/` | Search within what has the focus (see "The `/` rule") |
+| Next and previous match | `n` `N` | In a pane with search results, go to the next and previous match |
+| Back | `esc` | Go back a step (see "The `esc` rule") |
 
-### 4. `/` の規則
+### 4. The `/` rule
 
-`/` は「フォーカスしているものの中を探す」。
+`/` searches within what has the focus.
 
-- セッション一覧: フィルタ
-- フォルダ一覧: フォルダ検索
-- 広げた会話: 会話検索
-- 検索を持たないペイン（小さい状態の詳細の枠）: セッション一覧のフィルタを開く（フォーカスはそのまま、今と同じ）
+- The session list: the filter
+- The folder list: the folder search
+- The spread conversation: the conversation search
+- A pane with no search of its own (a detail frame at its small size): opens the session list's filter, leaving the focus where it is, as before
 
-最後の行は、今の挙動（枠で `/` を押すとフィルタが開く）を、ペイン間の流れではなく「検索を持たないペインの決まり」として残すもの。
+The last line keeps the old behavior (`/` in a frame opens the filter) as a rule for panes without a search, rather than as a key falling from one pane to another.
 
-### 5. `esc` の規則
+### 5. The `esc` rule
 
-`esc` は「1 段戻る」。消せるものがあれば消し、なければ外側へ出る。
+`esc` goes back a step: it clears what there is to clear, and otherwise leaves for the outside.
 
-| 場面 | 1 回目 | 2 回目 | 3 回目 |
+| Where | 1st | 2nd | 3rd |
 |---|---|---|---|
-| セッション一覧 | フィルタを消す | Claude の答えによる絞り込みを消す | 何もしない |
-| セッション一覧（会話を広げている） | フィルタを消す | Claude の答えによる絞り込みを消す | 広げた会話を閉じる ★ |
-| フォルダ一覧 | フォルダ検索を消す | セッション一覧に戻る | |
-| 詳細の枠 | セッション一覧に戻る | | |
-| 広げた会話 | 会話検索を消す | 広げた会話を閉じる | |
-| モーダル | 閉じる | | |
-| 文字入力 | 取り消す（欄ごと、下の表） | | |
+| The session list | Clear the filter | Clear the list narrowed by Claude's answer | Nothing |
+| The session list, with the conversation spread | Clear the filter | Clear the list narrowed by Claude's answer | Put the pane back ★ |
+| The folder list | Clear the folder search | Back to the sessions | |
+| A detail frame | Back to the session list | | |
+| The spread conversation | Clear the conversation search | Put the pane back | |
+| A modal | Close it | | |
+| A field | Cancel (per field, in the table below) | | |
 
-### 6. モーダルの閉じ方
+### 6. Closing a modal
 
-- どのモーダルも `esc` で閉じる
-- 文字入力を含まない場面では `q` でも閉じる ★（Ask の実行中に `q` を足す）
-- 開いた操作のキーをもう一度押しても閉じる（キー一覧は `help`、ソートは `sort` のキー）。段階 2 でそのキーを変えたら、閉じるキーも一緒に変わる。Ask の `a` は、質問の入力中は文字なので対象外
+- Every modal closes with `esc`
+- One without a field also closes with `q` ★ (`q` is added to a running ask)
+- The key that opened it closes it too (`help` for the key list, `sort` for the sort menu). When stage 2 changes that key, the key that closes changes with it. Ask's `a` is left out, since it is a letter while the question is typed
 
-### 7. 変えられないキー
+### 7. Keys that cannot change
 
-次は固定し、段階 2 の config でも変えられない。
+These are fixed, and the config file in stage 2 cannot change them either:
 
 - `ctrl+c`
-- `esc`（戻る）。どの場面でも「1 段戻る」で揃えるため
-- 文字入力中のキー（確定の `enter`、取り消しの `esc`、文字そのもの、欄ごとの補助キー）
-- モーダルの中のキー。ただし、開いた操作のキーで閉じる分（`help` と `sort`）は、その操作のキーに従う
+- `esc` (back), so that it means "go back a step" everywhere
+- The keys of a field being typed in (submit with `enter`, cancel with `esc`, the letters themselves, a field's own helper keys)
+- The keys inside a modal, except the ones that close it with the key that opened it (`help` and `sort`), which follow that operation's keys
 
-変えられるのは、全体、セッションのペイン、フォルダ一覧、共通の動詞（`esc` を除く）のキーに限る。モーダルと文字入力は、一覧のキーマップを見ないので、たとえば `resume = "a"` にしても文字の入力や Ask の操作は邪魔されない。
+What can change are the global keys, the session panes' keys, the folder list's keys and the shared verbs (but `esc`). Modals and fields do not read the list's keymap, so `resume = "a"`, for example, does not get in the way of typing or of Ask.
 
-## 場面ごとのキー
+## Keys by place
 
-★ は今の挙動から変わるもの。
+★ marks what changes from the behavior before.
 
-### 全体
+### Global
 
-| キー | 操作 | 操作名 |
+| Key | What it does | Operation |
 |---|---|---|
-| `q` | 終了 | `quit` |
-| `?` | キー一覧を開く | `help` |
-| `tab` `]` | 次のペインへ | `focus_next` |
-| `shift+tab` `[` | 前のペインへ | `focus_prev` |
-| `a` | Ask Claude を開く | `ask` |
-| `s` | ソートのメニューを開く ★（今はセッション一覧だけ） | `sort` |
-| `.` | 起動したフォルダと全フォルダを切り替える | `scope` |
+| `q` | Quit | `quit` |
+| `?` | Open the key list | `help` |
+| `tab` `]` | Focus the next pane | `focus_next` |
+| `shift+tab` `[` | Focus the previous pane | `focus_prev` |
+| `a` | Open Ask Claude | `ask` |
+| `s` | Open the sort menu ★ (only from the session list before) | `sort` |
+| `.` | Switch between the folder recall was started in and all folders | `scope` |
 
-### セッションのペイン（一覧、詳細の枠、広げた会話）
+### Session panes (the list, the detail frames, the spread conversation)
 
-| キー | 操作 | 操作名 |
+| Key | What it does | Operation |
 |---|---|---|
-| `enter` | セッションを再開する | `resume` |
-| `c` | 新しい claude でセッションの続きをする | `continue` |
-| `space` | 会話を広げる、閉じる | `read` |
-| `y` | セッション ID をコピー | `copy_id` |
-| `Y` | 再開のコマンドをコピー | `copy_command` |
-| `+` `=` | 詳細のペインを大きくする | `grow` |
-| `-` | 詳細のペインを小さくする | `shrink` |
+| `enter` | Resume the session | `resume` |
+| `c` | Continue the session in a new claude | `continue` |
+| `space` | Spread the conversation, put it back | `read` |
+| `y` | Copy the session ID | `copy_id` |
+| `Y` | Copy the resume command | `copy_command` |
+| `+` `=` | Make the detail pane taller | `grow` |
+| `-` | Make the detail pane shorter | `shrink` |
 
-### セッション一覧
+### The session list
 
-共通の動詞（移動、ページ ★`ctrl+d` `ctrl+u` を足す、端、`/` でフィルタ、`esc`）に加えて次のもの。
+The shared verbs (move, page ★ adding `ctrl+d` `ctrl+u`, ends, `/` for the filter, `esc`), and:
 
-| キー | 操作 | 操作名 |
+| Key | What it does | Operation |
 |---|---|---|
-| `←` `h` | フォルダ一覧を開く。開いていれば、フォルダ一覧へ移る | `list.folders_open` |
-| `→` `l` | フォルダ一覧を閉じる | `list.folders_close` |
+| `←` `h` | Open the folder list; when it is open, move into it | `list.folders_open` |
+| `→` `l` | Close the folder list | `list.folders_close` |
 
-会話を広げている間も、一覧にフォーカスがあれば `j` `k` で次のセッションの会話をその場で読める（今と同じ）。
+With the conversation spread and the focus on the list, `j` `k` read the next session's conversation in place (as before).
 
-### フォルダ一覧
+### The folder list
 
-共通の動詞（移動、ページ、端、`/` でフォルダ検索、`esc`）に加えて次のもの。
+The shared verbs (move, page, ends, `/` for the folder search, `esc`), and:
 
-| キー | 操作 | 操作名 |
+| Key | What it does | Operation |
 |---|---|---|
-| `→` `l` `enter` | セッション一覧に戻る | `folders.back` |
+| `→` `l` `enter` | Back to the session list | `folders.back` |
 
-セッション操作（`enter` で再開、`y` など）は効かない（今と同じ）。
+The session operations (`enter` to resume, `y` and so on) do not work here (as before).
 
-### 詳細の枠（小さい状態の Conversation、What was done、Details）
+### A detail frame (Conversation at its small size, What was done, Details)
 
-共通の動詞（1 行、1 画面、端のスクロール、`esc` で一覧に戻る）とセッション操作。`/` は「`/` の規則」のとおり、一覧のフィルタを開く。
+The shared verbs (scroll by a line, by a screen, to the ends, `esc` back to the list) and the session operations. `/` opens the list's filter, as "The `/` rule" says.
 
-★ 今は、枠が受け取らないキーは一覧のキーとして動く。この設計では全体の層にだけ流れる。結果として変わるのは次のもの。
+★ Before, a key a frame did not take acted as a list key. In this design it goes to the global layer only. What changes as a result:
 
-- `h` `l` `←` `→`: 今も枠では何もしない（変化なし）
-- `s`: 全体の層に移るので、枠からもソートのメニューを開ける ★
-- 一覧専用のキー（今は `h` `l` だけ）は、枠では効かない（変化なし）
+- `h` `l` `←` `→`: did nothing in a frame before either (no change)
+- `s`: moves to the global layer, so the sort menu opens from a frame too ★
+- Keys only for the list (`h` `l` alone, before) do not work in a frame (no change)
 
-### 広げた会話
+### The spread conversation
 
-共通の動詞（スクロール、`/` で会話検索、`n` `N`、`esc`）とセッション操作。今と同じ。
+The shared verbs (scroll, `/` for the conversation search, `n` `N`, `esc`) and the session operations, as before.
 
-★ `s` は全体の層に移るので、広げた会話からもソートのメニューを開ける（今は何もしない）。
+★ `s` moves to the global layer, so the sort menu opens from the spread conversation too (it did nothing before).
 
-### 文字入力
+### Fields
 
-| 欄 | 確定 | 取り消し | 補助キー |
+| Field | Submit | Cancel | Helper keys |
 |---|---|---|---|
-| フィルタ | `enter` | `esc`（候補が出ていれば候補を閉じ、なければフィルタを消して閉じる） | `↑` `↓` で一覧を移動、候補が出ていれば候補を選ぶ。`tab` `→` でキー名や候補を補完、`shift+tab` で逆向き |
-| フォルダ検索 | `enter` | `esc`（検索を消す） | `↑` `↓` `ctrl+n` `ctrl+p` でフォルダを選ぶ |
-| 会話検索 | `enter` | `esc`（検索を消す） | なし |
-| Ask の質問 | `enter`（実行） | `esc`（箱を閉じる） | なし |
+| The filter | `enter` | `esc` (closes the suggestions if they show, otherwise clears the filter and closes it) | `↑` `↓` move in the list, or pick a suggestion while they show. `tab` `→` complete a key or a suggestion, `shift+tab` the other way |
+| The folder search | `enter` | `esc` (clears the search) | `↑` `↓` `ctrl+n` `ctrl+p` pick a folder |
+| The conversation search | `enter` | `esc` (clears the search) | None |
+| Ask's question | `enter` (ask) | `esc` (closes the box) | None |
 
-どれも今と同じ。
+All as before.
 
-### モーダル
+### Modals
 
-| モーダル | キー |
+| Modal | Keys |
 |---|---|
-| キー一覧 | `esc` `q` と、`help` のキー（既定は `?`）で閉じる |
-| ソートのメニュー | `j` `k` `↓` `↑` `ctrl+n` `ctrl+p` `tab` `shift+tab` で選ぶ、`enter` `space` で決める、`1`〜`4` で直接決める、`esc` `q` と、`sort` のキー（既定は `s`）で閉じる |
-| Ask（実行中） | `esc` ★`q` で取り消す |
-| Ask（答え） | `j` `k` `↓` `↑` `ctrl+n` `ctrl+p` `tab` `shift+tab` で選ぶ、`enter` で飛ぶ、`f` で一覧を絞る、`r` で聞き直す、`esc` `q` で閉じる |
-| Ask（失敗） | `r` `enter` で聞き直す、`esc` `q` で閉じる |
+| The key list | Closes with `esc` `q` and the `help` key (`?` by default) |
+| The sort menu | `j` `k` `↓` `↑` `ctrl+n` `ctrl+p` `tab` `shift+tab` pick, `enter` `space` choose, `1` to `4` choose directly; closes with `esc` `q` and the `sort` key (`s` by default) |
+| Ask, running | `esc` ★`q` cancel |
+| Ask, answered | `j` `k` `↓` `↑` `ctrl+n` `ctrl+p` `tab` `shift+tab` pick, `enter` jumps, `f` narrows the list, `r` asks again, `esc` `q` close |
+| Ask, failed | `r` `enter` ask again, `esc` `q` close |
 
-## 今の挙動から変わるもの
+## What changes from the behavior before
 
-1. 詳細の枠が受け取らないキーを、一覧ではなく全体の層に流す（ペイン間の流れをなくす）
-2. `s`（ソート）を全体の層に移す。詳細の枠、広げた会話、フォルダ一覧からも開ける
-3. セッション一覧で `ctrl+d` `ctrl+u` を効かせる（1 画面分の移動）
-4. Ask の実行中に `q` でも取り消せるようにする
-5. 会話を広げている間、一覧にフォーカスがあるときの `esc` は、消すものがなければ広げた会話を閉じる
-6. `ctrl+c` を最上位の 1 か所で処理する（挙動は同じ）
+1. A key a detail frame does not take goes to the global layer, not to the list (no more keys falling from pane to pane)
+2. `s` (sort) moves to the global layer, so it opens from the detail frames, the spread conversation and the folder list too
+3. `ctrl+d` `ctrl+u` work in the session list (a screen's worth)
+4. `q` cancels a running ask too
+5. With the conversation spread and the focus on the list, `esc` puts the pane back when there is nothing to clear
+6. `ctrl+c` is handled in one place at the top (same behavior)
 
-## 段階 1: キーマップに寄せる
+## Stage 1: a keymap
 
-- `internal/tui/keys.go` に、層ごとのキーマップを bubbles の `key.Binding` で定義する。各操作は、既定のキー、操作名、フッターと `?` の一覧での説明を持つ
-- 処理は `key.Matches` で判定し、層の順に見る関数を 1 つにまとめる。今の手書きの連鎖と `goto list` をなくす
-- フッターと `?` の一覧の、キーの部分はキーマップから作る。キーを変えると表示も変わる。表示は次の規則で作る
-  - 項目のキーの部分は、テンプレートで書く。`{操作名.番号}` は、その操作の何番目のキー（0 から数える）を置くかを表し、それ以外の文字（空白、`/` など）はそのまま出る。例
-    - `?` の一覧の移動の行: `{up.0} {down.0}  {down.1} {up.1}` → `↑ ↓  j k`（既定のキーが `up = [up, k, ...]`、`down = [down, j, ...]` のとき。今と同じ）
-    - フッターの一覧での移動: `{up.0}{down.0}` → `↑↓`。広げた会話でのスクロール: `{down.1} {up.1}` → `j k`
-    - リサイズ: フッターは `{grow.0}/{shrink.0}` → `+/-`、`?` の一覧は `{grow.0} {shrink.0}` → `+ -`
-  - 変えられない固定のキー（`esc`、文字入力やモーダルの中のキー）は、テンプレートにそのまま書く。例: フィルタの補完の行の `tab  →`、候補を選ぶ行の `↑ ↓  enter`、キー一覧の枠の `{help.0} esc q close`
-  - キーを変えて、テンプレートが指す番号のキーがなくなったら、その `{…}` と、その直前の区切り（先頭なら直後の区切り）を出さない。項目のキーがすべてなくなったら、その項目ごと出さない
-  - キー名は表示のときに記号に置き換える: `up` → `↑`、`down` → `↓`、`left` → `←`、`right` → `→`、`shift+tab` → `⇧tab`
-  - 説明は文字列か、説明を返す関数で持つ。関数は、モデルの状態と、キーマップ（今のキー）を見られる。これで、状態で変わる説明（`.` の this folder と all folders、フォルダ一覧が開いているときの `→ close folders`、フォルダ検索中の `esc clear search`、フィルタでの `tab key <ヒント>`）と、説明の中に出てくる別のキー（`tab  ⇧tab` の説明の「`[` and `]` too」、`move` の説明の「g G top and bottom」など）も、キーを変えたらそれに従う
-  - キーではない行（`?` の一覧のフィルタの書き方の `folder:` `text:` など、フッターの `folder: text: title: ...` の案内）は、説明だけの項目として並べる
-  - モーダルの枠の上の案内も、同じ規則で作る。開いた操作のキーを含む案内（キー一覧の枠の `? esc q close`）は、テンプレート `{help.0} esc q close` で `help` のキーから作り、キーを変えたらそれに従う。固定のキーだけを含む案内（ソートのメニューの `enter esc`、Ask の箱の `enter ask · esc close`、`esc cancel`、`r ask again · esc close`）は固定の文字列のままでよい。案内にキーを書いている場所は、この 3 種類（フッター、`?` の一覧、モーダルの枠）だけにする
-  - 既定のキーマップは、操作ごとのキーの並び順を今の表示に合わせて決め、この規則での表示が今と同じになるようにする。`?` の一覧とフッターの全場面の表示が今と同じであることを、テストで確かめる
-- 文字入力とモーダルは、キーマップを持つが、段階 2 の config の対象にはしない
-- テスト
-  - 場面とキーの組から期待する操作を引く表のテストで、上の「場面ごとのキー」を固定する
-  - 既定のキーマップに衝突がないことのテスト（下の「衝突の規則」）
-  - 今ある画面のテストは、変わるもの（上の 6 つ）を除いてそのまま通ること。変わるものに当たるテスト（例: `TestSortMenu` の「枠を読んでいる間は `s` が効かない」）は、挙動の変更と同じコミットで書き換える
-- 挙動の変更（上の 1〜5）は、キーマップへの作り直しとは別のコミットにする
+- `internal/tui/keys.go` defines the keymap per layer with bubbles' `key.Binding`. Each operation has its default keys, its name, and its description for the footer and the `?` list
+- Keys are matched with `key.Matches`, in one function that looks through the layers in order. The hand-written chain and `goto list` go away
+- The keys in the footer and the `?` list are built from the keymap, so changing a key changes what they show. They are built by these rules:
+  - An entry's keys are written as a template. `{operation.n}` stands for the operation's n-th key (counting from 0), and anything else (spaces, `/` and so on) is shown as is. For example:
+    - The `?` list's move line: `{up.0} {down.0}  {down.1} {up.1}` → `↑ ↓  j k` (with the default keys `up = [up, k, ...]`, `down = [down, j, ...]`; as before)
+    - The footer's move in the list: `{up.0}{down.0}` → `↑↓`. Scrolling the spread conversation: `{down.1} {up.1}` → `j k`
+    - Resizing: `{grow.0}/{shrink.0}` → `+/-` in the footer, `{grow.0} {shrink.0}` → `+ -` in the `?` list
+  - Fixed keys that cannot change (`esc`, the keys of fields and modals) are written in the template as they are: `tab  →` on the filter's completion line, `↑ ↓  enter` on the line for picking a suggestion, `{help.0} esc q close` on the key list's frame
+  - When a changed keymap has no key at the index a template names, that `{…}` is left out with the separator before it (after it, at the start). An entry with none of its keys left is left out whole
+  - Key names are shown as symbols: `up` → `↑`, `down` → `↓`, `left` → `←`, `right` → `→`, `shift+tab` → `⇧tab`
+  - A description is a string or a function returning one, given the model's state and the keymap (the current keys). So descriptions that change with the state (`.`'s this folder and all folders, `→ close folders` while the folder list is open, `esc clear search` during the folder search, `tab key <hint>` in the filter) and other keys named inside a description (the "`[` and `]` too" of `tab  ⇧tab`, the "g G top and bottom" of `move`) follow a changed key too
+  - Lines that are not keys (the filter syntax in the `?` list, such as `folder:` `text:`, and the footer's `folder: text: title: ...`) are entries with a description only
+  - The hint on a modal's frame is built by the same rules. A hint with the key that opened the modal (the key list's `? esc q close`) comes from the template `{help.0} esc q close` and follows the `help` key. A hint with fixed keys only (the sort menu's `enter esc`, the Ask box's `enter ask · esc close`, `esc cancel`, `r ask again · esc close`) stays a fixed string. Keys are written into hints in these three places only: the footer, the `?` list and the modals' frames
+  - The default keymap orders each operation's keys so that these rules show what was shown before. Tests check that the `?` list and the footer show the same as before in every place
+- Fields and modals have keymaps too, but stage 2's config does not cover them
+- Tests
+  - A table test from a place and a key to the operation expected pins down "Keys by place" above
+  - A test that the default keymap has no conflicts (see "Conflicts" below)
+  - The existing screen tests pass unchanged, except where the behavior changes (the 6 above). A test that hits one of those (such as `TestSortMenu`'s "`s` does nothing while reading a frame") is rewritten in the commit that changes the behavior
+- The behavior changes (1 to 5 above) are commits of their own, apart from the move to a keymap
 
-## 段階 2: config からキーを変える
+## Stage 2: keys from the config file
 
 ```toml
 [keys]
@@ -251,37 +249,48 @@ resume = ["space"]
 read   = ["enter"]
 ```
 
-- `[keys]` の下に、操作名とキーの並びを書く。1 つなら文字列でもよい。書いた操作は、既定のキーを置き換える
-- 1 つのペインでしか効かない操作は、そのペインの表に書く: `[keys.list]` の `folders_open` と `folders_close`、`[keys.folders]` の `back`。操作名は表の名前を付けて `list.folders_open`、`folders.back` と呼ぶ。書く場所を間違えた行（`[keys.list]` の下の `resume`、`[keys]` の直下の `folders_open`）は、正しい場所を案内するエラーにする
-- `[]` でその操作を外せる
-- キーの書き方は bubbletea の表記（`KeyPressMsg.String()` が返す形: `enter`、`space`、`ctrl+d`、`shift+tab`、1 文字など）。bubbles と bubbletea にはキー名の一覧も解析器もないので、読み込みの側で許すキー名の一覧を持つ
-  - 許すのは、印字できる 1 文字（大文字を含む）、名前のあるキー（`enter` `space` `tab` `backspace` `up` `down` `left` `right` `home` `end` `pgup` `pgdown` `insert` `delete` `f1`〜`f12`）、それに `ctrl+` と `alt+` を付けたもの。`shift+` は名前のあるキーにだけ付けられる（`shift+tab`、`shift+up` など）
-  - Shift 付きの文字は、その文字そのもので書く（`Y`、`?`）。bubbletea は Shift 付きの文字を `shift+y` ではなく `Y` として送るので、`shift+y` は効かない。`shift+` と印字できる文字の組はエラーにし、メッセージで代わりの書き方（`Y`）を案内する
-  - 一覧にない書き方（`ctrl-d`、`Enter` など）はエラーにする。黙って効かないキーにはしない
-- フッター、`?` の一覧は、変えたキーで表示される。フッターの並びはキーで決まり、既定でそのキーがあった位置に出る（`continue = ["enter"]` と `resume = ["c"]` なら、先頭は `enter continue` のまま）。既定にないキーの操作は後ろに回る。`?` の一覧は意味でまとめた一覧なので、操作の順のまま
-- 読み込むときに次をエラーにする。知らないキーと同じく、無視せずに知らせる
-  - 知らない操作名
-  - 書けないキー（固定のキーを含む）
-  - 衝突（下の規則）
+- Under `[keys]`, an operation name takes a list of keys, or a string for one. An operation written there has its default keys replaced
+- An operation that works in one pane only is written in that pane's table: `folders_open` and `folders_close` in `[keys.list]`, `back` in `[keys.folders]`. They are named with the table: `list.folders_open`, `folders.back`. A line in the wrong place (`resume` under `[keys.list]`, `folders_open` directly under `[keys]`) is an error that says where it goes
+- `[]` turns the operation off
+- Keys are written as bubbletea writes them (what `KeyPressMsg.String()` returns: `enter`, `space`, `ctrl+d`, `shift+tab`, a single character and so on). Neither bubbles nor bubbletea has a list of key names or a parser, so the config reader keeps the list of names it accepts
+  - Accepted: a printable character (capitals included), a named key (`enter` `space` `tab` `backspace` `up` `down` `left` `right` `home` `end` `pgup` `pgdown` `insert` `delete` `f1` to `f12`), and either with `ctrl+` or `alt+`. `shift+` goes with named keys only (`shift+tab`, `shift+up` and so on)
+  - A shifted character is written as itself (`Y`, `?`). bubbletea sends shift+y as `Y`, not `shift+y`, so `shift+y` would never match. `shift+` with a printable character is an error whose message gives the way to write it (`Y`)
+  - Anything else (`ctrl-d`, `Enter` and so on) is an error, rather than a key that silently never works
+- The footer and the `?` list show the changed keys. The footer is ordered by key: a key shows where it is by default (with `continue = ["enter"]` and `resume = ["c"]`, `enter continue` still comes first), and an operation on a key that no operation has by default goes after the rest. The `?` list groups operations by meaning, so it keeps the operations' order
+- These are errors when the file is read, reported rather than ignored, as an unknown setting is:
+  - An unknown operation
+  - A key that cannot be written (the fixed keys included)
+  - A conflict (see below)
 
-### 衝突の規則
+### Conflicts
 
-キーを受け取る場面ごとに、そこで効く操作のキーが重ならないこと。
+In each place keys are taken, the keys of the operations that work there do not overlap.
 
-- セッション一覧: 全体 + セッションのペイン + 共通の動詞 + 一覧のキー
-- 詳細の枠: 全体 + セッションのペイン + 共通の動詞
-- 広げた会話: 全体 + セッションのペイン + 共通の動詞
-- フォルダ一覧: 全体 + 共通の動詞 + フォルダ一覧のキー
+- The session list: global + session panes + shared verbs + the list's keys
+- A detail frame: global + session panes + shared verbs
+- The spread conversation: global + session panes + shared verbs
+- The folder list: global + shared verbs + the folder list's keys
 
-モーダルの中でも、開いた操作のキー（`help` と `sort`）は、そのモーダルの固定のキーと重ならないこと。たとえば `sort = ["1"]` は、ソートのメニューの「1 番目を選ぶ」と重なるのでエラーになる。`help` と `sort` のキーに `esc` と `q` は使えない（固定のキーなので、上の規則で先にはじかれる）。
+Inside a modal, the key that opened it (`help` and `sort`) does not overlap that modal's fixed keys either. `sort = ["1"]`, for example, is an error, since it overlaps the sort menu's "choose the first". `help` and `sort` cannot take `esc` or `q` (they are fixed keys, so the rule above rejects them first).
 
-フォルダ一覧の `enter`（一覧に戻る）とセッションの `enter`（再開）は、同じ場面に現れないので衝突しない。`resume = ["space"]` と `read = ["enter"]` の入れ替えは、どの場面でも重ならないので有効。
+The folder list's `enter` (back to the sessions) and the sessions' `enter` (resume) never show up in the same place, so they do not conflict. Swapping `resume = ["space"]` and `read = ["enter"]` overlaps nowhere, so it is valid.
 
-設定ファイルに書いたキーが既定のキーと重なるときは、エラーにせず、既定の操作からそのキーを外す。書いたほうを優先し、キーをその操作に割り当てたのと同じ結果にする。たとえば `continue = ["enter"]` だけを書くと、`resume` は `enter` を失ってキーのない操作になる（フッターと `?` の一覧からも消える）。`resume = ["j"]` は「下へ」から `j` を外し、「下へ」は矢印と `ctrl+n` で残る。外すのは操作のキーそのものなので、重ならない場面（`resume` の出ないフォルダ一覧）でも `j` は「下へ」ではなくなる。エラーにするのは、設定ファイルに書いた操作どうしが重なるとき（`resume = ["j"]` と `down = ["j"]`）と、固定のキーと重なるときだけ。
+A key written in the config file that a default key has is not an error: the key is taken from the default operation, so that what is written wins, as if the key itself had been given to that operation. `continue = ["enter"]` alone leaves `resume` with no key (and out of the footer and the `?` list). `resume = ["j"]` takes `j` from "down", which keeps its arrow and `ctrl+n`. The key is taken from the operation itself, so `j` is no longer "down" even where the two would not meet (the folder list, where `resume` does not work). Only operations written in the file that overlap one another (`resume = ["j"]` with `down = ["j"]`) and keys that overlap fixed keys are errors.
 
-## 決めてほしいこと
+## Decided
 
-1. `s`（ソート）を全体の層に移すか。移さないなら、枠やフォルダ一覧では効かないまま
-2. 会話を広げている間、一覧にフォーカスがあるときの `esc` で、広げた会話を閉じるようにするか
-3. `esc`（戻る）を、段階 2 で変えられるキーに含めるか。この案では含めない（固定）
-4. 共通の動詞（移動など）を変えられるようにするか。この案では変えられる（例: `j` `k` の代わりに別のキー）
+Stage 1 landed in #39 and stage 2 in #41. The questions left open when this was designed were decided as follows:
+
+1. `s` (sort) moved to the global layer; it opens from the frames, the spread conversation and the folder list too
+2. With the conversation spread and the focus on the list, `esc` puts the pane back when there is nothing to clear
+3. `esc` stays fixed; the config file cannot change it
+4. The shared verbs (move, page, ends, search, next and previous match) can be changed in the config file
+
+Added since:
+
+- With the focus on the spread conversation, `q` (the `quit` key) puts the pane back instead of quitting (#45). With the focus on the list, it quits as before
+- In a field, `ctrl+v` and the terminal's own paste (`cmd+v`) paste the clipboard (#47). `ctrl+v` is a fixed key of the field layer, outside the config file
+- A mistake under `[keys]` is reported with where it is in the config file (#44)
+- `c` (`continue`) continues the session in a new claude that recalls it, and a key written in the config file takes over from the default operation that has it, rather than being a conflict (#48)
+
+For users, the keys are described in [docs/tui.md](../tui.md#changing-keys).
