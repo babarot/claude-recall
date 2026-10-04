@@ -106,23 +106,23 @@ func TestWithKeysErrors(t *testing.T) {
 // default where they meet, as if the key were set to the operation.
 func TestWithKeysTakesOverDefaults(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
-	m, err := m.WithKeys(map[string]config.KeyList{"continue": list("enter")})
+	m, err := m.WithKeys(map[string]config.KeyList{"recall": list("enter")})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := m.km.Session.Resume.Keys(); len(got) != 0 {
 		t.Fatalf("resume keeps %q", got)
 	}
-	// The folder list's enter never meets continue, so back keeps it.
+	// The folder list's enter never meets recall, so back keeps it.
 	if got := m.km.Folders.FoldersBack.Keys(); !slices.Contains(got, "enter") {
 		t.Fatalf("folders.back is %q", got)
 	}
-	if r := press(t, m, "enter"); !r.cont.open || r.Result != nil {
-		t.Fatalf("enter should continue: box %v result %+v", r.cont.open, r.Result)
+	if r := press(t, m, "enter"); !r.recall.open || r.Result != nil {
+		t.Fatalf("enter should recall: box %v result %+v", r.recall.open, r.Result)
 	}
 	// resume, without a key, leaves the footer and the key list.
 	footer := ansi.Strip(m.renderHelp())
-	if !strings.HasPrefix(footer, " enter continue · space read") || strings.Contains(footer, "resume") {
+	if !strings.HasPrefix(footer, " enter recall · space read") || strings.Contains(footer, "resume") {
 		t.Fatalf("footer %q", footer)
 	}
 	if strings.Contains(ansi.Strip(press(t, m, "?").render()), "resume the session") {
@@ -139,10 +139,10 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 	}
 	// Swapped, each key keeps its place in the footer.
 	m, _ = newTestModel(t, config.Default().TUI, 200, 40)
-	if m, err = m.WithKeys(map[string]config.KeyList{"continue": list("enter"), "resume": list("c")}); err != nil {
+	if m, err = m.WithKeys(map[string]config.KeyList{"recall": list("enter"), "resume": list("c")}); err != nil {
 		t.Fatal(err)
 	}
-	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " enter continue · space read") ||
+	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " enter recall · space read") ||
 		!strings.Contains(footer, "← folders · c resume · tab focus") {
 		t.Fatalf("footer %q", footer)
 	}
@@ -156,11 +156,11 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 	}
 	// Setting both keeps the key on the one set, the other moving away.
 	m, _ = newTestModel(t, config.Default().TUI, 140, 40)
-	if m, err = m.WithKeys(map[string]config.KeyList{"continue": list("enter"), "resume": list("c")}); err != nil {
+	if m, err = m.WithKeys(map[string]config.KeyList{"recall": list("enter"), "resume": list("c")}); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(m.km.Session.Resume.Keys(), []string{"c"}) || !slices.Equal(m.km.Session.Continue.Keys(), []string{"enter"}) {
-		t.Fatalf("resume %q continue %q", m.km.Session.Resume.Keys(), m.km.Session.Continue.Keys())
+	if !slices.Equal(m.km.Session.Resume.Keys(), []string{"c"}) || !slices.Equal(m.km.Session.Recall.Keys(), []string{"enter"}) {
+		t.Fatalf("resume %q recall %q", m.km.Session.Resume.Keys(), m.km.Session.Recall.Keys())
 	}
 	// A fixed key is still a mistake.
 	if _, err := m.WithKeys(map[string]config.KeyList{"sort": list("1")}); err == nil {

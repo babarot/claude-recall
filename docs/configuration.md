@@ -27,7 +27,7 @@ A mistake under `[tui]` or `[keys]` stops only the TUI; the MCP server, the web 
 
 ## Every setting
 
-Each at its default, so a line copied from here changes nothing until its value is edited. Under `[keys]`, copy only the lines you change: a key you give an operation is taken from the operations that have it by default, but two operations written in the file cannot share one, so `continue = "enter"` alone works, while the same next to `resume = "enter"` is an error.
+Each at its default, so a line copied from here changes nothing until its value is edited. Under `[keys]`, copy only the lines you change: a key you give an operation is taken from the operations that have it by default, but two operations written in the file cannot share one, so `recall = "enter"` alone works, while the same next to `resume = "enter"` is an error.
 
 ```toml
 [core]
@@ -77,7 +77,7 @@ images = false
 [keys]
 # Which keys do what in the TUI, by operation: a key or a list of keys,
 # replacing the operation's own, or [] to turn it off. A key given to an
-# operation leaves the ones that have it by default: continue = "enter"
+# operation leaves the ones that have it by default: recall = "enter"
 # takes enter from resume. Every operation is below with its keys;
 # docs/tui.md says how keys are written. ctrl+c and esc are fixed. For
 # example, to resume with space and read with enter, swap the keys of
@@ -94,7 +94,7 @@ scope = "."
 #
 # The selected session, from the list, a frame or the spread conversation:
 resume = "enter"
-continue = "c"
+recall = "c"
 read = "space"
 copy_id = "y"
 copy_command = "Y"
