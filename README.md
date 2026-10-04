@@ -63,27 +63,12 @@ A session ID from the TUI (`y`) works too: "look up session a1b2c3 with claude-r
 | `Enter` | Resume the session: `claude -r <id>` from the session's folder |
 | `c` | Recall the session in a new claude through MCP: for a session `claude -r` cannot resume, such as one whose worktree was removed |
 | `y` / `Y` | Copy the session ID / the resume command |
-| `/` | Filter by title, folder, branch, ID or what was said (see below) |
-| `a` | Ask Claude to find sessions, when you remember what it was about but not what to type |
-| `Space` | Read the conversation over the detail pane; `/` searches it, `n` `N` go through the matches |
-| `←` `→` | Show or hide the folder list, to narrow to one repository or folder |
-| `Tab` | Move the focus along the folder list, the sessions and the detail pane's frames, to scroll a frame |
-| `s` | Choose the sort order |
+| `/` | Filter by title, folder, branch, ID or what was said; `text:`, `title:`, `folder:` and others narrow it to one field |
+| `a` | Ask Claude to find sessions, when you remember what it was about but not what to type. It runs your own `claude -p`, so no API key is needed |
+| `Space` | Read the conversation over the detail pane |
 | `?` | Show every key |
-| `q` | Quit |
 
-The filter matches words against titles, folders, branches, IDs and the conversation. Keys narrow it to one field:
-
-| Filter | Matches |
-|--------|---------|
-| `text:<word>` | Only what was said in the conversation |
-| `title:` `branch:` `worktree:` | Part of that field |
-| `id:<prefix>` | The start of the session ID |
-| `folder:<name>` | Folders whose name matches fuzzily (`folder:bdot` for babarot/dotfiles); `in:` for short |
-
-`a` runs Claude Code itself (`claude -p`, signed in as you, with recall's search as its only tools), so no API key is needed. It lists the sessions it found with why each matched; Enter jumps to one, `f` narrows the list to all of them.
-
-Its settings are under `[tui]` in the [config file](#configuration), and `[keys]` changes which keys do what. See [docs/tui.md](docs/tui.md) for every key, the detail pane and the mouse.
+Its settings are under `[tui]` in the [config file](#configuration), and `[keys]` changes which keys do what. See [docs/tui.md](docs/tui.md) for every key, the filter, the folder list, the detail pane and the mouse.
 
 ### Web UI
 
@@ -126,6 +111,17 @@ The tradeoff claude-recall picks:
 
 ## Install
 
+Getting started takes three steps: put `recall` on PATH, import your sessions into the archive, and connect Claude Code to the MCP server. What each way of installing does for you:
+
+| Install | `recall` on PATH | Import | MCP server |
+|---------|------------------|--------|------------|
+| [curl](#curl) | Yes | Yes | Yes, when `claude` is on PATH |
+| [Nix](#nix) | Yes | No | No |
+| [Build from source](#build-from-source) | Yes | No | No |
+| [Claude Code plugin](#claude-code-plugin) | No | When a Claude Code session starts | Yes |
+
+Whatever is left is in [Set up](#set-up).
+
 ### curl
 
 ```bash
@@ -142,7 +138,7 @@ Each release is published to [babarot/nur-packages](https://github.com/babarot/n
 nix profile install github:babarot/nur-packages#claude-recall
 ```
 
-The package also carries the [Claude Code plugin](#claude-code-plugin) under `share/claude-plugin/claude-recall`.
+The package also carries the [Claude Code plugin](#claude-code-plugin) under `share/claude-plugin/claude-recall`. Then [set up](#set-up).
 
 ### Build from source
 
@@ -154,7 +150,7 @@ cd claude-recall
 make install   # builds the UI, embeds it, installs recall to ~/.local/bin
 ```
 
-`go install github.com/babarot/claude-recall/cmd/recall@latest` also works; that build leaves the web UI out.
+`go install github.com/babarot/claude-recall/cmd/recall@latest` also works; that build leaves the web UI out. Then [set up](#set-up).
 
 ### Claude Code plugin
 
@@ -172,13 +168,20 @@ Each release ships it as `claude-recall-plugin.tar.gz`. A plugin directory under
 ln -s ~/.nix-profile/share/claude-plugin/claude-recall ~/.claude/skills/claude-recall
 ```
 
-Without the plugin, register just the MCP server (the curl installer does this):
-
-```bash
-claude mcp add claude-recall -s user -- recall mcp
-```
+Without the plugin, register just the MCP server, as in [Set up](#set-up).
 
 For Codex and other agents, link just the skill: `plugin/skills/recall` into `~/.agents/skills/recall`.
+
+### Set up
+
+After installing with Nix or from source, import your sessions and connect Claude Code:
+
+```bash
+recall import                                        # create the archive from ~/.claude/projects
+claude mcp add claude-recall -s user -- recall mcp   # or install the plugin
+```
+
+Until the archive exists, `recall` and its `search`, `list`, `export` and `stats` commands say how to set it up and exit with status 1. The MCP server and the web UI create the archive and import into it when they start, so with the MCP server connected, the first Claude Code session you start does the import too.
 
 ## Your archive
 
@@ -188,7 +191,7 @@ The archive is `~/.claude/vault.db`. Sessions whose JSONL Claude Code has delete
 sqlite3 ~/.claude/vault.db ".backup '/path/to/backup.db'"
 ```
 
-Sessions are imported from `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` when Claude Code runs with `CLAUDE_CONFIG_DIR`) while the MCP server or the web UI runs, when a session ends (the plugin's hook), and by `recall import`. The archive stays in `~/.claude` either way; `db` in the [config file](#configuration) moves it.
+Sessions are imported from `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` when Claude Code runs with `CLAUDE_CONFIG_DIR`); [docs/architecture.md](docs/architecture.md#sync-timing) says when. The archive stays in `~/.claude` either way; `db` in the [config file](#configuration) moves it.
 
 | Stored | Excluded |
 |--------|----------|
@@ -234,80 +237,7 @@ recall mcp                  # MCP server over stdio (started by Claude Code)
 recall version
 ```
 
-### Import
-
-```
-recall import [options]
-
-  --session <uuid>    Import a specific session (an ID prefix works)
-  --project <name>    Import sessions whose project matches
-  --dry-run           Show what would be imported without writing
-```
-
-### Search
-
-```
-recall search <query> [options]
-
-  --project <name>    Filter by project
-  --limit <n>         Max results (default: 20)
-  --from <date>       Start date (YYYY-MM-DD)
-  --to <date>         End date (YYYY-MM-DD)
-  --format text|json  Output format (default: text)
-```
-
-Supports FTS5 query syntax: `"exact phrase"`, `term1 AND term2`, `term1 OR term2`, `term1 NOT term2`.
-
-### List
-
-```
-recall list [options]
-
-  --project <name>    Filter by project
-  --limit <n>         Max sessions (default: 50)
-  --format text|json  Output format (default: text)
-```
-
-### Export
-
-```
-recall export <session-id> [options]
-
-  --format markdown|json|text  Output format (default: markdown)
-  --output <file>              Write to file instead of stdout
-```
-
-A session ID prefix works: `recall export a1b2`.
-
-### Stats
-
-```
-recall stats [--project <name>]
-```
-
-### Web UI
-
-```
-recall ui [--port <n>]        Start in the background (default port: port in the config file, or 6276)
-recall ui --foreground        Run in the foreground
-recall ui status              Show server status
-recall ui stop                Stop the server
-```
-
-### Global options
-
-```
---db <path>   Database file (default: db in the config file, or ~/.claude/vault.db)
--h, --help    Show help; recall <command> --help shows a command's flags
-```
-
-A flag a command does not take is an error, not ignored.
-
-### Shell completion
-
-```bash
-source <(recall completion zsh)    # also bash, fish and powershell
-```
+Each command's flags are in [docs/cli.md](docs/cli.md) and `recall <command> --help`.
 
 ## Development
 
