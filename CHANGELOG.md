@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.1](https://github.com/babarot/claude-recall/compare/1.6.0...1.6.1) - 2026-10-04
+### Improvements
+- Show recall next to resume in the footer by @babarot in https://github.com/babarot/claude-recall/pull/52
+- Draw tools and commands on one scale in What was done by @babarot in https://github.com/babarot/claude-recall/pull/54
+- Say how to set up the archive on the first run by @babarot in https://github.com/babarot/claude-recall/pull/55
+
 ## [1.6.0](https://github.com/babarot/claude-recall/compare/1.5.0...1.6.0) - 2026-10-04
 ### New Features
 - Continue a session in a new claude when it cannot be resumed by @babarot in https://github.com/babarot/claude-recall/pull/48
