@@ -450,11 +450,15 @@ func (m Model) doneContent(r *row, d *db.Detail, inner int) frameLines {
 	}
 	c.pinned = append(c.pinned, spark, axis)
 
-	c.scroll = append(c.scroll, "", m.section("Tools"))
-	c.scroll = append(c.scroll, m.bars(d.TopTools, len(d.TopTools), inner)...)
+	// Commands break Bash's calls down, so both lists share one scale and
+	// one name column: a command's bar reads against Bash's.
 	programs := m.programs[r.s.ID]
+	tools, commands := d.TopTools, programs[:min(barRows, len(programs))]
+	sc := newBarScale(append(slices.Clone(tools), commands...), inner)
+	c.scroll = append(c.scroll, "", m.section("Tools"))
+	c.scroll = append(c.scroll, m.bars(tools, sc)...)
 	c.scroll = append(c.scroll, "", m.section("Commands")+m.st.muted.Render(fmt.Sprintf("  %d run", len(d.Commands))))
-	c.scroll = append(c.scroll, m.bars(programs, barRows, inner)...)
+	c.scroll = append(c.scroll, m.bars(commands, sc)...)
 	if extra := len(programs) - barRows; extra > 0 {
 		c.scroll = append(c.scroll, m.st.muted.Render(fmt.Sprintf("+%d more", extra)))
 	}
@@ -505,28 +509,39 @@ func (m Model) axis(start, end time.Time, w int) string {
 	return a + strings.Repeat(" ", max(1, w-len(a)-len(b))) + b
 }
 
-// bars draws up to n counts, most first, one a line: the name, a bar to
-// scale with the largest and the count at the right edge of inner.
-func (m Model) bars(counts []db.Count, n, inner int) []string {
+// barScale lays out lists of bars alike: the width of the names, of the
+// counts and of the bars, and the count that fills a bar.
+type barScale struct {
+	nameW, numW, room, barW, top int
+}
+
+// newBarScale fits counts' names and numbers into inner cells.
+func newBarScale(counts []db.Count, inner int) barScale {
+	var sc barScale
+	for _, c := range counts {
+		sc.nameW = max(sc.nameW, ansi.StringWidth(c.Name))
+		sc.top = max(sc.top, c.N)
+	}
+	sc.nameW, sc.top = min(sc.nameW, barNameW), max(1, sc.top)
+	sc.numW = len(fmt.Sprint(sc.top))
+	sc.room = max(4, inner-sc.nameW-sc.numW-2)
+	sc.barW = min(sc.room, barMaxW)
+	return sc
+}
+
+// bars draws counts, one a line: the name, a bar to sc's scale and the
+// count at the right edge.
+func (m Model) bars(counts []db.Count, sc barScale) []string {
 	if len(counts) == 0 {
 		return []string{m.st.muted.Render("none")}
 	}
-	counts = counts[:min(n, len(counts))]
-	nameW := 0
-	for _, c := range counts {
-		nameW = max(nameW, ansi.StringWidth(c.Name))
-	}
-	nameW = min(nameW, barNameW)
-	numW := len(fmt.Sprint(counts[0].N))
-	room := max(4, inner-nameW-numW-2)
-	barW := min(room, barMaxW)
 	var out []string
 	for _, c := range counts {
-		name := ansi.Truncate(c.Name, nameW, ellipsis)
-		bar := strings.Repeat("▇", max(1, c.N*barW/counts[0].N))
-		out = append(out, m.st.strong.Render(name)+strings.Repeat(" ", nameW-ansi.StringWidth(name)+1)+
-			m.st.id.Render(bar)+strings.Repeat(" ", room-ansi.StringWidth(bar)+1)+
-			m.st.title.UnsetBold().Render(fmt.Sprintf("%*d", numW, c.N)))
+		name := ansi.Truncate(c.Name, sc.nameW, ellipsis)
+		bar := strings.Repeat("▇", max(1, c.N*sc.barW/sc.top))
+		out = append(out, m.st.strong.Render(name)+strings.Repeat(" ", sc.nameW-ansi.StringWidth(name)+1)+
+			m.st.id.Render(bar)+strings.Repeat(" ", sc.room-ansi.StringWidth(bar)+1)+
+			m.st.title.UnsetBold().Render(fmt.Sprintf("%*d", sc.numW, c.N)))
 	}
 	return out
 }
