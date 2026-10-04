@@ -57,7 +57,18 @@ func run(args []string, stdout, stderr io.Writer) error {
 	root.SetArgs(args)
 	root.SetOut(stdout)
 	root.SetErr(stderr)
-	return root.Execute()
+	err := root.Execute()
+	var na noArchive
+	if errors.As(err, &na) {
+		fmt.Fprintf(stderr, `No archive yet at %s.
+
+  1. Import your sessions:  recall import
+  2. Connect Claude Code:   claude mcp add claude-recall -s user -- recall mcp
+                            (or install the plugin)
+`, na.path)
+		return exitError(1)
+	}
+	return err
 }
 
 // options are the flags of every subcommand, each defined only on the
@@ -277,7 +288,19 @@ func usageArgs(check cobra.PositionalArgs) cobra.PositionalArgs {
 	}
 }
 
-func openRead(o *options) (*db.DB, error) { return db.Open(o.db, db.Options{ReadOnly: true}) }
+// noArchive is a read of an archive that has not been created yet: nothing
+// has imported into it, which is how a first run after installing from
+// source or Nix starts.
+type noArchive struct{ path string }
+
+func (e noArchive) Error() string { return "no archive at " + e.path }
+
+func openRead(o *options) (*db.DB, error) {
+	if _, err := os.Stat(o.db); errors.Is(err, os.ErrNotExist) {
+		return nil, noArchive{o.db}
+	}
+	return db.Open(o.db, db.Options{ReadOnly: true})
+}
 
 func openWrite(o *options) (*db.DB, error) { return db.Open(o.db, db.Options{}) }
 

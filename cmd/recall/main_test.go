@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -342,5 +343,30 @@ func TestRecallArgs(t *testing.T) {
 	topic := recallArgs(self, tui.Recall{SessionID: "abc-123", Topic: "the retry policy"})[0]
 	if !strings.Contains(topic, "recall session abc-123") || !strings.Contains(topic, "about: the retry policy") {
 		t.Fatalf("prompt %q", topic)
+	}
+}
+
+// Before anything has imported, reading the archive tells how to set it up,
+// and fails so a script calling recall notices.
+func TestNoArchive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "vault.db")
+	for _, args := range [][]string{
+		{"tui"},
+		{"search", "anything"},
+		{"list"},
+		{"export", "abc"},
+		{"stats"},
+	} {
+		out, err := runArgs(append(args, "--db", path)...)
+		var code exitError
+		if !errors.As(err, &code) || code != 1 {
+			t.Errorf("%v: got %v, want exit 1", args, err)
+		}
+		if !strings.HasPrefix(out, "No archive yet at "+path+".\n") || !strings.Contains(out, "recall import") || !strings.Contains(out, "claude mcp add") {
+			t.Errorf("%v: got %q", args, out)
+		}
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%v: created the archive", args)
+		}
 	}
 }
