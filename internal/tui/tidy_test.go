@@ -1,9 +1,13 @@
 package tui
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
+	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestGroupFiles(t *testing.T) {
@@ -94,5 +98,23 @@ func TestCommandCounts(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("%d: got %+v want %+v", i, got[i], want[i])
 		}
+	}
+}
+
+// Tools and commands share a scale: their bars start in the same column,
+// and a command's bar is as long against Bash's as its count is.
+func TestBarsShareScale(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	tools := []db.Count{{Name: "Bash", N: 400}, {Name: "AskUserQuestion", N: 13}}
+	commands := []db.Count{{Name: "python3", N: 100}}
+	sc := newBarScale(append(slices.Clone(tools), commands...), 60)
+	lines := append(m.bars(tools, sc), m.bars(commands, sc)...)
+	start := func(l string) int { return strings.Index(ansi.Strip(l), "▇") }
+	width := func(l string) int { return strings.Count(ansi.Strip(l), "▇") }
+	if start(lines[0]) != start(lines[2]) {
+		t.Fatalf("bars start apart:\n%s\n%s", ansi.Strip(lines[0]), ansi.Strip(lines[2]))
+	}
+	if width(lines[0]) != barMaxW || width(lines[2]) != barMaxW/4 {
+		t.Fatalf("bar widths %d and %d", width(lines[0]), width(lines[2]))
 	}
 }
