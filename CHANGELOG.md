@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/babarot/claude-recall/compare/1.5.0...1.6.0) - 2026-10-04
+### New Features
+- Continue a session in a new claude when it cannot be resumed by @babarot in https://github.com/babarot/claude-recall/pull/48
+### Improvements
+- Show every setting in docs/configuration.md and re-record the demo by @babarot in https://github.com/babarot/claude-recall/pull/50
+- Rename the c operation from continue to recall by @babarot in https://github.com/babarot/claude-recall/pull/51
+
 ## [1.5.0](https://github.com/babarot/claude-recall/compare/1.4.0...1.5.0) - 2026-10-03
 ### New Features
 - Change the TUI's keys under [keys] in the config file by @babarot in https://github.com/babarot/claude-recall/pull/41
