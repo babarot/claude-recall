@@ -129,6 +129,54 @@ func TestOverlayKeepsBothSides(t *testing.T) {
 	}
 }
 
+// TestOverlayWideCharacters checks overlay against cells: over replaces
+// the cells it covers, a wide character it covers half of leaves its other
+// half blank, and nothing right of it moves.
+func TestOverlayWideCharacters(t *testing.T) {
+	// cells lays s out a cell each; a wide character's second cell is "".
+	cells := func(s string) []string {
+		var out []string
+		for _, r := range s {
+			out = append(out, string(r))
+			if ansi.StringWidth(string(r)) == 2 {
+				out = append(out, "")
+			}
+		}
+		return out
+	}
+	want := func(base, over string, x int) string {
+		c := cells(base)
+		for len(c) < x {
+			c = append(c, " ")
+		}
+		end := x + ansi.StringWidth(over)
+		// The halves left outside over of the wide characters at its edges.
+		if x < len(c) && c[x] == "" {
+			c[x-1] = " "
+		}
+		if end < len(c) && c[end] == "" {
+			c[end] = " "
+		}
+		out := strings.Join(c[:x], "") + over
+		if end < len(c) {
+			out += strings.Join(c[end:], "")
+		}
+		return out
+	}
+	bases := []string{"abcあいうえおxyz|", "あいうえお|", "aあbいcう|", "\x1b[31mあい\x1b[mうえ|"}
+	for _, base := range bases {
+		for x := 0; x <= ansi.StringWidth(base)+1; x++ {
+			for w := 1; w <= 4; w++ {
+				over := strings.Repeat("#", w)
+				got := ansi.Strip(overlay(base, over, x))
+				if exp := want(ansi.Strip(base), over, x); got != exp {
+					t.Errorf("overlay(%q, %q, %d) = %q, want %q", ansi.Strip(base), over, x, got, exp)
+				}
+			}
+		}
+	}
+}
+
 // manyFolders is a model with 12 folders, proj-00 the most recent.
 func manyFolders(t *testing.T) Model {
 	t.Helper()

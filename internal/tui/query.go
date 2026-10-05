@@ -442,6 +442,12 @@ func overlay(base, over string, x int) string {
 	left += strings.Repeat(" ", max(0, x-ansi.StringWidth(left)))
 	end := x + ansi.StringWidth(over)
 	right := ansi.TruncateLeft(base, end, "")
+	// A wide character across over's right edge comes back whole, which
+	// would push the rest of the line a cell right; drop it, and its half
+	// right of over becomes a gap.
+	if ansi.StringWidth(right) > ansi.StringWidth(base)-end {
+		right = ansi.TruncateLeft(base, end+1, "")
+	}
 	// A wide character cut in half leaves a gap.
 	if gap := ansi.StringWidth(base) - end - ansi.StringWidth(right); gap > 0 {
 		right = strings.Repeat(" ", gap) + right
