@@ -191,6 +191,32 @@ func pick(all map[string]key.Binding, names ...string) []namedKey {
 	return out
 }
 
+// Operations by layer, as the config file names them.
+var (
+	globalOps  = []string{"quit", "help", "focus_next", "focus_prev", "ask", "sort", "scope"}
+	sessionOps = []string{"resume", "recall", "read", "copy_id", "copy_command", "grow", "shrink"}
+	navOps     = []string{"up", "down", "page_up", "page_down", "top", "bottom", "search", "next_match", "prev_match"}
+)
+
+// opsIn are the operations a key reaches in a pane: the pane's own, then
+// the keys that work anywhere.
+func opsIn(c keyContext) []string {
+	var lists [][]string
+	switch c {
+	case ctxList:
+		lists = [][]string{globalOps, sessionOps, navOps, {"list.folders_open", "list.folders_close"}}
+	case ctxFrame, ctxReading:
+		lists = [][]string{globalOps, sessionOps, navOps}
+	case ctxFolders:
+		lists = [][]string{globalOps, navOps, {"folders.back"}}
+	}
+	var out []string
+	for _, l := range lists {
+		out = append(out, l...)
+	}
+	return out
+}
+
 // keyScopes are the places a key is looked up in, each with every
 // operation it can reach there and the fixed keys it also takes: two of
 // them sharing a key in one place is a conflict.
@@ -200,24 +226,14 @@ func (k keyMap) keyScopes() []struct {
 	fixed []string
 } {
 	all := k.byName()
-	global := []string{"quit", "help", "focus_next", "focus_prev", "ask", "sort", "scope"}
-	session := []string{"resume", "recall", "read", "copy_id", "copy_command", "grow", "shrink"}
-	nav := []string{"up", "down", "page_up", "page_down", "top", "bottom", "search", "next_match", "prev_match"}
-	cat := func(lists ...[]string) []string {
-		var out []string
-		for _, l := range lists {
-			out = append(out, l...)
-		}
-		return out
-	}
 	return []struct {
 		name  string
 		ops   []namedKey
 		fixed []string
 	}{
-		{"the session list", pick(all, cat(global, session, nav, []string{"list.folders_open", "list.folders_close"})...), []string{"esc"}},
-		{"a frame or the spread conversation", pick(all, cat(global, session, nav)...), []string{"esc"}},
-		{"the folder list", pick(all, cat(global, nav, []string{"folders.back"})...), []string{"esc"}},
+		{"the session list", pick(all, opsIn(ctxList)...), []string{"esc"}},
+		{"a frame or the spread conversation", pick(all, opsIn(ctxFrame)...), []string{"esc"}},
+		{"the folder list", pick(all, opsIn(ctxFolders)...), []string{"esc"}},
 		// Boxes close on the key that opened them, beside their own keys.
 		{"the key list", pick(all, "help"), []string{"esc", "q"}},
 		{"the sort menu", pick(all, "sort"), []string{"down", "j", "ctrl+n", "tab", "up", "k", "ctrl+p", "shift+tab",

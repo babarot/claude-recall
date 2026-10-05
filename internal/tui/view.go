@@ -347,6 +347,16 @@ func (m Model) renderHelp() string {
 			pairs = [][2]string{{"enter", "start claude"}, {"esc", "close"}}
 			break
 		}
+		// The key list and the sort menu take every key, and a terminal too
+		// narrow for them leaves them undrawn; the footer says how out, first.
+		if m.helpOpen {
+			pairs = [][2]string{{"{help.0} esc q", "close"}}
+			break
+		}
+		if m.sortMenu {
+			pairs = [][2]string{{"esc", "close"}, {"enter", "apply"}, {"↑↓", "pick"}, {fmt.Sprintf("1-%d", len(sorts)), "apply that one"}}
+			break
+		}
 		if m.ask.stage != askClosed {
 			pairs = map[askStage][][2]string{
 				askTyping:   {{"enter", "ask"}, {"esc", "close"}},
