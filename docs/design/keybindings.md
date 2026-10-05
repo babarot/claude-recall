@@ -61,6 +61,8 @@ Keys are looked up from the top layer down. A key a layer takes does not go to t
 
 Keys never go from one pane to another. A key a detail frame does not take no longer acts as a list key; it goes to the global layer only.
 
+Which modal, field or pane is in front is read in one place, `uiState` in `internal/tui/uistate.go`, in this order. The key handling, the screen, the footer and paste all go by it, and the tests go through every value: a state without a footer, or a pane without a group in the `?` key list, fails them.
+
 ### 2. Two kinds of pane
 
 - Session panes: the session list, the detail frames and the spread conversation. They all show the selected session, so the session operations work in them

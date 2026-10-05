@@ -98,6 +98,7 @@ const (
 	ctxFrame              // a detail frame: Conversation, What was done, Details
 	ctxReading            // the Conversation spread over the pane
 	ctxFolders
+	numKeyContexts
 )
 
 func (m Model) keyContext() keyContext {

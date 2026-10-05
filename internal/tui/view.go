@@ -98,16 +98,14 @@ func (m Model) render() string {
 	if m.width == 0 || m.height == 0 || m.settling {
 		return ""
 	}
-	if m.recall.open {
+	switch m.uiState() {
+	case uiRecall:
 		return m.withRecall(m.renderScreen())
-	}
-	if m.ask.stage != askClosed {
+	case uiAskTyping, uiAskRunning, uiAskAnswered, uiAskFailed:
 		return m.withAsk(m.renderScreen())
-	}
-	if m.helpOpen {
+	case uiHelp:
 		return m.withHelp(m.renderScreen())
-	}
-	if m.sortMenu {
+	case uiSort:
 		return m.withSortMenu(m.renderScreen())
 	}
 	return m.renderScreen()
@@ -332,8 +330,8 @@ func (m Model) renderHelp() string {
 	// esc and the keys of a box or a field being typed in are written as
 	// they are, since they cannot be remapped.
 	var pairs [][2]string
-	switch m.mode {
-	case modeFilter:
+	switch m.uiState() {
+	case uiFilter:
 		pairs = [][2]string{{"enter", "apply"}, {"esc", "clear"}, {"↑↓", "move"}}
 		if list, _ := m.suggestions(); len(list) > 0 {
 			pairs = [][2]string{{"↑↓", "folder"}, {"enter", "pick"}, {"tab", "complete"}, {"esc", "close"}}
@@ -342,68 +340,46 @@ func (m Model) renderHelp() string {
 		} else if _, _, _, _, ok := m.keyTerm(); !ok {
 			pairs = append(pairs, [2]string{"folder: text: title: branch: worktree: id:", "one field"})
 		}
-	case modeList:
-		if m.recall.open {
-			pairs = [][2]string{{"enter", "start claude"}, {"esc", "close"}}
-			break
+	case uiRecall:
+		pairs = [][2]string{{"enter", "start claude"}, {"esc", "close"}}
+	// The key list and the sort menu take every key, and a terminal too
+	// narrow for them leaves them undrawn; the footer says how out, first.
+	case uiHelp:
+		pairs = [][2]string{{"{help.0} esc q", "close"}}
+	case uiSort:
+		pairs = [][2]string{{"esc", "close"}, {"enter", "apply"}, {"↑↓", "pick"}, {fmt.Sprintf("1-%d", len(sorts)), "apply that one"}}
+	case uiAskTyping:
+		pairs = [][2]string{{"enter", "ask"}, {"esc", "close"}}
+	case uiAskRunning:
+		pairs = [][2]string{{"esc", "cancel"}}
+	case uiAskAnswered:
+		pairs = [][2]string{{"↑↓", "pick"}, {"enter", "open"}, {"f", "filter the list to these"}, {"r", "ask again"}, {"esc", "close"}}
+	case uiAskFailed:
+		pairs = [][2]string{{"r", "ask again"}, {"esc", "close"}}
+	case uiFolderSearch:
+		pairs = [][2]string{{"↑↓", "folder"}, {"enter", "done"}, {"esc", "clear"}}
+	case uiFolders:
+		pairs = [][2]string{{"{up.0}{down.0}", "folder"}, {"{search.0}", "search"}, {"{folders.back.0}", "sessions"},
+			{"{focus_next.0}", "next"}, {"{scope.0}", "this folder"}, {"{quit.0}", "quit"}}
+		if m.sideSearch.Value() != "" {
+			pairs[1] = [2]string{"esc", "clear search"}
 		}
-		// The key list and the sort menu take every key, and a terminal too
-		// narrow for them leaves them undrawn; the footer says how out, first.
-		if m.helpOpen {
-			pairs = [][2]string{{"{help.0} esc q", "close"}}
-			break
-		}
-		if m.sortMenu {
-			pairs = [][2]string{{"esc", "close"}, {"enter", "apply"}, {"↑↓", "pick"}, {fmt.Sprintf("1-%d", len(sorts)), "apply that one"}}
-			break
-		}
-		if m.ask.stage != askClosed {
-			pairs = map[askStage][][2]string{
-				askTyping:   {{"enter", "ask"}, {"esc", "close"}},
-				askRunning:  {{"esc", "cancel"}},
-				askAnswered: {{"↑↓", "pick"}, {"enter", "open"}, {"f", "filter the list to these"}, {"r", "ask again"}, {"esc", "close"}},
-				askFailed:   {{"r", "ask again"}, {"esc", "close"}},
-			}[m.ask.stage]
-			break
-		}
-		if m.focus == focusFolders && m.sideTyping {
-			pairs = [][2]string{{"↑↓", "folder"}, {"enter", "done"}, {"esc", "clear"}}
-			break
-		}
-		if m.focus == focusFolders {
-			pairs = [][2]string{{"{up.0}{down.0}", "folder"}, {"{search.0}", "search"}, {"{folders.back.0}", "sessions"},
-				{"{focus_next.0}", "next"}, {"{scope.0}", "this folder"}, {"{quit.0}", "quit"}}
-			if m.sideSearch.Value() != "" {
-				pairs[1] = [2]string{"esc", "clear search"}
-			}
-			break
-		}
-		if m.conv.typing {
-			pairs = [][2]string{{"enter", "done"}, {"esc", "clear"}}
-			break
-		}
-		if m.convSearching() && m.conv.input.Value() != "" {
+	case uiConvSearch:
+		pairs = [][2]string{{"enter", "done"}, {"esc", "clear"}}
+	case uiReading:
+		pairs = [][2]string{{"{down.1} {up.1}", "scroll"}, {"{search.0}", "search"}, {"{focus_next.0}", "sessions"},
+			{"{read.0} {quit.0} esc", "close"}, {"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{copy_id.0}", "copy id"}, {"{help.0}", "keys"}}
+		if m.conv.input.Value() != "" {
 			pairs = [][2]string{{"{next_match.0} {prev_match.0}", "next, previous"}, {"{search.0}", "search again"}, {"esc", "clear search"},
 				{"{down.1} {up.1}", "scroll"}, {"{focus_next.0}", "sessions"}, {"{help.0}", "keys"}}
-			break
 		}
-		if m.expanded && m.focus == focusConv {
-			pairs = [][2]string{{"{down.1} {up.1}", "scroll"}, {"{search.0}", "search"}, {"{focus_next.0}", "sessions"},
-				{"{read.0} {quit.0} esc", "close"}, {"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{copy_id.0}", "copy id"}, {"{help.0}", "keys"}}
-			break
-		}
-		if m.expanded {
-			pairs = [][2]string{{"{down.1} {up.1}", "next session"}, {"{focus_next.0}", "conversation"}, {"{read.0}", "close"},
-				{"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{grow.0}/{shrink.0}", "resize"}, {"{help.0}", "keys"}}
-			break
-		}
-		if m.focus != focusList {
-			pairs = [][2]string{{"{up.0}{down.0}", "scroll " + strings.ToLower(frameTitles[m.focus])}, {"{focus_next.0}", "next"},
-				{"esc", "back to list"}, {"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{copy_id.0}", "copy id"}, {"{quit.0}", "quit"}}
-			break
-		}
-		fallthrough
-	default:
+	case uiReadingList:
+		pairs = [][2]string{{"{down.1} {up.1}", "next session"}, {"{focus_next.0}", "conversation"}, {"{read.0}", "close"},
+			{"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{grow.0}/{shrink.0}", "resize"}, {"{help.0}", "keys"}}
+	case uiFrame:
+		pairs = [][2]string{{"{up.0}{down.0}", "scroll " + strings.ToLower(frameTitles[m.focus])}, {"{focus_next.0}", "next"},
+			{"esc", "back to list"}, {"{resume.0}", "resume"}, {"{recall.0}", "recall"}, {"{copy_id.0}", "copy id"}, {"{quit.0}", "quit"}}
+	case uiList:
 		here := "this folder"
 		if m.scope != "" && m.scope == m.startFolder {
 			here = "all folders"
@@ -417,6 +393,7 @@ func (m Model) renderHelp() string {
 			pairs[6] = [2]string{"{list.folders_close.0}", "close folders"}
 		}
 	}
+	// A state with no case above has no footer, which the tests catch.
 	// resume is struck through, as the folder is, when claude -r cannot
 	// resume the session; it keeps its place so the footer does not shift.
 	gone := false

@@ -613,46 +613,41 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// The field reads the clipboard here, not in textinput, whose
 		// reply would not come back to it.
-		if msg.String() == pasteKey && m.typing() {
+		st := m.uiState()
+		if msg.String() == pasteKey && st.typing() {
 			return m, readClipboard
 		}
-		if m.recall.open {
+		switch st {
+		case uiRecall:
 			return m.updateRecall(msg)
-		}
-		if m.ask.stage != askClosed {
+		case uiAskTyping, uiAskRunning, uiAskAnswered, uiAskFailed:
 			return m.updateAsk(msg)
-		}
-		if m.sortMenu {
+		case uiSort:
 			return m.updateSortMenu(msg)
-		}
-		if m.helpOpen {
+		case uiHelp:
 			// The key list closes on esc, q or the key that opened it.
 			if s := msg.String(); s == "esc" || s == "q" || key.Matches(msg, m.km.Global.Help) {
 				m.helpOpen = false
 			}
 			return m, nil
+		case uiFilter:
+			return m.updateFilter(msg)
+		case uiFolderSearch:
+			return m.updateSideSearch(msg)
+		case uiConvSearch:
+			return m.updateConvSearch(msg)
 		}
-		if key.Matches(msg, m.km.Global.Help) && m.mode != modeFilter && !(m.focus == focusFolders && m.sideTyping) && !m.conv.typing {
+		if st.opensHelp() && key.Matches(msg, m.km.Global.Help) {
 			m.helpOpen = true
 			return m, nil
 		}
-		switch m.mode {
-		case modeFilter:
-			return m.updateFilter(msg)
-		default:
-			return m.updateList(msg)
-		}
+		return m.updateList(msg)
 	}
 	return m, nil
 }
 
+// updateList handles a key on a pane.
 func (m Model) updateList(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if m.focus == focusFolders && m.sideTyping {
-		return m.updateSideSearch(msg)
-	}
-	if m.conv.typing {
-		return m.updateConvSearch(msg)
-	}
 	// A frame with no room to show is the list's.
 	if f := m.focus; f != focusList && f != focusFolders {
 		if _, ok := m.paneRects(); !ok {
