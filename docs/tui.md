@@ -22,7 +22,7 @@ The title is the session's `/rename` name, or else the title Claude Code generat
 | `+` `-` | Make the detail pane taller or shorter |
 | `Tab` `Shift+Tab` (or `]` `[`) | Move focus along the folder list (when shown), the sessions and the detail pane's frames, in the order they are laid out; `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` then scroll it, `Esc` returns to the list |
 | `Esc` | Go back a step: clear the filter, the search or Claude's answer, return to the list, put the pane back |
-| `?` | Show every key, grouped by where it works; `?`, `Esc` or `q` closes the list |
+| `?` | Show every key, grouped by where it works. The group of the pane you are in comes first and keys that do not work there are dimmed; `?`, `Esc` or `q` closes the list |
 | `q` | Quit; over the spread conversation, put the pane back |
 
 Every key but `ctrl+c` and `Esc` can be changed; see [Changing keys](#changing-keys).

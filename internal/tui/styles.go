@@ -27,6 +27,7 @@ type styles struct {
 	worktree lipgloss.Style
 	gone     lipgloss.Style // a removed folder or worktree
 	key      lipgloss.Style // keys in the help line
+	helpHere lipgloss.Style // "here" on the key list's first group
 	helpSep  lipgloss.Style
 	filter   lipgloss.Style
 	ok       lipgloss.Style
@@ -60,6 +61,7 @@ func newStyles(p theme.Palette) styles {
 		worktree: fg(p.Worktree),
 		gone:     fg(p.Dim).Strikethrough(true),
 		key:      fg(p.Accent).Bold(true),
+		helpHere: lipgloss.NewStyle().Foreground(surface).Background(lipgloss.Color(p.Accent)).Bold(true),
 		helpSep:  fg(p.Border),
 		filter:   fg(p.Prompt),
 		ok:       fg(p.OK),

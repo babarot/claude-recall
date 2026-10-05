@@ -61,7 +61,12 @@ func TestKeyHints(t *testing.T) {
 	footer("folder search kept", press(t, typeText(t, press(t, fm, "left", "left", "/"), "app"), "enter"))
 	footer("filter, suggestions", typeText(t, press(t, fm, "/"), "folder:"))
 
-	add("? key list", strings.Join(m.helpBox(100, 80), "\n"))
+	helpList := func(name string, m Model) { add("? key list: "+name, strings.Join(m.helpBox(100, 80), "\n")) }
+	helpList("list", m)
+	helpList("conversation frame", press(t, m, "tab"))
+	helpList("reading", press(t, m, "space"))
+	helpList("reading, list focused", press(t, m, "space", "tab"))
+	helpList("folder list", press(t, fm, "left", "left"))
 	topLine("sort menu top edge", press(t, m, "s"), "Sort by")
 	for _, st := range []askStage{askTyping, askRunning, askFailed} {
 		a := base()

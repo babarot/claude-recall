@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -57,6 +58,40 @@ func TestKeyListFitsSmallTerminals(t *testing.T) {
 			if w := ansi.StringWidth(l); w > size[0] {
 				t.Errorf("%v: line %d is %d wide", size, i, w)
 			}
+		}
+	}
+}
+
+// TestHelpRowsWork checks that a key the key list shows as working in a
+// pane is one the pane takes: each operation a row names is reachable
+// there.
+func TestHelpRowsWork(t *testing.T) {
+	for _, g := range helpGroups {
+		for _, r := range g.rows {
+			for _, c := range everywhere {
+				if !r.worksIn(g, c) {
+					continue
+				}
+				ops := opsIn(c)
+				for _, ref := range keyRef.FindAllStringSubmatch(r.keys, -1) {
+					if !slices.Contains(ops, ref[1]) {
+						t.Errorf("%s: %q is shown as working in context %d, where %s does not reach", g.title, r.keys, c, ref[1])
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestHelpReadingFirst checks that the key list opened while reading, on a
+// terminal too short for every key, still shows the reading keys.
+func TestHelpReadingFirst(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	m = press(t, m, "space", "?")
+	got := ansi.Strip(m.render())
+	for _, want := range []string{"READING (SPACE)", "search the conversation", "put the pane back", "bright rows work here too"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("no %q in the key list:\n%s", want, got)
 		}
 	}
 }
