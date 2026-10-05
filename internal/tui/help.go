@@ -27,7 +27,7 @@ var helpGroups = []helpGroup{
 		{"{resume.0}", "resume the session"},
 		{"{recall.0}", "recall it in a new claude, through recall's MCP server"},
 		{"{read.0}", "read the conversation over the pane"},
-		{"{copy_id.0}  {copy_command.0}", "copy the session ID, the resume command"},
+		{"{copy_id.0}  {copy_command.0}", "copy the session ID, the resume command (or the recall one)"},
 		{"{search.0}", "filter (see below)"},
 		{"{ask.0}", "ask Claude to find sessions (claude -p)"},
 		{"{sort.0}", "choose the sort order"},

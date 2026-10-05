@@ -244,6 +244,64 @@ func TestFooterStrikesResumeForMissingFolder(t *testing.T) {
 	}
 }
 
+// withTranscripts marks the test sessions as Claude Code would leave them:
+// aaaaaaaa's and bbbbbbbb's transcripts are on disk, cccccccc's deleted.
+func withTranscripts(t *testing.T, m Model) Model {
+	t.Helper()
+	dir := t.TempDir()
+	for _, id := range []string{"aaaaaaaa-1111", "bbbbbbbb-2222"} {
+		if err := os.WriteFile(filepath.Join(dir, id+".jsonl"), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return m.TranscriptsIn(dir)
+}
+
+func TestEnterRefusesDeletedTranscript(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
+	m = withTranscripts(t, m)
+	r := press(t, m, "down", "down", "enter") // third row: cccccccc, whose transcript is deleted
+	if r.Result != nil || !strings.Contains(r.toast, "deleted its transcript · c recalls it in a new claude") {
+		t.Fatalf("result %+v toast %q", r.Result, r.toast)
+	}
+	// aaaaaaaa still resumes.
+	if r := press(t, m, "down", "enter"); r.Result == nil || r.Result.SessionID != "aaaaaaaa-1111" {
+		t.Fatalf("result %+v", r.Result)
+	}
+}
+
+func TestFooterStrikesResumeForDeletedTranscript(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 200, 30)
+	m = withTranscripts(t, m)
+	struck := m.st.gone.Render("enter resume")
+	if footer := press(t, m, "down", "down").renderHelp(); !strings.Contains(footer, struck) {
+		t.Fatalf("footer %q", footer)
+	}
+	if footer := press(t, m, "down").renderHelp(); strings.Contains(footer, struck) {
+		t.Fatalf("footer %q", footer)
+	}
+}
+
+// Y copies claude -r for a session it can resume, and for one it cannot,
+// the command that recalls it in a new claude.
+func TestCopyCommand(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
+	m = withTranscripts(t, m).RecallWith([]string{"/bin/recall", "mcp", "--db", "/tmp/vault.db"})
+	if r := press(t, m, "down", "Y"); !strings.Contains(r.toast, "claude -r aaaaaaaa-1111") {
+		t.Fatalf("toast %q", r.toast)
+	}
+	for _, keys := range [][]string{{"Y"}, {"down", "down", "Y"}} { // folder gone, transcript deleted
+		if r := press(t, m, keys...); !strings.Contains(r.toast, "recalls it in a new claude") {
+			t.Fatalf("%v: toast %q", keys, r.toast)
+		}
+	}
+	got := m.recallCommand("cccccccc-3333")
+	want := `claude 'Use the recall tools to recall session cccccccc-3333 (recall_export), then pick up where it left off: say briefly what was being done and how far it got, and wait for my instructions.' --mcp-config '{"mcpServers":{"recall":{"args":["mcp","--db","/tmp/vault.db"],"command":"/bin/recall"}}}' --allowedTools 'mcp__recall__recall_search,mcp__recall__recall_list,mcp__recall__recall_export'`
+	if got != want {
+		t.Fatalf("command\n%s\nwant\n%s", got, want)
+	}
+}
+
 func TestRecall(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
 	m = press(t, m, "c") // first row: bbbbbbbb, whose folder is gone
@@ -258,6 +316,28 @@ func TestRecall(t *testing.T) {
 	}
 	if m.Result != nil {
 		t.Fatalf("result %+v", m.Result)
+	}
+}
+
+func TestRecallArgs(t *testing.T) {
+	self := []string{"/bin/recall", "mcp", "--db", "/tmp/vault.db"}
+	args := RecallArgs(self, Recall{SessionID: "abc-123"})
+	if len(args) != 5 || args[1] != "--mcp-config" || args[3] != "--allowedTools" {
+		t.Fatalf("args %q", args)
+	}
+	// The prompt comes before the flags that take every argument after them.
+	if !strings.Contains(args[0], "recall session abc-123") || !strings.Contains(args[0], "where it left off") {
+		t.Fatalf("prompt %q", args[0])
+	}
+	if want := `{"mcpServers":{"recall":{"args":["mcp","--db","/tmp/vault.db"],"command":"/bin/recall"}}}`; args[2] != want {
+		t.Fatalf("mcp config %s, want %s", args[2], want)
+	}
+	if args[4] != "mcp__recall__recall_search,mcp__recall__recall_list,mcp__recall__recall_export" {
+		t.Fatalf("allowed tools %q", args[4])
+	}
+	topic := RecallArgs(self, Recall{SessionID: "abc-123", Topic: "the retry policy"})[0]
+	if !strings.Contains(topic, "recall session abc-123") || !strings.Contains(topic, "about: the retry policy") {
+		t.Fatalf("prompt %q", topic)
 	}
 }
 
