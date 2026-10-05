@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.2](https://github.com/babarot/claude-recall/compare/1.6.1...1.6.2) - 2026-10-05
+### Bug fixes
+- Do not resume a session whose transcript Claude Code has deleted by @babarot in https://github.com/babarot/claude-recall/pull/56
+- Keep the line right of a box in place over wide characters by @babarot in https://github.com/babarot/claude-recall/pull/59
+### Improvements
+- Show the keys of the pane ? is pressed in first by @babarot in https://github.com/babarot/claude-recall/pull/57
+### Refactorings
+- Read the TUI state from one place, and test every state's footer by @babarot in https://github.com/babarot/claude-recall/pull/58
+
 ## [1.6.1](https://github.com/babarot/claude-recall/compare/1.6.0...1.6.1) - 2026-10-04
 ### Improvements
 - Show recall next to resume in the footer by @babarot in https://github.com/babarot/claude-recall/pull/52
