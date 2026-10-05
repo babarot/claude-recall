@@ -52,6 +52,9 @@ func TestKeyHints(t *testing.T) {
 		footer("ask "+[]string{"closed", "typing", "running", "answered", "failed"}[st], a)
 	}
 
+	footer("key list", press(t, m, "?"))
+	footer("sort menu", press(t, m, "s"))
+
 	f := newFolderFixture(t)
 	fm := folderModel(t, config.Default().TUI, f, 140, 40)
 	footer("list, started in a folder", fm.StartIn(f.repo))

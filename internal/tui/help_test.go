@@ -95,3 +95,15 @@ func TestHelpReadingFirst(t *testing.T) {
 		}
 	}
 }
+
+// TestNarrowModalsSayHowOut checks that on a terminal too narrow to draw
+// the key list or the sort menu, the footer still says how to close it.
+func TestNarrowModalsSayHowOut(t *testing.T) {
+	for k, want := range map[string]string{"?": "esc q close", "s": "esc close"} {
+		m, _ := newTestModel(t, config.Default().TUI, 25, 20)
+		m = press(t, m, k)
+		if got := ansi.Strip(m.render()); !strings.Contains(got, want) {
+			t.Errorf("%s: no %q on the screen:\n%s", k, want, got)
+		}
+	}
+}
