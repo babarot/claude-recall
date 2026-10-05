@@ -147,7 +147,7 @@ What can change are the global keys, the session panes' keys, the folder list's 
 | `c` | Recall the session in a new claude | `recall` |
 | `space` | Spread the conversation, put it back | `read` |
 | `y` | Copy the session ID | `copy_id` |
-| `Y` | Copy the resume command | `copy_command` |
+| `Y` | Copy the resume command, or the recall command when it cannot be resumed | `copy_command` |
 | `+` `=` | Make the detail pane taller | `grow` |
 | `-` | Make the detail pane shorter | `shrink` |
 

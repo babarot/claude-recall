@@ -62,7 +62,7 @@ A session ID from the TUI (`y`) works too: "look up session a1b2c3 with claude-r
 |-----|--------|
 | `Enter` | Resume the session: `claude -r <id>` from the session's folder |
 | `c` | Recall the session in a new claude through MCP: for a session `claude -r` cannot resume, such as one whose worktree was removed |
-| `y` / `Y` | Copy the session ID / the resume command |
+| `y` / `Y` | Copy the session ID / the resume command (the recall command when it cannot be resumed) |
 | `/` | Filter by title, folder, branch, ID or what was said; `text:`, `title:`, `folder:` and others narrow it to one field |
 | `a` | Ask Claude to find sessions, when you remember what it was about but not what to type. It runs your own `claude -p`, so no API key is needed |
 | `Space` | Read the conversation over the detail pane |

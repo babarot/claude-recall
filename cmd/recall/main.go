@@ -592,6 +592,7 @@ func runTUI(o *options, c *cobra.Command) error {
 		self[0] = exe
 		model = model.AskWith(self, filepath.Join(filepath.Dir(config.StatePath()), "ask"))
 	}
+	model = model.RecallWith(self).TranscriptsIn(config.ProjectsDir())
 	final, err := tea.NewProgram(model).Run()
 	if err != nil {
 		return err
@@ -632,28 +633,5 @@ func recallSession(self []string, r tui.Recall) error {
 	if err != nil {
 		return errors.New("claude is not on PATH")
 	}
-	return syscall.Exec(claude, append([]string{"claude"}, recallArgs(self, r)...), os.Environ())
-}
-
-// recallArgs are claude's arguments for recalling a session: recall's MCP
-// server beside the user's own, its read-only tools allowed, and a first
-// prompt asking to recall the session, as one would in a session.
-func recallArgs(self []string, r tui.Recall) []string {
-	mcp, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{
-		"recall": map[string]any{"command": self[0], "args": self[1:]},
-	}})
-	prompt := "Use the recall tools to recall session " + r.SessionID +
-		" (recall_export), then pick up where it left off: say briefly what was being done and how far it got, and wait for my instructions."
-	if r.Topic != "" {
-		prompt = "Use the recall tools to recall session " + r.SessionID +
-			" (recall_export, or recall_search for the parts you need) about: " + r.Topic +
-			"\nSay briefly what it says about that, and wait for my instructions."
-	}
-	// The prompt goes first: --mcp-config and --allowedTools take every
-	// argument after them.
-	return []string{
-		prompt,
-		"--mcp-config", string(mcp),
-		"--allowedTools", "mcp__recall__recall_search,mcp__recall__recall_list,mcp__recall__recall_export",
-	}
+	return syscall.Exec(claude, append([]string{"claude"}, tui.RecallArgs(self, r)...), os.Environ())
 }

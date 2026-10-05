@@ -20,12 +20,19 @@ type row struct {
 	worktree string // worktree name, empty outside a linked worktree
 	gone     bool   // the session directory no longer exists
 	mainRoot string // main checkout of a linked worktree
+	// noTranscript is set when Claude Code has deleted the session's JSONL
+	// transcript, which claude -r reads.
+	noTranscript bool
 	// group is the folder the list narrows by: the repository, worktrees
 	// included, or the directory outside git; groupName is how it shows.
 	group, groupName string
 
 	search string // lower-cased text the filter matches against
 }
+
+// resumable reports whether claude -r can resume the session: its folder
+// and its transcript are both still there.
+func (r *row) resumable() bool { return !r.gone && !r.noTranscript }
 
 func newRow(s db.Session, home string, wt *worktree.Resolver) row {
 	r := row{s: s, title: displayTitle(s)}

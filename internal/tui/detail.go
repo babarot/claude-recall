@@ -570,6 +570,9 @@ func (m Model) detailsLines(r *row, d *db.Detail) []string {
 	if d != nil && d.Images > 0 {
 		size += m.st.muted.Render(fmt.Sprintf("  %d images", d.Images))
 	}
+	if r.noTranscript {
+		size += m.st.muted.Render("  transcript deleted")
+	}
 	lines = append(lines, kv("Size", size))
 	if d != nil && d.Version != "" {
 		lines = append(lines, kv("Version", m.st.muted.Render("Claude Code "+d.Version)))
@@ -616,6 +619,9 @@ func (m Model) detailsGrid(r *row, d *db.Detail, inner int) ([]string, bool) {
 		kv(6, "Msgs", m.st.strong.Render(fmt.Sprint(r.s.MessageCount))),
 		kv(6, "Calls", m.st.strong.Render(calls)),
 		kv(6, "Size", m.st.strong.Render(formatSize(r.s.FileSize)))}
+	if r.noTranscript {
+		much[3] += m.st.muted.Render(" deleted")
+	}
 	where := []string{m.section("Where"),
 		kv(8, "Branch", m.st.dim.Render(ansi.Truncate(r.s.GitBranch, 20, ellipsis))),
 		kv(8, "ID", m.st.id.Render(r.s.ID[:min(8, len(r.s.ID))]))}

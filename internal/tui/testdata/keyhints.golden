@@ -47,7 +47,7 @@
 [38;2;82;82;112m│ [m[1;38;2;150;191;255menter[m          [38;2;176;184;209mresume the session[m                                                               [38;2;82;82;112m │[m
 [38;2;82;82;112m│ [m[1;38;2;150;191;255mc[m              [38;2;176;184;209mrecall it in a new claude, through recall's MCP server[m                           [38;2;82;82;112m │[m
 [38;2;82;82;112m│ [m[1;38;2;150;191;255mspace[m          [38;2;176;184;209mread the conversation over the pane[m                                              [38;2;82;82;112m │[m
-[38;2;82;82;112m│ [m[1;38;2;150;191;255my  Y[m           [38;2;176;184;209mcopy the session ID, the resume command[m                                          [38;2;82;82;112m │[m
+[38;2;82;82;112m│ [m[1;38;2;150;191;255my  Y[m           [38;2;176;184;209mcopy the session ID, the resume command (or the recall one)[m                      [38;2;82;82;112m │[m
 [38;2;82;82;112m│ [m[1;38;2;150;191;255m/[m              [38;2;176;184;209mfilter (see below)[m                                                               [38;2;82;82;112m │[m
 [38;2;82;82;112m│ [m[1;38;2;150;191;255ma[m              [38;2;176;184;209mask Claude to find sessions (claude -p)[m                                          [38;2;82;82;112m │[m
 [38;2;82;82;112m│ [m[1;38;2;150;191;255ms[m              [38;2;176;184;209mchoose the sort order[m                                                            [38;2;82;82;112m │[m

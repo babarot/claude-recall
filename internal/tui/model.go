@@ -4,8 +4,11 @@ package tui
 
 import (
 	"cmp"
+	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -179,6 +182,10 @@ type Model struct {
 	// they pick one to recall in a new claude.
 	Result *Resume
 	Recall *Recall
+
+	// recallSelf is the command line of recall's MCP server, for the
+	// command that recalls a session in a new claude.
+	recallSelf []string
 }
 
 // New builds the model from the archived sessions.
@@ -203,6 +210,7 @@ func New(sessions []db.Session, source Source, cfg config.TUI) Model {
 		ask:           askState{input: newAskInput()},
 		recall:        recallState{input: newRecallInput()},
 		askRun:        claudeRunner([]string{"recall", "mcp"}, config.ModelID(cfg.AskModel), ""),
+		recallSelf:    []string{"recall", "mcp"},
 		reasons:       map[string]string{},
 		sideSearch:    ss,
 		conv:          newConvSearch(),
@@ -228,6 +236,17 @@ func New(sessions []db.Session, source Source, cfg config.TUI) Model {
 	m.branches = values(m.rows, func(r *row) string { return r.s.GitBranch })
 	m.worktrees = values(m.rows, func(r *row) string { return r.worktree })
 	m.refresh()
+	return m
+}
+
+// TranscriptsIn marks the sessions whose JSONL transcript Claude Code has
+// deleted from dir, its projects directory: claude -r cannot resume them.
+func (m Model) TranscriptsIn(dir string) Model {
+	for i := range m.rows {
+		r := &m.rows[i]
+		_, err := os.Stat(filepath.Join(dir, r.s.Project, r.s.ID+".jsonl"))
+		r.noTranscript = errors.Is(err, fs.ErrNotExist)
+	}
 	return m
 }
 
@@ -699,8 +718,11 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	}
 	switch {
 	case key.Matches(msg, s.Resume):
-		if r.gone {
+		if !r.resumable() {
 			text := "Folder no longer exists: " + tildePath(r.s.ProjectPath, m.home)
+			if !r.gone {
+				text = "Claude Code has deleted its transcript"
+			}
 			if k := m.hintKeys("{recall.0}"); k != "" {
 				text += " · " + k + " recalls it in a new claude"
 			}
@@ -713,6 +735,10 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	case key.Matches(msg, s.CopyID):
 		return tea.Batch(copyCmd(r.s.ID), m.showToast(toastOK, "Copied session ID "+r.s.ID)), true
 	case key.Matches(msg, s.CopyCommand):
+		if !r.resumable() {
+			// claude -r would fail: copy what c runs instead.
+			return tea.Batch(copyCmd(m.recallCommand(r.s.ID)), m.showToast(toastOK, "Copied a command that recalls it in a new claude")), true
+		}
 		cmd := resumeCommand(r)
 		return tea.Batch(copyCmd(cmd), m.showToast(toastOK, "Copied "+cmd)), true
 	}

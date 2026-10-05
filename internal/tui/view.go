@@ -407,11 +407,11 @@ func (m Model) renderHelp() string {
 			pairs[6] = [2]string{"{list.folders_close.0}", "close folders"}
 		}
 	}
-	// resume is struck through, as the folder is, when the session's folder
-	// is gone; it keeps its place so the footer does not shift.
+	// resume is struck through, as the folder is, when claude -r cannot
+	// resume the session; it keeps its place so the footer does not shift.
 	gone := false
 	if r := m.current(); r != nil && m.mode == modeList {
-		gone = r.gone
+		gone = !r.resumable()
 	}
 	var parts []string
 	for _, p := range m.byDefaultKey(pairs) {

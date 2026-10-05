@@ -12,7 +12,7 @@ The title is the session's `/rename` name, or else the title Claude Code generat
 | `Enter` | Resume the session: `claude -r <id>` from the session's folder |
 | `c` | Recall the session in a new claude (see [Recalling in a new claude](#recalling-in-a-new-claude)) |
 | `y` | Copy the session ID, to hand it to another agent ("look this session up with claude-recall") |
-| `Y` | Copy the resume command |
+| `Y` | Copy the resume command, or for a session `claude -r` cannot resume, the command that recalls it in a new claude |
 | `Space` | Read the conversation over the detail pane (see [Reading a conversation](#reading-a-conversation)) |
 | `/` | Filter the list (see [Filter](#filter)); `Esc` clears it |
 | `a` | Ask Claude to find sessions (see [Ask Claude](#ask-claude)) |
@@ -68,7 +68,7 @@ It runs signed in as you, a Claude plan included, so recall needs no API key. It
 
 ## Recalling in a new claude
 
-`claude -r` cannot resume a session whose folder is gone, such as one in a removed worktree (`Enter` says so and names this key), or whose transcript Claude Code has deleted. `c` recalls any session instead: recall quits and starts a new claude in the folder recall was started in, with recall's MCP server, asking it to recall the session, the way you would ask in a session yourself:
+`claude -r` cannot resume a session whose folder is gone, such as one in a removed worktree, or whose transcript Claude Code has deleted (after `cleanupPeriodDays`, 30 days by default). Its `enter resume` in the footer is struck through, and `Enter` says why and names this key. `c` recalls any session instead: recall quits and starts a new claude in the folder recall was started in, with recall's MCP server, asking it to recall the session, the way you would ask in a session yourself:
 
 ```console
 claude "Use the recall tools to recall session <id> ..." \
@@ -77,6 +77,7 @@ claude "Use the recall tools to recall session <id> ..." \
 ```
 
 - The box takes what to recall about it ("the retry policy"); left empty, Claude picks up where it left off, saying what was being done and how far it got. Either way it then waits for you.
+- For a session `claude -r` cannot resume, `Y` copies this command (with no topic) in place of the resume command, to run in any folder or hand to someone.
 - It is an ordinary session: your settings, CLAUDE.md and MCP servers apply. Only the recall tools are allowed without asking.
 - The new session starts from what the old one said, not from its files: a removed worktree's changes are not brought back.
 
@@ -147,7 +148,7 @@ An operation that works in one pane only goes in that pane's table, `[keys.list]
 | `recall` | `c` | Recall the session in a new claude |
 | `read` | `space` | Read the conversation over the detail pane, or put it back |
 | `copy_id` | `y` | Copy the session ID |
-| `copy_command` | `Y` | Copy the resume command |
+| `copy_command` | `Y` | Copy the resume command, or the recall command when it cannot be resumed |
 | `grow` | `+` `=` | Make the detail pane taller |
 | `shrink` | `-` | Make the detail pane shorter |
 | `up` `down` | `up` `k` `ctrl+p`, `down` `j` `ctrl+n` | Move in a list, scroll a frame |
