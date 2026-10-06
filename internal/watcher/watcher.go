@@ -12,13 +12,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/internal/parser"
 )
 
 const (
@@ -77,31 +76,13 @@ type fileState struct {
 	mtime time.Time
 }
 
+// scan lists the transcripts by path as Discover finds them, so symlinks
+// are followed as the importer follows them.
 func scan(dir string) map[string]fileState {
-	out := map[string]fileState{}
-	projects, err := os.ReadDir(dir)
-	if err != nil {
-		return out
-	}
-	for _, p := range projects {
-		if !p.IsDir() {
-			continue
-		}
-		sub := filepath.Join(dir, p.Name())
-		files, err := os.ReadDir(sub)
-		if err != nil {
-			continue
-		}
-		for _, f := range files {
-			if !strings.HasSuffix(f.Name(), ".jsonl") {
-				continue
-			}
-			info, err := f.Info()
-			if err != nil || !info.Mode().IsRegular() {
-				continue
-			}
-			out[filepath.Join(sub, f.Name())] = fileState{size: info.Size(), mtime: info.ModTime()}
-		}
+	files := parser.Discover(dir)
+	out := make(map[string]fileState, len(files))
+	for _, f := range files {
+		out[f.Path] = fileState{size: f.Size, mtime: f.ModTime}
 	}
 	return out
 }
