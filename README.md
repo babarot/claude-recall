@@ -12,6 +12,8 @@ claude-recall archives every Claude Code session into SQLite, including the ones
 - TUI: find a session yourself and resume it where it left off
 - Web UI: read past conversations comfortably in the browser, live as they are written
 
+With the [Claude Code plugin](#claude-code-plugin), recall also shows up [in Claude Code](#in-claude-code) itself: the repository's last sessions when you start, search results you can read at a glance, and `/recall`.
+
 ## Quick start
 
 ```bash
@@ -38,6 +40,7 @@ A support question comes in, you open a session, and it is settled in ten minute
 | Have Claude remember what happened in a past session | [MCP server](#mcp-server) | The answer lands in the session you are working in, as context Claude can use right away |
 | Find a session yourself and go back to it | [TUI](#tui) | Resume it in place (`claude -r`), recall it in a new claude, or copy its ID to hand to another agent |
 | Find a session yourself and read it | [Web UI](#web-ui) | A comfortable reader in the browser, for long conversations and images |
+| Look back without leaving the session | [In Claude Code](#in-claude-code) | The repository's last sessions as you start, a search without a model turn, and a recap of any session with one press |
 
 The [CLI](#cli) underneath starts each of them (`recall mcp`, `recall`, `recall ui`) and also searches, lists and exports from the terminal or a script.
 
@@ -80,6 +83,19 @@ recall ui stop
 ```
 
 A session browser, a chat viewer and search. While it runs, new and changed sessions are imported within about half a second, the session list moves them to the top, and the chat view of a running session follows new messages. The server listens on 127.0.0.1 only.
+
+### In Claude Code
+
+The [plugin](#claude-code-plugin) carries a Claude Code hooks module (a mod) that draws recall in the session you are working in:
+
+- When a session starts, the latest sessions of the same repository, its worktrees included, show above the prompt until you send the first prompt.
+- When Claude calls `recall_search`, the result shows as a tree of repositories, sessions (title, message count, date) and the messages that matched, instead of JSON. Claude still reads the JSON.
+- `/recall <query>` searches this repository's sessions on the spot, without a model turn, and shows them as a table; `--all` searches every session. Claude reads the same list, so "read number 2" works next.
+- Pressing a session's ID in any of them, or `/recall <n>`, runs the `recap` prompt on it: Claude reads where that session ended, sums up what was done, decided and left, and asks how to go on.
+
+Sessions that look like they were only a recall search ("recall で uriba を検索") are put together on one line instead of a row each. The words are English, or Japanese when Claude Code's `language` setting is Japanese.
+
+It needs a Claude Code that loads hooks modules (tested on 2.1.291). [docs/plugin.md](docs/plugin.md) covers how it works.
 
 ## Why
 
@@ -160,11 +176,9 @@ The plugin is the recommended way to connect claude-recall to Claude Code. [`plu
 |-----------|--------------|
 | MCP server | Runs `recall mcp` |
 | `SessionEnd` hook | Runs `recall import` when a session ends |
-| `/recall` command | `/recall <query>` searches this repository's sessions without a model turn (`--all` for every session); pressing a session's ID, or `/recall <n>`, runs the `recap` prompt on it |
-| Previous sessions | When a session starts, the latest sessions of the same repository show above the prompt; pressing one runs the `recap` prompt on it |
-| Search results | `recall_search` results are drawn as a tree of repositories, sessions and matches; what Claude reads is unchanged |
+| Hooks module | Draws recall [in Claude Code](#in-claude-code) and adds `/recall` |
 
-The last three are a hooks module (`hooks/register.tsx`), which needs a Claude Code that loads function hooks (tested on 2.1.291); an older one still gets the MCP server and the hook. They show English, or Japanese when Claude Code's `language` setting is Japanese.
+An older Claude Code, which does not load hooks modules, still gets the MCP server and the hook.
 
 Each release ships it as `claude-recall-plugin.tar.gz`. A plugin directory under `~/.claude/skills/` loads as `claude-recall@skills-dir`, so with Nix:
 
@@ -257,6 +271,8 @@ go run ./cmd/recall ui --foreground
 Work against a copy of the archive (`sqlite3 ~/.claude/vault.db ".backup '/tmp/vault-copy.db'"`), not the live file.
 
 After a change to how the TUI looks, re-record the demo GIF with `make demo` (see [demo/README.md](demo/README.md)).
+
+For the plugin's hooks module, `claude --plugin-dir plugin` loads it from the checkout and reloads it as you edit, and `claude plugin test plugin` runs its tests (see [docs/plugin.md](docs/plugin.md#developing)).
 
 [docs/architecture.md](docs/architecture.md) covers how sessions flow into the archive, the schema and the web UI's live updates. The [ADRs](docs/adr) record the larger decisions, such as why claude-recall moved from Deno to Go ([ADR-004](docs/adr/004-go-port.md)).
 
