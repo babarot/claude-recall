@@ -93,7 +93,7 @@ The [plugin](#claude-code-plugin) carries a Claude Code hooks module (a mod) tha
 - `/recall <query>` searches this repository's sessions on the spot, without a model turn, and shows them as a table; `--all` searches every session. Claude reads the same list, so "read number 2" works next.
 - Pressing a session's ID in any of them, or `/recall <n>`, runs the `recap` prompt on it: Claude reads where that session ended, sums up what was done, decided and left, and asks how to go on.
 
-Sessions that look like they were only a recall search ("recall で uriba を検索") are put together on one line instead of a row each. The words are English, or Japanese when Claude Code's `language` setting is Japanese.
+Sessions that only looked back through recall (a search for a word, a recap) are put together on one line instead of a row each; their IDs can still be pressed. The words are English, or Japanese when Claude Code's `language` setting is Japanese.
 
 It needs a Claude Code that loads hooks modules (tested on 2.1.291). [docs/plugin.md](docs/plugin.md) covers how it works.
 

@@ -8,7 +8,6 @@ import {
   groupByRepo,
   groupHits,
   highlight,
-  isRecallSearch,
   MSGS_CELLS,
   WHEN_CELLS,
   oneLine,
@@ -20,7 +19,6 @@ import {
   queryTerms,
   resultText,
   rowLayout,
-  sessionTitle,
   shortDate,
   shortId,
   snippet,
@@ -131,6 +129,35 @@ function sessionRow(
   )
 }
 
+// The sessions that were only a look back through recall, on one line:
+// how many, then their IDs, each pressed like any other to recap it, as
+// many as fit in `inner` cells and a count of the rest.
+function searchesLine(
+  { Box, Button, Text }: Pick<Table, 'Box' | 'Button' | 'Text'>,
+  $: EngineInterface,
+  lead: string,
+  ids: string[],
+  inner: number,
+  w: Words,
+) {
+  const label = lead + w.searches(ids.length) + '  '
+  // An ID takes eight cells, and two more for the ", " after it.
+  const fit = Math.max(1, Math.floor((inner - cells(label) - 4) / 10))
+  const shown = ids.slice(0, fit)
+  return (
+    <Box flexDirection="row">
+      <Text color={META}>{label}</Text>
+      {shown.map((id, i) => (
+        <Box key={`search-${id}`} flexDirection="row">
+          <Button key={`refer-${id}`} plain dimColor label={shortId(id)} onPress={() => resume($, id)} />
+          {i < shown.length - 1 && <Text color={META}>{', '}</Text>}
+        </Box>
+      ))}
+      {ids.length > shown.length && <Text color={META}>{` +${ids.length - shown.length}`}</Text>}
+    </Box>
+  )
+}
+
 // A header line: `parts` cut to fit, then `hint` at the right edge when
 // there is room for it.
 function headerLine(
@@ -175,7 +202,7 @@ function searchBody(
   const { Box, Button, Text } = el
   const terms = queryTerms(query)
   const { shown, hidden } = fitTree(
-    groupByRepo(groupHits(hits), g => isRecallSearch(g.title, g.msgs)),
+    groupByRepo(groupHits(hits), g => g.recallOnly),
     MAX_TREE_LINES,
     MAX_HITS,
   )
@@ -222,13 +249,15 @@ function searchBody(
               </Box>
             )
           })}
-          {r.searches.length > 0 && (
-            <Text color={META} wrap="truncate-end">
-              {'│ └ '}
-              {w.searches(r.searches.length)}
-              {'  ' + r.searches.map(g => shortId(g.sessionId)).join(', ')}
-            </Text>
-          )}
+          {r.searches.length > 0 &&
+            searchesLine(
+              el,
+              $,
+              '│ └ ',
+              r.searches.map(g => g.sessionId),
+              inner,
+              w,
+            )}
         </Box>
       ))}
       <Text color={META} wrap="truncate-end">
@@ -320,7 +349,7 @@ export const register: Register = on => {
             $,
             {
               id: s.sessionId,
-              title: sessionTitle(s),
+              title: oneLine(s.displayTitle),
               place: placeOf({ repository: s.repository, worktree: s.worktree, branch: s.gitBranch }, true),
               when: relativeTime(s.endedAt ?? s.startedAt, now, w),
               msgs: s.messageCount,
@@ -426,13 +455,14 @@ export const register: Register = on => {
 
     const isAll = /(^|\s)--all(\s|$)/.test(args)
     const query = args.replace(/(^|\s)--all(\s|$)/g, ' ').trim()
-    const argv = ['search', query, '--format', 'json', '--limit', '1000', ...(isAll ? [] : ['--repo', '.'])]
+    // `--` keeps a query that starts with "-" from being read as a flag.
+    const argv = ['search', '--format', 'json', '--limit', '1000', ...(isAll ? [] : ['--repo', '.']), '--', query]
     const [{ value, error }, current] = await Promise.all([recallJSON<SearchHit[]>($, argv), $.session.id()])
     if (error !== undefined) return { text: `recall search failed: ${error}` }
     const groups = groupHits((value ?? []).filter(hit => hit.sessionId !== current))
     // Sessions that look like a recall search go last, on one line in the
     // table; nothing is left out, and the numbers follow this order.
-    const isSearch = (g: (typeof groups)[number]) => isRecallSearch(g.title, g.msgs)
+    const isSearch = (g: (typeof groups)[number]) => g.recallOnly
     const work = groups.filter(g => !isSearch(g))
     const searches = groups.filter(isSearch)
     const ordered = [...work, ...searches]
@@ -508,9 +538,7 @@ export const register: Register = on => {
         )}
         {view.searches.length > 0 && (
           <Box marginTop={view.rows.length > 0 ? 1 : 0}>
-            <Text color={META} wrap="truncate-end">
-              {w.searches(view.searches.length) + '  ' + view.searches.map(shortId).join(', ')}
-            </Text>
+            {searchesLine({ Box, Button, Text }, $, '', view.searches, inner, w)}
           </Box>
         )}
         {view.total > view.rows.length + view.searches.length && (

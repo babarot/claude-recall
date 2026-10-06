@@ -8,6 +8,12 @@ export type ListedSession = {
   startedAt: string
   endedAt?: string
   title?: string
+  // What the session is called, as the TUI shows it: the title, or else
+  // the first prompt made readable.
+  displayTitle: string
+  // The session called recall's MCP tools and no other tool, so it was
+  // only a look back.
+  recallOnly: boolean
   // The repository the session belongs to, as the TUI groups it, and the
   // worktree inside it, when it ran in one.
   repository: string

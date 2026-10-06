@@ -3,12 +3,10 @@ import { expect, mock, test } from 'claude-code/testing'
 import { langOf, relativeTime, words } from '../hooks/i18n'
 import {
   cells,
-  cleanTitle,
   fitTree,
   groupByRepo,
   groupHits,
   highlight,
-  isRecallSearch,
   padCells,
   padStartCells,
   placeOf,
@@ -16,6 +14,7 @@ import {
   queryTerms,
   resultText,
   rowLayout,
+  shortDate,
   snippet,
   truncateCells,
 } from '../hooks/recall'
@@ -33,6 +32,8 @@ const MCP_HITS = [
     role: 'assistant',
     content: 'Slack App は team_uriba に入っていません。',
     title: 'uribaチームの送信先確認',
+    displayTitle: 'uribaチームの送信先確認',
+    recallOnly: false,
     messages: 206,
     repository: 'myorg/dd-slo-reporter',
     worktree: 'brave-cloud-4f88',
@@ -40,7 +41,7 @@ const MCP_HITS = [
 ]
 
 // Hits as `recall search --format json` prints them.
-const cliHit = (id: string, repository: string, worktree: string, title: string, messageCount: number) => ({
+const cliHit = (id: string, repository: string, worktree: string, title: string, messageCount: number, recallOnly = false) => ({
   sessionId: id,
   projectPath: `/w/${repository}/${worktree}`,
   gitBranch: 'main',
@@ -48,32 +49,36 @@ const cliHit = (id: string, repository: string, worktree: string, title: string,
   role: 'user',
   content: 'linkify here',
   title,
+  displayTitle: title,
+  recallOnly,
   messageCount,
   repository,
   worktree,
 })
 
-const group = (id: string, repository: string, title: string, msgs: number, hits = 1) => ({
+const group = (id: string, repository: string, title: string, recallOnly: boolean, hits = 1) => ({
   sessionId: id,
   repository,
   worktree: '',
   branch: '',
   date: '',
   title,
-  msgs,
+  msgs: 10,
+  recallOnly,
   hits: Array.from({ length: hits }, () => ({ sessionId: id, role: 'user', content: '' })),
 })
 
-test('previousSessions passes over the running session and stubs, and counts the recall searches it leaves out', async () => {
-  const s = (id: string, messageCount: number, title = 'Fix the deploy') => ({
+test('previousSessions passes over the running session and stubs, and counts the recall-only sessions it leaves out', async () => {
+  const s = (id: string, messageCount: number, recallOnly = false) => ({
     sessionId: id,
     projectPath: '/r',
     messageCount,
     startedAt: '',
     repository: 'r',
-    title,
+    displayTitle: id,
+    recallOnly,
   })
-  const sessions = [s('now', 10), s('a', 10), s('stub', 1), s('search', 9, 'recall で uriba を検索'), s('b', 10)]
+  const sessions = [s('now', 10), s('a', 10), s('stub', 1), s('search', 9, true), s('b', 10)]
   const prev = previousSessions(sessions, 'now')
   expect(prev.shown.map(x => x.sessionId)).toEqual(['a', 'b'])
   expect(prev.omitted).toBe(1)
@@ -84,15 +89,6 @@ test('placeOf names the worktree or branch in one repository, the repository acr
   expect(placeOf({ repository: 'me/app', branch: 'main' }, true)).toBe('main')
   expect(placeOf({ repository: 'me/app', worktree: 'fix' }, false)).toBe('me/app (fix)')
   expect(placeOf({ repository: 'me/app' }, false)).toBe('me/app')
-})
-
-test('isRecallSearch takes short sessions titled with a recall search only', async () => {
-  expect(isRecallSearch('recall で uriba を検索', 6)).toBe(true)
-  expect(isRecallSearch('Recall で uriba を検索', 49)).toBe(true)
-  // Work in the claude-recall repository mentions recall but is long.
-  expect(isRecallSearch('recall の TUI に mod を足す', 300)).toBe(false)
-  expect(isRecallSearch('Fix the recall TUI footer', 8)).toBe(false)
-  expect(isRecallSearch('recall で uriba を検索', undefined)).toBe(false)
 })
 
 test('queryTerms and highlight', async () => {
@@ -120,12 +116,17 @@ test('resultText reads strings, blocks and results', async () => {
 test('groupHits reads both the CLI and the MCP spelling', async () => {
   const [cli] = groupHits([cliHit('a', 'me/app', 'fix', 'Fix it', 12)])
   expect([cli?.repository, cli?.worktree, cli?.branch, cli?.title, cli?.msgs]).toEqual(['me/app', 'fix', 'main', 'Fix it', 12])
-  const [untitled] = groupHits([{ ...cliHit('b', 'me/app', '', '', 2), content: '<command-name>/recall</command-name><command-args>x</command-args>' }])
-  expect(untitled?.title).toBe('/recall x')
-  const [named] = groupHits([{ ...cliHit('c', 'me/app', '', '', 2), firstPrompt: 'https://example.com/issues/1 catch up on this' }])
-  expect(named?.title).toBe('https://example.com/issues/1 catch up on this')
   const [m] = groupHits(MCP_HITS)
-  expect([m?.repository, m?.branch, m?.date, m?.msgs]).toEqual(['myorg/dd-slo-reporter', 'worktree/brave-cloud-4f88', '2026-10-02', 206])
+  expect([m?.repository, m?.branch, m?.date, m?.msgs, m?.title, m?.recallOnly]).toEqual([
+    'myorg/dd-slo-reporter',
+    'worktree/brave-cloud-4f88',
+    '2026-10-02',
+    206,
+    'uribaチームの送信先確認',
+    false,
+  ])
+  const [search] = groupHits([cliHit('b', 'me/app', '', 'recall で uriba を検索', 6, true)])
+  expect(search?.recallOnly).toBe(true)
 })
 
 test('cells counts wide characters as two', async () => {
@@ -135,11 +136,9 @@ test('cells counts wide characters as two', async () => {
   expect(padStartCells('4日前', 7)).toBe('  4日前')
 })
 
-test('cleanTitle reads a slash command record and drops markup', async () => {
-  expect(
-    cleanTitle('<command-message>x</command-message>\n<command-name>/claude-recall:recall</command-name>\n<command-args>DORA</command-args>'),
-  ).toBe('/claude-recall:recall DORA')
-  expect(cleanTitle('<b>hello</b>  world')).toBe('hello world')
+test('shortDate keeps a date alone on its day, wherever the reader is', async () => {
+  expect(shortDate('2026-10-02')).toBe('10/02')
+  expect(shortDate('2026-01-31')).toBe('01/31')
 })
 
 test('rowLayout fills the line exactly, dropping the place when narrow', async () => {
@@ -159,8 +158,8 @@ test('rowLayout fills the line exactly, dropping the place when narrow', async (
 
 test('searches gather on one line per repository, after the full sessions', async () => {
   const repos = groupByRepo(
-    [group('s1', 'slo', 'recall で a を検索', 6), group('i1', 'infra', 'Apply', 300), group('f1', 'slo', 'Fix', 200), group('s2', 'only', 'recall で b', 4)],
-    g => isRecallSearch(g.title, g.msgs),
+    [group('s1', 'slo', 'recall で a を検索', true), group('i1', 'infra', 'Apply', false), group('f1', 'slo', 'Fix', false), group('s2', 'only', 'recall で b', true)],
+    g => g.recallOnly,
   )
   expect(repos.map(r => [r.repo, r.sessions.length, r.searches.length])).toEqual([
     ['infra', 1, 0],
@@ -194,7 +193,7 @@ test('/recall searches this repository through recall and recaps a result', asyn
     const argv = (e as { argv: string[] }).argv
     argvs.push(argv)
     const hits = [
-      cliHit('ssssssss-1', 'me/app', '', 'recall で linkify を検索', 6),
+      cliHit('ssssssss-1', 'me/app', '', 'recall で linkify を検索', 6, true),
       cliHit('aaaaaaaa-1', 'me/app', 'fix', 'Fix the linkify', 10),
       cliHit('current', 'me/app', '', 'now', 3),
     ]
@@ -210,7 +209,7 @@ test('/recall searches this repository through recall and recaps a result', asyn
     $.command.run({ command: 'recall', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
 
   const listed = await run('linkify')
-  expect(argvs[0]).toEqual(['recall', 'search', 'linkify', '--format', 'json', '--limit', '1000', '--repo', '.'])
+  expect(argvs[0]).toEqual(['recall', 'search', '--format', 'json', '--limit', '1000', '--repo', '.', '--', 'linkify'])
   // What the model reads: English, every session but the running one, the
   // recall search after the work session and numbered so.
   expect(listed.text?.includes('"linkify" · 2 sessions · this repository')).toBe(true)
@@ -227,8 +226,11 @@ test('/recall searches this repository through recall and recaps a result', asyn
   } as never)
   expect(await ui.find({ type: 'Text', text: /Fix the linkify/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /10 msgs/ })).toBeDefined()
-  // The recall search is not a row of its own but is on the screen.
-  expect(await ui.find({ type: 'Text', text: /1 recall search {2}ssssssss/ })).toBeDefined()
+  // The recall search is not a row of its own, but its ID is on the screen
+  // and recaps it when pressed.
+  expect(await ui.find({ type: 'Text', text: /1 recall search {2}/ })).toBeDefined()
+  await ui.press({ key: 'refer-ssssssss-1' })
+  expect(ran).toBe(`${RECAP} ssssssss-1`)
   await ui.press({ key: 'refer-aaaaaaaa-1' })
   expect(ran).toBe(`${RECAP} aaaaaaaa-1`)
   await ui.unmount()
@@ -236,6 +238,9 @@ test('/recall searches this repository through recall and recaps a result', asyn
   expect((await run('1')).text).toBe('Recapping aaaaaaaa.')
   await run('linkify --all')
   expect(argvs.at(-1)?.includes('--repo')).toBe(false)
+  // A query that starts with "-" stays a query.
+  await run('-flag')
+  expect(argvs.at(-1)?.slice(-2)).toEqual(['--', '-flag'])
 })
 
 test('pressing an ID without the recap prompt says to update recall', async ($, on) => {
@@ -349,7 +354,7 @@ async function mountBand($: any, until: RegExp) {
   return $.ui.mount(BAND)
 }
 
-const listed = (id: string, title: string, messageCount: number) => ({
+const listed = (id: string, title: string, messageCount: number, recallOnly = false) => ({
   sessionId: id,
   projectPath: '/w/me/app',
   gitBranch: 'main',
@@ -357,6 +362,8 @@ const listed = (id: string, title: string, messageCount: number) => ({
   startedAt: '2026-10-02T09:00:00Z',
   endedAt: '2026-10-02T09:00:00Z',
   title,
+  displayTitle: title,
+  recallOnly,
   repository: 'me/app',
 })
 
@@ -365,7 +372,7 @@ const BAND = { plugin: 'claude-recall', surface: 'terminal', component: 'AbovePr
 test('the band lists the repository\'s work sessions and says how many searches it left out', async ($, on) => {
   const argvs = await startSession($, on, [
     listed('current', 'now', 10),
-    listed('search01', 'recall で uriba を検索', 6),
+    listed('search01', 'recall で uriba を検索', 6, true),
     listed('work0001', 'Fix the deploy', 40),
   ])
   const ui = await mountBand($, /Fix the deploy/)
@@ -432,7 +439,16 @@ test('a standalone recall_search result row draws the tree with the query of its
 })
 
 test('the tree puts sessions that were a recall search on one line', async $ => {
-  const search = { ...MCP_HITS[0], sessionId: '5ea4c400', title: 'recall で uriba を検索', messages: 6, content: 'recall で uriba を検索して', role: 'user' }
+  const search = {
+    ...MCP_HITS[0],
+    sessionId: '5ea4c400',
+    title: 'recall で uriba を検索',
+    displayTitle: 'recall で uriba を検索',
+    recallOnly: true,
+    messages: 6,
+    content: 'recall で uriba を検索して',
+    role: 'user',
+  }
   const ui = await $.ui.mount({
     plugin: 'claude-recall',
     surface: 'terminal',
@@ -448,7 +464,8 @@ test('the tree puts sessions that were a recall search on one line', async $ => 
     },
     viewport: { columns: 120, rows: 40 },
   } as never)
-  expect(await ui.find({ type: 'Text', text: /1 recall search {2}5ea4c400/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /1 recall search {2}/ })).toBeDefined()
+  expect(await ui.find({ key: 'refer-5ea4c400' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /uribaチームの送信先確認/ })).toBeDefined()
   await ui.unmount()
 })

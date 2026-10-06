@@ -1,7 +1,8 @@
 // Pure helpers for the plugin's hooks module: reading what the recall CLI
 // and MCP server return, and laying it out in terminal cells. What a
-// session is (its repository, title, size) comes from recall; nothing here
-// works it out. Nothing here touches `$`.
+// session is (its repository, display title, size, whether it was only a
+// look back) comes from recall; nothing here works it out. Nothing here
+// touches `$`.
 
 import type { ListedSession } from '../types'
 
@@ -17,8 +18,8 @@ export type SearchHit = {
   branch?: string
   startedAt?: string
   date?: string
-  title?: string
-  firstPrompt?: string
+  displayTitle?: string
+  recallOnly?: boolean
   messageCount?: number
   messages?: number
   role: string
@@ -34,6 +35,7 @@ export type HitGroup = {
   date: string
   title: string
   msgs?: number
+  recallOnly: boolean
   hits: SearchHit[]
 }
 
@@ -72,10 +74,9 @@ export function groupHits(hits: SearchHit[]): HitGroup[] {
         worktree: hit.worktree ?? '',
         branch: hit.gitBranch ?? hit.branch ?? '',
         date: hit.startedAt ?? hit.date ?? '',
-        // A session with no stored title (a `claude -p` run, say) is named
-        // by its first prompt, as the TUI names it; failing that, by the hit.
-        title: cleanTitle(hit.title ?? '') || cleanTitle(hit.firstPrompt ?? '') || cleanTitle(hit.content),
+        title: oneLine(hit.displayTitle ?? ''),
         msgs: hit.messageCount ?? hit.messages,
+        recallOnly: hit.recallOnly === true,
         hits: [],
       }
       groups.set(hit.sessionId, g)
@@ -154,13 +155,6 @@ export function placeOf(s: { repository: string; worktree?: string; branch?: str
   return s.worktree ? `${s.repository} (${s.worktree})` : s.repository
 }
 
-// Whether a session looks like it was only a recall search itself (titled
-// "recall で uriba を検索"): such sessions match every later search for the
-// same word. A stopgap guess from the title and the size until the archive
-// can tell which tools a session used.
-export const isRecallSearch = (title: string, msgs: number | undefined) =>
-  /^recall\b/i.test(title) && msgs !== undefined && msgs <= 50
-
 export const shortId = (id: string) => id.slice(0, 8)
 
 export function oneLine(text: string): string {
@@ -211,6 +205,10 @@ export function queryTerms(query: string): string[] {
 }
 
 export function shortDate(iso: string): string {
+  // A date alone (recall_search's `date`) is that day wherever the reader is;
+  // Date.parse would read it as UTC midnight and shift it west of UTC.
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (day) return `${day[2]}/${day[3]}`
   const t = Date.parse(iso)
   if (Number.isNaN(t)) return iso.slice(0, 10)
   const d = new Date(t)
@@ -218,9 +216,10 @@ export function shortDate(iso: string): string {
 }
 
 // The sessions to offer at start, from `recall list --repo .`, newest
-// first, without the running one and one-message stubs. Sessions that look
-// like a recall search are passed over and counted, so the band can say it
-// left them out: `omitted` counts the ones newer than the last session shown.
+// first, without the running one and one-message stubs. Sessions that were
+// only a look back through recall are passed over and counted, so the band
+// can say it left them out: `omitted` counts the ones newer than the last
+// session shown.
 export function previousSessions(
   sessions: ListedSession[],
   currentId: string,
@@ -231,27 +230,11 @@ export function previousSessions(
   for (const s of sessions) {
     if (shown.length === limit) break
     if (s.sessionId === currentId || s.messageCount <= 2) continue
-    if (isRecallSearch(sessionTitle(s), s.messageCount)) omitted++
+    if (s.recallOnly) omitted++
     else shown.push(s)
   }
   return { shown, omitted }
 }
-
-// A title fit for one line: a slash command's record
-// (`<command-name>/x</command-name><command-args>y</command-args>`) reads as
-// `/x y`, and any other markup is dropped.
-export function cleanTitle(text: string): string {
-  const name = /<command-name>([\s\S]*?)<\/command-name>/.exec(text)?.[1]
-  if (name !== undefined) {
-    const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(text)?.[1] ?? ''
-    const cmd = name.trim().startsWith('/') ? name.trim() : `/${name.trim()}`
-    return oneLine(`${cmd} ${args}`)
-  }
-  return oneLine(text.replace(/<[^>]+>/g, ' '))
-}
-
-export const sessionTitle = (s: Pick<ListedSession, 'title' | 'firstPrompt'>) =>
-  cleanTitle(s.title || s.firstPrompt || '') || '(no title)'
 
 // Terminal cells a character takes: two for East Asian wide and fullwidth
 // characters (CJK, kana, hangul, fullwidth forms), one otherwise.
