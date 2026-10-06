@@ -43,13 +43,27 @@ func TestGroupFiles(t *testing.T) {
 }
 
 func TestMiddleEllipsis(t *testing.T) {
-	cases := map[string]string{
-		"internal/tui/view.go":                   "internal/tui/view.go",
-		"internal/very/deep/path/to/the/file.go": "internal/…/the/file.go",
-	}
-	for in, want := range cases {
-		if got := middleEllipsis(in, 24); got != want {
-			t.Errorf("middleEllipsis(%q) = %q, want %q", in, got, want)
+	const deep = "internal/very/deep/path/to/the/file.go"
+	for _, c := range []struct {
+		in   string
+		n    int
+		want string
+	}{
+		{"internal/tui/view.go", 24, "internal/tui/view.go"},
+		{deep, 24, "internal/…/the/file.go"},
+		// More room keeps more directories at the end, then at the start.
+		{deep, 30, "internal/…/path/to/the/file.go"},
+		{deep, 36, "internal/…/deep/path/to/the/file.go"},
+		{"~/src/github.com/me/app/internal", 30, "~/…/github.com/me/app/internal"},
+		{"~/src/github.com/me/app/internal", 26, "~/src/…/me/app/internal"},
+		// Less room drops to the file name, then cuts it.
+		{deep, 18, "internal/…/file.go"},
+		{deep, 12, "…/file.go"},
+		{deep, 5, "…e.go"},
+		{"/Users/me/src/app", 12, "/…/src/app"},
+	} {
+		if got := middleEllipsis(c.in, c.n); got != c.want {
+			t.Errorf("middleEllipsis(%q, %d) = %q, want %q", c.in, c.n, got, c.want)
 		}
 	}
 }

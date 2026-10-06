@@ -82,19 +82,25 @@ func boolInt(b bool) int {
 	return 0
 }
 
-// middleEllipsis shortens a path to n cells by dropping middle directories,
-// keeping the first one and the file name.
+// middleEllipsis shortens a path to n cells by dropping middle directories.
+// It keeps as many directories at the end as fit, then as many at the start,
+// and at least the file name.
 func middleEllipsis(p string, n int) string {
 	if len([]rune(p)) <= n {
 		return p
 	}
 	parts := strings.Split(p, "/")
 	if len(parts) >= 3 {
-		short := parts[0] + "/…/" + strings.Join(parts[len(parts)-2:], "/")
-		if len([]rune(short)) <= n {
-			return short
+		for tail := len(parts) - 2; tail >= 1; tail-- {
+			end := "/…/" + strings.Join(parts[len(parts)-tail:], "/")
+			for head := len(parts) - tail - 1; head >= 1; head-- {
+				short := strings.Join(parts[:head], "/") + end
+				if len([]rune(short)) <= n {
+					return short
+				}
+			}
 		}
-		short = "…/" + parts[len(parts)-1]
+		short := "…/" + parts[len(parts)-1]
 		if len([]rune(short)) <= n {
 			return short
 		}
