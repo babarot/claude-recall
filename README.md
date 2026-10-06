@@ -4,7 +4,7 @@
 
 Recall any past Claude Code session: ask Claude to look into it, or find it yourself and go back to it.
 
-![The recall TUI: looking through sessions, narrowing to a folder and what was said, reading a conversation, and asking Claude](demo/demo.gif)
+![The recall TUI: looking through sessions, narrowing to a folder and what was said, reading a conversation, and asking Claude](demo/tui.gif)
 
 claude-recall archives every Claude Code session into SQLite, including the ones whose JSONL Claude Code has since deleted, and gives you three ways back into them from one binary called `recall`:
 
@@ -86,12 +86,21 @@ A session browser, a chat viewer and search. While it runs, new and changed sess
 
 ### In Claude Code
 
-The [plugin](#claude-code-plugin) carries a Claude Code hooks module (a mod) that draws recall in the session you are working in:
+The [plugin](#claude-code-plugin) carries a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/overview) (a hooks module) that draws recall in the session you are working in.
 
-- When a session starts, the latest sessions of the same repository, its worktrees included, show above the prompt until you send the first prompt.
-- When Claude calls `recall_search`, the result shows as a tree of repositories, sessions (title, message count, date) and the messages that matched, instead of JSON. Claude still reads the JSON.
-- `/recall <query>` searches this repository's sessions on the spot, without a model turn, and shows them as a table; `--all` searches every session. Claude reads the same list, so "read number 2" works next.
-- Pressing a session's ID in any of them, or `/recall <n>`, runs the `recap` prompt on it: Claude reads where that session ended, sums up what was done, decided and left, and asks how to go on.
+When a session starts, the latest sessions of the same repository, its worktrees included, show above the prompt until you send the first prompt or command.
+
+![Starting Claude Code in a repository: the band above the prompt lists the sessions that last ran there](demo/claude-band.gif)
+
+When Claude calls `recall_search`, the result shows as a tree of repositories, sessions (title, message count, date) and the messages that matched, instead of JSON. Claude still reads the JSON.
+
+![Asking Claude to look something up with recall: the recall_search result drawn as a tree, then Claude's answer](demo/claude-search.gif)
+
+`/recall <query>` searches this repository's sessions on the spot, without a model turn, and shows them as a table; `--all` searches every session. Claude reads the same list, so "read number 2" works next.
+
+![/recall searching this repository, then every repository with --all](demo/claude-command.gif)
+
+Pressing a session's ID in any of them, or `/recall <n>`, runs the `recap` prompt on it: Claude reads where that session ended, sums up what was done, decided and left, and asks how to go on.
 
 Sessions that only looked back through recall (a search for a word, a recap) are put together on one line instead of a row each; their IDs can still be pressed. The words are English, or Japanese when Claude Code's `language` setting is Japanese.
 
@@ -270,7 +279,7 @@ go run ./cmd/recall ui --foreground
 
 Work against a copy of the archive (`sqlite3 ~/.claude/vault.db ".backup '/tmp/vault-copy.db'"`), not the live file.
 
-After a change to how the TUI looks, re-record the demo GIF with `make demo` (see [demo/README.md](demo/README.md)).
+After a change to how the TUI looks, re-record its GIF with `make demo-tui`; after a change to what the plugin draws in Claude Code, `make demo-claude` (see [demo/README.md](demo/README.md)).
 
 For the plugin's hooks module, `claude --plugin-dir plugin` loads it from the checkout and reloads it as you edit, and `claude plugin test plugin` runs its tests (see [docs/plugin.md](docs/plugin.md#developing)).
 

@@ -1,6 +1,6 @@
-# Records demo/demo.gif from the demo `make demo` builds (see demo/README.md).
+# Records demo/tui.gif from the demo `make demo-tui` builds (see demo/README.md).
 
-Output demo/demo.gif
+Output demo/tui.gif
 
 Set Shell "bash"
 # Recorded at twice the size the README shows it, so the text stays sharp.

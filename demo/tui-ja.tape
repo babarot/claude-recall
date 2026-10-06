@@ -1,11 +1,11 @@
-# Records the Japanese demo, demo/ja/demo.gif, from the demo `make demo-ja`
+# Records the Japanese demo, demo/ja/tui.gif, from the demo `make demo-tui-ja`
 # builds (see demo/README.md). It is not committed; make it when you need it.
 
-Output demo/ja/demo.gif
+Output demo/ja/tui.gif
 
 Set Shell "bash"
 # IBM Plex Mono, with IBM Plex Sans JP for the Japanese it does not have,
-# sized for the same 115 columns and about 36 rows as demo.tape.
+# sized for the same 115 columns and about 36 rows as tui.tape.
 Set FontFamily "IBM Plex Mono, IBM Plex Sans JP"
 Set FontSize 24
 Set Width 1800
