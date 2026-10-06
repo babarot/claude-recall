@@ -8,7 +8,7 @@
 | `SessionEnd` hook | `hooks/hooks.json` | Runs `recall import` when a session ends |
 | Hooks module | `hooks/hooks.json` (`modules`), `hooks/register.tsx`, `hooks/recall.ts`, `hooks/i18n.ts` | Draws recall in the session and adds `/recall` |
 
-The README's [In Claude Code](../README.md#in-claude-code) says what the hooks module shows. This page is how it does it.
+The README's [In Claude Code](../README.md#in-claude-code) says what the hooks module (what Claude Code calls a mod) shows. This page is how it does it.
 
 ## Which layer decides what
 

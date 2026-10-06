@@ -310,3 +310,155 @@ test('a group of recall_search calls, with the ToolSearch before them, unfolds',
   await (await mount([call, { ...call, tool: 'Read' }])).unmount().catch(() => {})
   expect(expanded).toBe(false)
 })
+
+// Starts a session the way Claude Code does, with recall answering from
+// `sessions`, and returns the argv recall was run with. Everything beneath
+// the plugin is answered here, before the test first calls $; a drawing the
+// plugin passes on is answered with the text "engine".
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function startSession($: any, on: any, sessions: unknown[], language?: string) {
+  mock.clock(on, { now: Date.parse('2026-10-02T12:00:00Z') })
+  const argvs: string[][] = []
+  on('session.start', (_$: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
+  on('session.id', () => ({ value: 'current' }))
+  on('command.register', () => ({ value: { command: 'recall' } }))
+  on('settings.read', () => ({ value: language ? { language } : {} }))
+  on('prompt.submit', (_$: unknown, e: { text: string }) => ({ text: e.text }))
+  on('process.run', (_$: unknown, e: { argv: string[] }) => {
+    argvs.push(e.argv)
+    return { value: { exitCode: 0, stdout: JSON.stringify(sessions), stderr: '' } }
+  })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on('ui.render', ($e: any, e: any) => h($e.ui.resolve(e).Text, {}, 'engine'))
+  await $.session.start({ cwd: '/w/me/app', surface: 'terminal', isInteractive: true })
+  return argvs
+}
+
+// The band once its sessions are in: they are listed after the session
+// starts, without holding it, so the drawing is tried until it shows them.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function mountBand($: any, until: RegExp) {
+  for (let i = 0; i < 50; i++) {
+    const ui = await $.ui.mount(BAND)
+    if (await ui.find({ type: 'Text', text: until })) return ui
+    await ui.unmount()
+    await new Promise<void>(resolve =>
+      (globalThis as unknown as { setTimeout: (f: () => void, ms: number) => void }).setTimeout(() => resolve(), 20),
+    )
+  }
+  return $.ui.mount(BAND)
+}
+
+const listed = (id: string, title: string, messageCount: number) => ({
+  sessionId: id,
+  projectPath: '/w/me/app',
+  gitBranch: 'main',
+  messageCount,
+  startedAt: '2026-10-02T09:00:00Z',
+  endedAt: '2026-10-02T09:00:00Z',
+  title,
+  repository: 'me/app',
+})
+
+const BAND = { plugin: 'claude-recall', surface: 'terminal', component: 'AbovePrompt', props: { bodyColumns: 120 } } as const
+
+test('the band lists the repository\'s work sessions and says how many searches it left out', async ($, on) => {
+  const argvs = await startSession($, on, [
+    listed('current', 'now', 10),
+    listed('search01', 'recall で uriba を検索', 6),
+    listed('work0001', 'Fix the deploy', 40),
+  ])
+  const ui = await mountBand($, /Fix the deploy/)
+  expect(argvs[0]).toEqual(['recall', 'list', '--repo', '.', '--format', 'json', '--limit', '50'])
+  expect(await ui.find({ type: 'Text', text: /Pick up where you left off/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Fix the deploy/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /1 recall search left out/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /recall で uriba/ })).toBe(undefined)
+  await ui.unmount()
+})
+
+test('the band goes once the first prompt is sent', async ($, on) => {
+  await startSession($, on, [listed('work0001', 'Fix the deploy', 40)])
+  await (await mountBand($, /Fix the deploy/)).unmount()
+  await $.prompt.submit({ text: 'hello', wait: false, origin: { kind: 'composer' } } as never)
+  const ui = await $.ui.mount(BAND as never)
+  expect(await ui.find({ type: 'Text', text: /Fix the deploy/ })).toBe(undefined)
+  expect(await ui.find({ type: 'Text', text: /engine/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('drawings use Japanese when the language setting is Japanese', async ($, on) => {
+  await startSession($, on, [listed('work0001', 'Fix the deploy', 40)], 'japanese')
+  const band = await mountBand($, /Fix the deploy/)
+  expect(await band.find({ type: 'Text', text: /前回の続き/ })).toBeDefined()
+  await band.unmount()
+  const ui = await $.ui.mount({
+    plugin: 'claude-recall',
+    surface: 'terminal',
+    component: 'ToolUse',
+    props: {
+      tool_use_id: 'tj',
+      tool: SEARCH_TOOL,
+      input: { query: 'uriba' },
+      isRunning: false,
+      isErrored: false,
+      isInterrupted: false,
+      output: [{ type: 'text', text: JSON.stringify(MCP_HITS) }],
+    },
+    viewport: { columns: 120, rows: 40 },
+  } as never)
+  expect(await ui.find({ type: 'Text', text: /1 セッション · 1 件/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a standalone recall_search result row draws the tree with the query of its call', async ($, on) => {
+  on('tool.call', () => ({ result: [] }) as never)
+  await $.tool.call({ tool: SEARCH_TOOL, query: 'uriba' } as never).catch(() => {})
+  const ui = await $.ui.mount({
+    plugin: 'claude-recall',
+    surface: 'terminal',
+    component: 'ToolResult',
+    props: {
+      tool_use_id: 'standalone',
+      tool: SEARCH_TOOL,
+      output: [{ type: 'text', text: JSON.stringify(MCP_HITS) }],
+      isErrored: false,
+    },
+    viewport: { columns: 120, rows: 40 },
+  } as never)
+  expect(await ui.find({ type: 'Text', text: /1 session · 1 hit/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /uribaチームの送信先確認/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('the tree puts sessions that were a recall search on one line', async $ => {
+  const search = { ...MCP_HITS[0], sessionId: '5ea4c400', title: 'recall で uriba を検索', messages: 6, content: 'recall で uriba を検索して', role: 'user' }
+  const ui = await $.ui.mount({
+    plugin: 'claude-recall',
+    surface: 'terminal',
+    component: 'ToolUse',
+    props: {
+      tool_use_id: 't4',
+      tool: SEARCH_TOOL,
+      input: { query: 'uriba' },
+      isRunning: false,
+      isErrored: false,
+      isInterrupted: false,
+      output: [{ type: 'text', text: JSON.stringify([...MCP_HITS, search]) }],
+    },
+    viewport: { columns: 120, rows: 40 },
+  } as never)
+  expect(await ui.find({ type: 'Text', text: /1 recall search {2}5ea4c400/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /uribaチームの送信先確認/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('/recall says how to use it, an unknown number and a failed search', async ($, on) => {
+  on('session.id', () => ({ value: 'current' }) as never)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: 'boom\n' } }) as never)
+  const run = (args: string) =>
+    $.command.run({ command: 'recall', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
+  expect((await run('')).text).toBe('Usage: /recall <query> [--all] | /recall <n>')
+  expect((await run('9')).text).toBe('There is no result 9. Search first with /recall <query>.')
+  expect((await run('uriba')).text).toBe('recall search failed: boom')
+})
