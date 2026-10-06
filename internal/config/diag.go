@@ -64,7 +64,7 @@ type report struct {
 func (r *report) Unwrap() error { return r.problems }
 
 func (r *report) Error() string {
-	shown := tildePath(r.path)
+	shown := TildePath(r.path)
 	lines := strings.Split(string(r.src), "\n")
 	// Each where it is, top to bottom; one not in the file goes first.
 	type placed struct {
@@ -102,8 +102,8 @@ func (r *report) Error() string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// tildePath writes a path under the home directory with ~.
-func tildePath(p string) string {
+// TildePath writes a path under the home directory with ~.
+func TildePath(p string) string {
 	if h := homeDir(); strings.HasPrefix(p, h+string(os.PathSeparator)) {
 		return "~" + p[len(h):]
 	}

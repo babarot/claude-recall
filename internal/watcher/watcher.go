@@ -1,5 +1,6 @@
-// Package watcher keeps the archive in step with ~/.claude/projects while
-// the web UI or the MCP server runs (see docs/adr/002).
+// Package watcher keeps the archive in step with ~/.claude/projects, and the
+// other transcript trees the config file lists, while the web UI or the MCP
+// server runs (see docs/adr/002).
 //
 // It polls file sizes and modification times instead of using filesystem
 // notifications: on macOS, fsnotify's kqueue backend needs an open file
@@ -12,6 +13,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,21 +32,26 @@ const (
 
 // Status is the watcher state reported by /api/status.
 type Status struct {
-	Enabled      bool   `json:"enabled"`
-	Running      bool   `json:"running"`
-	ProjectsDir  string `json:"projectsDir"`
-	DebounceMs   int    `json:"debounceMs"`
-	LastEventAt  string `json:"lastEventAt,omitempty"`
-	LastImportAt string `json:"lastImportAt,omitempty"`
-	LastError    string `json:"lastError,omitempty"`
-	LastErrorAt  string `json:"lastErrorAt,omitempty"`
+	Enabled bool `json:"enabled"`
+	Running bool `json:"running"`
+	// ProjectsDir is the primary tree; ProjectsDirs every tree watched, the
+	// primary first, and MissingDirs those not found at the last look.
+	ProjectsDir  string   `json:"projectsDir"`
+	ProjectsDirs []string `json:"projectsDirs"`
+	MissingDirs  []string `json:"missingDirs,omitempty"`
+	DebounceMs   int      `json:"debounceMs"`
+	LastEventAt  string   `json:"lastEventAt,omitempty"`
+	LastImportAt string   `json:"lastImportAt,omitempty"`
+	LastError    string   `json:"lastError,omitempty"`
+	LastErrorAt  string   `json:"lastErrorAt,omitempty"`
 }
 
 // Watcher imports changed transcripts.
 type Watcher struct {
-	DB          *db.DB
-	ProjectsDir string
-	Debounce    time.Duration
+	DB *db.DB
+	// ProjectsDirs are the transcript trees, the primary one first.
+	ProjectsDirs []string
+	Debounce     time.Duration
 	// OnImport is called after a new or changed session was imported.
 	OnImport func(*importer.Result)
 	Log      io.Writer
@@ -76,13 +84,24 @@ type fileState struct {
 	mtime time.Time
 }
 
-// scan lists the transcripts by path as Discover finds them, so symlinks
-// are followed as the importer follows them.
-func scan(dir string) map[string]fileState {
-	files := parser.Discover(dir)
+// scan lists the transcripts of every tree, by path, as Discover finds
+// them, so symlinks are followed as the importer follows them.
+func scan(dirs []string) (map[string]fileState, []parser.File) {
+	files := parser.Discover(dirs...)
 	out := make(map[string]fileState, len(files))
 	for _, f := range files {
 		out[f.Path] = fileState{size: f.Size, mtime: f.ModTime}
+	}
+	return out, files
+}
+
+// missing are the trees of dirs that are not there.
+func missing(dirs []string) []string {
+	var out []string
+	for _, d := range dirs {
+		if fi, err := os.Stat(d); err != nil || !fi.IsDir() {
+			out = append(out, d)
+		}
 	}
 	return out
 }
@@ -96,26 +115,41 @@ func (w *Watcher) Run(ctx context.Context) {
 	if w.Log == nil {
 		w.Log = os.Stderr
 	}
+	dirs := w.ProjectsDirs
+	primary := ""
+	if len(dirs) > 0 {
+		primary = dirs[0]
+	}
 	w.update(func(s *Status) {
-		*s = Status{Enabled: true, ProjectsDir: w.ProjectsDir, DebounceMs: int(w.Debounce / time.Millisecond)}
+		*s = Status{Enabled: true, ProjectsDir: primary, ProjectsDirs: dirs, DebounceMs: int(w.Debounce / time.Millisecond)}
 	})
 
-	fi, err := os.Stat(w.ProjectsDir)
+	// A tree that is not there yet, as a container's before it first runs,
+	// is looked for again on every tick; with none there, nothing is.
+	gone := missing(dirs)
 	switch {
-	case err != nil:
-		w.fail(w.ProjectsDir + " not found")
-		fmt.Fprintf(w.Log, "[watcher] %s not found; watcher disabled.\n", w.ProjectsDir)
+	case len(dirs) == 1 && len(gone) == 1:
+		if _, err := os.Stat(primary); err != nil {
+			w.fail(primary + " not found")
+			fmt.Fprintf(w.Log, "[watcher] %s not found; watcher disabled.\n", primary)
+		} else {
+			w.fail(primary + " is not a directory")
+			fmt.Fprintf(w.Log, "[watcher] %s is not a directory; watcher disabled.\n", primary)
+		}
 		return
-	case !fi.IsDir():
-		w.fail(w.ProjectsDir + " is not a directory")
-		fmt.Fprintf(w.Log, "[watcher] %s is not a directory; watcher disabled.\n", w.ProjectsDir)
+	case len(gone) == len(dirs):
+		w.fail("none of " + strings.Join(dirs, ", ") + " found")
+		fmt.Fprintf(w.Log, "[watcher] none of %s found; watcher disabled.\n", strings.Join(dirs, ", "))
 		return
 	}
+	for _, d := range gone {
+		fmt.Fprintf(w.Log, "[watcher] %s not found; watching the others.\n", d)
+	}
 
-	w.update(func(s *Status) { s.Running = true })
+	w.update(func(s *Status) { s.Running, s.MissingDirs = true, gone })
 	defer w.update(func(s *Status) { s.Running = false })
 
-	seen := scan(w.ProjectsDir)
+	seen, _ := scan(dirs)
 	pending := map[string]time.Time{} // path -> time of the last change
 	tick := time.NewTicker(pollInterval)
 	defer tick.Stop()
@@ -125,7 +159,11 @@ func (w *Watcher) Run(ctx context.Context) {
 			return
 		case <-tick.C:
 		}
-		current := scan(w.ProjectsDir)
+		current, files := scan(dirs)
+		if m := missing(dirs); !slices.Equal(m, gone) {
+			gone = m
+			w.update(func(s *Status) { s.MissingDirs = gone })
+		}
 		changed := false
 		for path, st := range current {
 			if old, ok := seen[path]; !ok || old != st {
@@ -142,9 +180,27 @@ func (w *Watcher) Run(ctx context.Context) {
 				continue
 			}
 			delete(pending, path)
-			w.importFile(path)
+			w.importSession(path, files)
 		}
 	}
+}
+
+// importSession imports the session of the transcript at path that
+// changed: its copy the importer would choose, when it is in more than one
+// tree, so a change to an older copy never replaces a newer one.
+func (w *Watcher) importSession(path string, files []parser.File) {
+	i := slices.IndexFunc(files, func(f parser.File) bool { return f.Path == path })
+	if i < 0 {
+		return // removed since
+	}
+	id := files[i].SessionID
+	var copies []parser.File
+	for _, f := range files {
+		if f.SessionID == id {
+			copies = append(copies, f)
+		}
+	}
+	w.importFile(parser.Choose(copies)[0].Path)
 }
 
 func (w *Watcher) importFile(path string) {

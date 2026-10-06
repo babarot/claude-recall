@@ -14,6 +14,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/parser"
 )
@@ -150,17 +151,31 @@ func atob(s string) ([]byte, error) {
 
 // Options selects what Run imports.
 type Options struct {
-	ProjectsDir string
-	Session     string // a session ID or its prefix
-	Project     string // case-insensitive substring of the project dir name
-	DryRun      bool
+	// ProjectsDirs are the transcript trees, the primary one first.
+	ProjectsDirs []string
+	Session      string // a session ID or its prefix
+	Project      string // case-insensitive substring of the project dir name
+	DryRun       bool
 }
 
 // Run imports every transcript that matches opts and prints a summary. d
 // may be nil for a dry run. A session that fails to import does not stop the
 // others; Run reports how many failed and returns the first error.
 func Run(vault *db.DB, opts Options, w io.Writer) error {
-	all := parser.Discover(opts.ProjectsDir)
+	found := parser.Discover(opts.ProjectsDirs...)
+	if len(opts.ProjectsDirs) > 1 {
+		for i, files := range parser.Trees(opts.ProjectsDirs, found) {
+			dir := opts.ProjectsDirs[i]
+			if _, err := os.Stat(dir); err != nil {
+				fmt.Fprintf(w, "%s: not found\n", config.TildePath(dir))
+				continue
+			}
+			fmt.Fprintf(w, "%s: %d session files\n", config.TildePath(dir), len(files))
+		}
+	}
+	// One file per session before narrowing, so --session never picks a
+	// copy the full import would not.
+	all := parser.Choose(found)
 	targets := all
 	switch {
 	case opts.Session != "":
@@ -187,7 +202,7 @@ func Run(vault *db.DB, opts Options, w io.Writer) error {
 	if opts.DryRun {
 		fmt.Fprintf(w, "Would import %d session files:\n", len(targets))
 		for _, t := range targets[:min(20, len(targets))] {
-			fmt.Fprintf(w, "  %s (%s)\n", t.SessionID, t.Project)
+			fmt.Fprintf(w, "  %s (%s)%s\n", t.SessionID, t.Project, whereFrom(t, found, opts.ProjectsDirs))
 		}
 		if len(targets) > 20 {
 			fmt.Fprintf(w, "  ... and %d more\n", len(targets)-20)
@@ -197,19 +212,23 @@ func Run(vault *db.DB, opts Options, w io.Writer) error {
 
 	fmt.Fprintf(w, "Syncing %d sessions...\n", len(targets))
 
-	var order []string
-	byProject := map[string][]parser.File{}
+	// sessions-index.json is per project directory, which two trees can
+	// both have.
+	type projectDir struct{ tree, project string }
+	var order []projectDir
+	byProject := map[projectDir][]parser.File{}
 	for _, t := range targets {
-		if _, ok := byProject[t.Project]; !ok {
-			order = append(order, t.Project)
+		k := projectDir{t.Dir, t.Project}
+		if _, ok := byProject[k]; !ok {
+			order = append(order, k)
 		}
-		byProject[t.Project] = append(byProject[t.Project], t)
+		byProject[k] = append(byProject[k], t)
 	}
 
 	var imported, messages, unchanged, skipped, failed int
 	var firstErr error
 	for _, project := range order {
-		index := parser.LoadIndex(filepath.Join(opts.ProjectsDir, project))
+		index := parser.LoadIndex(filepath.Join(project.tree, project.project))
 		for _, f := range byProject[project] {
 			r, err := ImportFile(vault, f.Path, index[f.SessionID])
 			if err != nil {
@@ -243,4 +262,27 @@ func Run(vault *db.DB, opts Options, w io.Writer) error {
 	}
 	fmt.Fprintln(w, strings.Join(parts, " "))
 	return firstErr
+}
+
+// whereFrom says, for a dry run, which tree a file outside the primary is
+// in, and which copies of its session in other trees it was chosen over.
+func whereFrom(f parser.File, found []parser.File, dirs []string) string {
+	var out string
+	if len(dirs) > 0 && f.Dir != dirs[0] {
+		out = "  in " + config.TildePath(f.Dir)
+	}
+	var over []string
+	for _, o := range found {
+		if o.SessionID == f.SessionID && o.Path != f.Path {
+			over = append(over, config.TildePath(o.Dir))
+		}
+	}
+	if len(over) > 0 {
+		sep := "  "
+		if out != "" {
+			sep = ", "
+		}
+		out += sep + "chosen over the copy in " + strings.Join(over, " and ")
+	}
+	return out
 }

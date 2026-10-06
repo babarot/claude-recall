@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 )
 
 // put writes tree/project/id.jsonl and returns its path.
@@ -68,6 +69,27 @@ func TestDiscoverFollowsSymlinks(t *testing.T) {
 	}
 	// elsewhere holds the same two files: listed once, where first reached.
 	got = ids(Discover(root, elsewhere))
+	if !slices.Equal(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestChoose(t *testing.T) {
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	f := func(dir, id string, mtime time.Duration, size int64) File {
+		return File{Dir: dir, SessionID: id, ModTime: at.Add(mtime), Size: size}
+	}
+	files := []File{
+		f("primary", "older-here", 0, 10), f("primary", "newer-here", time.Minute, 10),
+		f("primary", "tie-size", 0, 10), f("primary", "tie", 0, 10), f("primary", "alone", 0, 1),
+		f("extra", "older-here", time.Minute, 10), f("extra", "newer-here", 0, 10),
+		f("extra", "tie-size", 0, 20), f("extra", "tie", 0, 10),
+	}
+	var got []string
+	for _, c := range Choose(files) {
+		got = append(got, c.Dir+"|"+c.SessionID)
+	}
+	want := []string{"primary|newer-here", "primary|tie", "primary|alone", "extra|older-here", "extra|tie-size"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}

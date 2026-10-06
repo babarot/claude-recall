@@ -3,8 +3,11 @@ package watcher
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -56,7 +59,7 @@ func TestWatcherImportsNewAndChangedTranscripts(t *testing.T) {
 	defer d.Close()
 
 	rec := &recorder{}
-	w := &Watcher{DB: d, ProjectsDir: projects, Debounce: 50 * time.Millisecond, OnImport: rec.add}
+	w := &Watcher{DB: d, ProjectsDirs: []string{projects}, Debounce: 50 * time.Millisecond, OnImport: rec.add}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { w.Run(ctx); close(done) }()
@@ -91,10 +94,66 @@ func TestWatcherImportsNewAndChangedTranscripts(t *testing.T) {
 }
 
 func TestWatcherMissingDirectory(t *testing.T) {
-	w := &Watcher{ProjectsDir: filepath.Join(t.TempDir(), "nope"), Log: os.Stderr}
+	w := &Watcher{ProjectsDirs: []string{filepath.Join(t.TempDir(), "nope")}, Log: os.Stderr}
 	w.Run(context.Background())
 	st := w.Status()
 	if st.Running || st.LastError == "" || !st.Enabled {
 		t.Fatalf("status %+v", st)
+	}
+}
+
+// A tree that is not there does not stop the others being watched, and is
+// imported from once it appears, as a container's is after its first run.
+func TestWatcherTrees(t *testing.T) {
+	primary, extra := t.TempDir(), filepath.Join(t.TempDir(), "extra")
+	d, err := db.Open(filepath.Join(t.TempDir(), "vault.db"), db.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	rec := &recorder{}
+	w := &Watcher{DB: d, ProjectsDirs: []string{primary, extra}, Debounce: 50 * time.Millisecond, OnImport: rec.add, Log: io.Discard}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { w.Run(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+	for !w.Status().Running {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if st := w.Status(); st.ProjectsDir != primary || !slices.Equal(st.ProjectsDirs, []string{primary, extra}) || !slices.Equal(st.MissingDirs, []string{extra}) {
+		t.Fatalf("status %+v", st)
+	}
+
+	dir := filepath.Join(extra, "-workspace")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "s1.jsonl"), []byte(userLine("s1", "u1", "in the container")), 0o644)
+	if got := rec.wait(t, 1); got[0].SessionID != "s1" || got[0].Status != importer.New {
+		t.Fatalf("%+v", got[0])
+	}
+	if st := w.Status(); len(st.MissingDirs) != 0 {
+		t.Fatalf("status %+v", st)
+	}
+
+	// An older copy of s1 in the primary tree changing does not replace the
+	// newer one in the archive.
+	stale := filepath.Join(primary, "-workspace", "s1.jsonl")
+	os.MkdirAll(filepath.Dir(stale), 0o755)
+	os.WriteFile(stale, []byte(userLine("s1", "u0", "stale")), 0o644)
+	past := time.Now().Add(-time.Hour)
+	os.Chtimes(stale, past, past)
+	time.Sleep(400 * time.Millisecond)
+	msgs, err := d.SessionMessages("s1")
+	if err != nil || len(msgs) != 1 || msgs[0].Content != "in the container" {
+		t.Fatalf("%+v %v", msgs, err)
+	}
+}
+
+func TestWatcherNoTrees(t *testing.T) {
+	var log strings.Builder
+	w := &Watcher{ProjectsDirs: []string{filepath.Join(t.TempDir(), "a"), filepath.Join(t.TempDir(), "b")}, Log: &log}
+	w.Run(context.Background())
+	if st := w.Status(); st.Running || !strings.HasPrefix(st.LastError, "none of ") || !strings.Contains(log.String(), "watcher disabled") {
+		t.Fatalf("status %+v, log %q", st, log.String())
 	}
 }

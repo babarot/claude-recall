@@ -90,7 +90,7 @@ func Archive(t testing.TB) string {
 		t.Fatal(err)
 	}
 	defer d.Close()
-	if err := importer.Run(d, importer.Options{ProjectsDir: Projects(t)}, &strings.Builder{}); err != nil {
+	if err := importer.Run(d, importer.Options{ProjectsDirs: []string{Projects(t)}}, &strings.Builder{}); err != nil {
 		t.Fatal(err)
 	}
 	return path

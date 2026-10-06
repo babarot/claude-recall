@@ -3,6 +3,7 @@ package parser
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -75,4 +76,44 @@ func isDir(path string, e os.DirEntry) bool {
 	}
 	fi, err := os.Stat(path)
 	return err == nil && fi.IsDir()
+}
+
+// Choose keeps one file per session, for a session whose transcript is in
+// more than one tree: the one written last, as the archive mirrors the
+// current transcript; on a tie the larger, then the one in the earlier
+// tree. The files keep their order.
+func Choose(files []File) []File {
+	best := map[string]int{}
+	for i, f := range files {
+		j, ok := best[f.SessionID]
+		if !ok || better(f, files[j]) {
+			best[f.SessionID] = i
+		}
+	}
+	out := make([]File, 0, len(best))
+	for i, f := range files {
+		if best[f.SessionID] == i {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// better reports whether a, found after b, wins over it.
+func better(a, b File) bool {
+	if c := a.ModTime.Compare(b.ModTime); c != 0 {
+		return c > 0
+	}
+	return a.Size > b.Size
+}
+
+// Trees are the files Discover found, by tree, in the order of dirs.
+func Trees(dirs []string, files []File) [][]File {
+	out := make([][]File, len(dirs))
+	for _, f := range files {
+		if i := slices.Index(dirs, f.Dir); i >= 0 {
+			out[i] = append(out[i], f)
+		}
+	}
+	return out
 }

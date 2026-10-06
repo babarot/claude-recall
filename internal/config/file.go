@@ -114,6 +114,11 @@ type Core struct {
 	// DB is the archive database: an absolute path or one starting with ~/.
 	// Empty means DefaultDBPath.
 	DB string `toml:"db"`
+	// ExtraProjectsDirs are transcript trees read beside ProjectsDir, such
+	// as the projects directory of a Claude Code run in a container whose
+	// config directory is bind-mounted from the host: each absolute or
+	// starting with ~/.
+	ExtraProjectsDirs []string `toml:"extra_projects_dirs"`
 }
 
 // UI configures the web UI.
@@ -176,6 +181,41 @@ func (f File) DBPath() string {
 	return f.Core.DB
 }
 
+// ProjectsDirs are the transcript trees to read: ProjectsDir first, then
+// the extra ones in the order the file lists them, with ~/ expanded. An
+// extra tree that is ProjectsDir under another name is left out, so listing
+// ~/.claude/projects does no harm when CLAUDE_CONFIG_DIR moves the primary.
+func (f File) ProjectsDirs() []string {
+	dirs := []string{ProjectsDir()}
+	for _, d := range f.Core.ExtraProjectsDirs {
+		d = expandHome(d)
+		if !slices.ContainsFunc(dirs, func(seen string) bool { return sameDir(seen, d) }) {
+			dirs = append(dirs, d)
+		}
+	}
+	return dirs
+}
+
+// expandHome expands a leading ~/ and cleans the path.
+func expandHome(p string) string {
+	if strings.HasPrefix(p, "~/") {
+		p = filepath.Join(homeDir(), p[2:])
+	}
+	return filepath.Clean(p)
+}
+
+// sameDir reports whether a and b are one directory: the same file when
+// both exist, which sees through symlinks and bind mounts, or else the
+// same path.
+func sameDir(a, b string) bool {
+	ai, aerr := os.Stat(a)
+	bi, berr := os.Stat(b)
+	if aerr == nil && berr == nil {
+		return os.SameFile(ai, bi)
+	}
+	return filepath.Clean(a) == filepath.Clean(b)
+}
+
 // FilePath returns the config file location, honoring XDG_CONFIG_HOME.
 func FilePath() string {
 	dir := os.Getenv("XDG_CONFIG_HOME")
@@ -194,6 +234,12 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # The archive database, for every command, the MCP server and the web UI,
 # unless --db says otherwise: an absolute path or one starting with ~/.
 # db = "~/.claude/vault.db"
+# Transcript trees to import, search and watch beside ~/.claude/projects (or
+# $CLAUDE_CONFIG_DIR/projects): the projects directory of each, absolute or
+# starting with ~/, such as "~/containers/claude/projects" for Claude Code
+# run in a container whose config directory is bind-mounted from the host.
+# claude -r does not read them; c recalls their sessions in a new claude.
+# extra_projects_dirs = []
 
 [ui]
 # Where the web UI (recall ui) listens, and where recall ui stop and
@@ -336,9 +382,29 @@ func LoadCore(path string) (File, error) {
 		return File{}, Report(path, decodeProblems(err))
 	}
 	cfg = File{Core: doc.Core, UI: doc.UI, TUI: doc.TUI, Keys: keysFrom(doc.Keys)}
+	if len(cfg.Core.ExtraProjectsDirs) == 0 {
+		cfg.Core.ExtraProjectsDirs = nil // [] is the default, no trees
+	}
 	var ps Problems
 	if db := cfg.Core.DB; db != "" && !strings.HasPrefix(db, "~/") && !filepath.IsAbs(db) {
 		ps = append(ps, problem("core.db", "core.db must be an absolute path or start with ~/, got %q", db))
+	}
+	var listed []string
+	for i, d := range cfg.Core.ExtraProjectsDirs {
+		bad := func(format string, args ...any) {
+			ps = append(ps, Problem{Key: []string{"core", "extra_projects_dirs"}, Index: i,
+				Message: fmt.Sprintf("core.extra_projects_dirs[%d] ", i) + fmt.Sprintf(format, args...)})
+		}
+		switch {
+		case d == "":
+			bad("must not be empty")
+		case !strings.HasPrefix(d, "~/") && !filepath.IsAbs(d):
+			bad("must be an absolute path or start with ~/, got %q", d)
+		case slices.Contains(listed, expandHome(d)):
+			bad("%q is already listed", d)
+		default:
+			listed = append(listed, expandHome(d))
+		}
 	}
 	if p := cfg.UI.Port; p < 1 || p > 65535 {
 		ps = append(ps, problem("ui.port", "ui.port must be between 1 and 65535, got %d", p))

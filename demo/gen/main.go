@@ -71,7 +71,7 @@ func build(root, envPath string, lang language, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	err = importer.Run(d, importer.Options{ProjectsDir: projects}, os.Stdout)
+	err = importer.Run(d, importer.Options{ProjectsDirs: []string{projects}}, os.Stdout)
 	d.Close()
 	if err != nil {
 		return err

@@ -25,7 +25,7 @@ func newServer(t *testing.T) *Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { d.Close() })
-	return New(d, "")
+	return New(d)
 }
 
 func get(t *testing.T, s *Server, path string) *httptest.ResponseRecorder {
