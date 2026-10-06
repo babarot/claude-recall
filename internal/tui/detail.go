@@ -641,6 +641,14 @@ func (m Model) detailsGrid(r *row, d *db.Detail, inner int) ([]string, bool) {
 	if inner < total {
 		return nil, false
 	}
+	// Where is the last column: the cells left over go to it, so the
+	// branch and the ID are cut only as far as they still have to be.
+	if room := inner - (total - widths[2]) - 8; room > 20 {
+		where[1] = kv(8, "Branch", m.st.dim.Render(ansi.Truncate(r.s.GitBranch, room, ellipsis)))
+		if len(r.s.ID) <= room {
+			where[2] = kv(8, "ID", m.st.id.Render(r.s.ID))
+		}
+	}
 	lines := make([]string, len(when))
 	for i := range lines {
 		for j, col := range cols {

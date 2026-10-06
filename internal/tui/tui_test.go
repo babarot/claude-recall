@@ -630,6 +630,40 @@ func TestFolderPathKeepsTheName(t *testing.T) {
 	}
 }
 
+// The Where column takes the cells the grid leaves over: a long branch and
+// the ID show whole when there is room, and are cut as before when not.
+func TestDetailsGridGivesWhereTheRoom(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	r := *m.current()
+	r.s.GitBranch = "worktree/green-valley-of-a-long-branch"
+	where := func(inner int) (string, bool) {
+		lines, ok := m.detailsGrid(&r, nil, inner)
+		return ansi.Strip(strings.Join(lines, "\n")), ok
+	}
+	narrowest := 0
+	for inner := 1; inner < 200; inner++ {
+		if _, ok := where(inner); ok {
+			narrowest = inner
+			break
+		}
+	}
+	if narrowest == 0 {
+		t.Fatal("the grid never fits")
+	}
+	s, _ := where(narrowest)
+	if !strings.Contains(s, "Branch  worktree/green-vall…\n") || !strings.Contains(s, "ID      bbbbbbbb\n") {
+		t.Errorf("at %d cells the branch and the ID should be cut as before:\n%s", narrowest, s)
+	}
+	s, _ = where(narrowest + 10)
+	if !strings.Contains(s, "Branch  worktree/green-valley-of-a-lo…") || !strings.Contains(s, "ID      bbbbbbbb-2222") {
+		t.Errorf("10 more cells should go to the branch and the ID:\n%s", s)
+	}
+	s, _ = where(200)
+	if !strings.Contains(s, "Branch  "+r.s.GitBranch) || !strings.Contains(s, "ID      bbbbbbbb-2222") {
+		t.Errorf("a wide grid should not cut the branch or the ID:\n%s", s)
+	}
+}
+
 func TestNarrowDetailsStack(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 90, 40)
 	// Too narrow for three columns: the groups stack instead.
