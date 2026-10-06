@@ -7,6 +7,7 @@ import "time"
 // they are. Only the two sessions the demo opens by mistake say セッション,
 // so the filter in tui-ja.tape finds those two and not the fix.
 var japanese = language{
+	setting:  "japanese",
 	read:     []string{"まず %s を見てみます。", "%s でどう扱っているか確認します。", "%s を読みます。"},
 	edit:     []string{"%s を修正します。", "%s に変更を入れます。", "続けて %s を直します。"},
 	bash:     []string{"`%s` を実行します。", "`%s` で確認します。", "`%s` で確かめます。"},

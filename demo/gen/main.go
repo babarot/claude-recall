@@ -97,7 +97,7 @@ func build(root, envPath string, lang language, claudeVersion, apiAddr string, n
 		"claude/.claude.json":              claudeJSON,
 		// The demo answers its one question without asking: recall's tools
 		// run with no permission prompt.
-		"claude/settings.json": claudeSettings,
+		"claude/settings.json": claudeSettings(lang.setting),
 		envPath: fmt.Sprintf(`# Sourced by the demo tapes: a shell that sees only the demo.
 # Started from inside Claude Code, the shell would hand its session to the
 # claude it runs; it starts a session of its own.
@@ -137,13 +137,17 @@ export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 // approved in the demo's config so Claude Code does not ask about it.
 const demoAPIKey = "sk-ant-api03-claude-recall-demo-not-a-real-key-0000"
 
-// claudeSettings is the demo's Claude Code settings: recall's tools allowed.
-const claudeSettings = `{
-  "permissions": {
-    "allow": ["mcp__plugin_claude-recall_claude-recall__recall_search", "mcp__plugin_claude-recall_claude-recall__recall_export"]
-  }
+// claudeSettings is the demo's Claude Code settings: recall's tools allowed,
+// and the language setting when there is one.
+func claudeSettings(language string) string {
+	settings := map[string]any{"permissions": map[string]any{"allow": []string{
+		"mcp__plugin_claude-recall_claude-recall__recall_search", "mcp__plugin_claude-recall_claude-recall__recall_export"}}}
+	if language != "" {
+		settings["language"] = language
+	}
+	b, _ := json.MarshalIndent(settings, "", "  ")
+	return string(b) + "\n"
 }
-`
 
 // claudeConfig is the Claude Code config (CLAUDE_CONFIG_DIR/.claude.json)
 // of the demo: first-run setup and the release notes of claudeVersion done,

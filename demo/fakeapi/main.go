@@ -5,7 +5,7 @@
 // needs no login and costs nothing.
 //
 // It answers one conversation: asked with recall_search among the tools, it
-// calls it for "token" in this repository (loading it through ToolSearch
+// calls it for "token" (with -lang ja, "トークン") in this repository (loading it through ToolSearch
 // first when Claude Code defers it), then sums up what came back. A request
 // with no tools (the session's title) gets a short title. A streamed reply
 // waits a moment before it starts and comes a few words at a time, as a
@@ -26,11 +26,31 @@ import (
 	"time"
 )
 
-const (
-	searchQuery = "token"
-	answer      = "Two sessions in this repository worked on token refresh. c2088111 fixed the race when concurrent requests refreshed at once, and af2ef85b added tests for it under load."
-	title       = "Token refresh"
+// conversation is what the demo's one conversation says in a language: the
+// query Claude searches recall for, its answer, and the session's title.
+// The IDs in the answer are those demo/gen gives the sessions in that
+// language.
+type conversation struct {
+	query, answer, title string
+}
 
+var conversations = map[string]conversation{
+	"en": {
+		query:  "token",
+		answer: "Two sessions in this repository worked on token refresh. c2088111 fixed the race when concurrent requests refreshed at once, and af2ef85b added tests for it under load.",
+		title:  "Token refresh",
+	},
+	"ja": {
+		query:  "トークン",
+		answer: "このリポジトリでトークン更新を扱ったセッションは 2 つあります。1cbb19fb で同時リクエストがトークンを同時に更新する競合を直し、fd646ba0 で負荷をかけたときのテストを足しました。",
+		title:  "トークン更新",
+	},
+}
+
+// talk is the conversation of -lang.
+var talk conversation
+
+const (
 	loadID   = "toolu_demo_load"
 	searchID = "toolu_demo_search"
 )
@@ -75,7 +95,12 @@ func wait(lo, hi int) {
 func main() {
 	addr := flag.String("addr", "127.0.0.1:47123", "address to listen on")
 	flag.Float64Var(&pace.scale, "pace", 1, "how long replies take, against a model's (0 answers at once)")
+	lang := flag.String("lang", "en", "language of the conversation: en or ja, as demo/gen's -lang")
 	flag.Parse()
+	var ok bool
+	if talk, ok = conversations[*lang]; !ok {
+		log.Fatalf("unknown -lang %q: en or ja", *lang)
+	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/messages/count_tokens"):
@@ -117,17 +142,17 @@ func reply(req request) ([]block, string) {
 	answered := toolResults(req)
 	switch {
 	case len(req.Tools) == 0:
-		return []block{{Type: "text", Text: title}}, "end_turn"
+		return []block{{Type: "text", Text: talk.title}}, "end_turn"
 	case answered[searchID]:
-		return []block{{Type: "text", Text: answer}}, "end_turn"
+		return []block{{Type: "text", Text: talk.answer}}, "end_turn"
 	case search != "":
 		return []block{{Type: "tool_use", ID: searchID, Name: search,
-			Input: map[string]any{"query": searchQuery, "repo": "."}}}, "tool_use"
+			Input: map[string]any{"query": talk.query, "repo": "."}}}, "tool_use"
 	case hasToolSearch && !answered[loadID]:
 		return []block{{Type: "tool_use", ID: loadID, Name: "ToolSearch",
 			Input: map[string]any{"query": "select:mcp__plugin_claude-recall_claude-recall__recall_search", "max_results": 1}}}, "tool_use"
 	}
-	return []block{{Type: "text", Text: answer}}, "end_turn"
+	return []block{{Type: "text", Text: talk.answer}}, "end_turn"
 }
 
 // toolResults is the IDs of the tool calls the conversation has answered.
@@ -195,10 +220,17 @@ func stream(w http.ResponseWriter, blocks []block, stop string, paced bool) {
 	event("message_stop", map[string]any{"type": "message_stop"})
 }
 
-// pieces splits text into runs of a word or two, the size a model streams.
+// pieces splits text into runs of a word or two, the size a model streams;
+// text with few spaces, as Japanese, into runs of a few characters.
 func pieces(text string) []string {
 	var out []string
 	words := strings.SplitAfter(text, " ")
+	if runes := []rune(text); len(words) < len(runes)/10 {
+		for i := 0; i < len(runes); i += 4 {
+			out = append(out, string(runes[i:min(i+4, len(runes))]))
+		}
+		return out
+	}
 	for i := 0; i < len(words); i += 2 {
 		out = append(out, strings.Join(words[i:min(i+2, len(words))], ""))
 	}

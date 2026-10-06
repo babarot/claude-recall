@@ -26,10 +26,11 @@ A new Claude Code version may bring a notice or a first-run screen of its own, o
 
 ## Japanese
 
-The TUI demo with the conversations and the question to Claude in Japanese:
+The demos with the conversations, the question to Claude and the searches in Japanese:
 
 ```bash
 make demo-tui-ja
+make demo-claude-ja
 ```
 
-It writes `demo/ja/tui.gif`, which is not committed. The sessions are in `gen/scenario_ja.go`, with the code, commands and paths as in English. `tui-ja.tape` records them in IBM Plex Mono and IBM Plex Sans JP, which have to be installed (`brew install --cask font-ibm-plex-mono font-ibm-plex-sans-jp`).
+They write `demo/ja/tui.gif` and `demo/ja/claude-*.gif`, which are not committed. The sessions are in `gen/scenario_ja.go`, with the code, commands and paths as in English. For the Claude Code demo, `gen -lang ja` sets Claude Code's `language` to Japanese, which the plugin's drawings follow, and `fakeapi -lang ja` searches for and answers in Japanese; Claude Code's own words stay English. The `-ja` tapes record them in IBM Plex Mono and IBM Plex Sans JP, which have to be installed (`brew install --cask font-ibm-plex-mono font-ibm-plex-sans-jp`).

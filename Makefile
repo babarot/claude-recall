@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := build
 
-.PHONY: build install ui test clean demo-tui demo-tui-ja demo-claude
+.PHONY: build install ui test clean demo-tui demo-tui-ja demo-claude demo-claude-ja
 
 # The web UI is built with npm and embedded into the binary (build tag
 # embedui). A plain `go build ./cmd/recall` works too; it leaves the UI out.
@@ -44,13 +44,24 @@ demo-tui-ja:
 CLAUDE ?= $(shell command -v claude)
 DEMO_API ?= 127.0.0.1:47123
 demo-claude:
+	$(call demo-claude,en,)
+
+# The same in Japanese, to demo/ja/claude-*.gif (not committed).
+demo-claude-ja:
+	mkdir -p demo/ja
+	$(call demo-claude,ja,-ja)
+
+# demo-claude records the three tapes with conversations in $(1), from
+# demo/claude-<scene>$(2).tape.
+define demo-claude
 	@test -n "$(CLAUDE)" || { echo "demo-claude needs Claude Code: set CLAUDE or put claude on PATH" >&2; exit 1; }
 	go build -o demo/.out/bin/recall ./cmd/recall
 	go build -o demo/.out/fakeapi ./demo/fakeapi
 	go build -o demo/.out/gen ./demo/gen
-	demo/.out/fakeapi -addr $(DEMO_API) & api=$$!; trap 'kill $$api' EXIT; \
+	demo/.out/fakeapi -addr $(DEMO_API) -lang $(1) & api=$$!; trap 'kill $$api' EXIT; \
 	  export RECALL_DEMO_CLAUDE="$(CLAUDE)" RECALL_DEMO_PLUGIN="$(CURDIR)/plugin"; \
 	  version=$$("$(CLAUDE)" --version | cut -d' ' -f1); \
 	  for scene in band search command; do \
-	    demo/.out/gen -api $(DEMO_API) -claude-version "$$version" >/dev/null && vhs demo/claude-$$scene.tape || exit 1; \
+	    demo/.out/gen -lang $(1) -api $(DEMO_API) -claude-version "$$version" >/dev/null && vhs demo/claude-$$scene$(2).tape || exit 1; \
 	  done
+endef
