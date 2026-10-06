@@ -10,7 +10,8 @@ import (
 )
 
 // c recalls the selected session in a new claude, for a session claude -r
-// cannot resume (its folder or transcript is gone): a box over the screen
+// cannot resume (its folder or transcript is gone, or the transcript is in
+// a tree claude -r does not read): a box over the screen
 // takes what to recall about it, empty for where it left off, then the TUI
 // quits and the caller starts claude in the folder recall was started in,
 // asking it to recall the session through recall's MCP server.

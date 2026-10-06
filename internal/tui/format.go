@@ -22,6 +22,9 @@ type row struct {
 	// noTranscript is set when Claude Code has deleted the session's JSONL
 	// transcript, which claude -r reads.
 	noTranscript bool
+	// transcriptDir is the extra tree (extra_projects_dirs) the transcript
+	// is in, which claude -r does not read; empty for the primary tree.
+	transcriptDir string
 	// group is the folder the list narrows by: the repository, worktrees
 	// included, or the directory outside git; groupName is how it shows.
 	group, groupName string
@@ -30,8 +33,14 @@ type row struct {
 }
 
 // resumable reports whether claude -r can resume the session: its folder
-// and its transcript are both still there.
-func (r *row) resumable() bool { return !r.gone && !r.noTranscript }
+// and its transcript are both still there, the transcript where claude -r
+// reads it.
+func (r *row) resumable() bool { return !r.gone && !r.noTranscript && r.transcriptDir == "" }
+
+// removed reports whether the session's folder is shown as removed. A
+// folder missing for a session whose transcript is in another tree, as a
+// container's, was most likely never on this host.
+func (r *row) removed() bool { return r.gone && r.transcriptDir == "" }
 
 func newRow(s db.Session, home string, wt *worktree.Resolver) row {
 	r := row{s: s, title: displayTitle(s)}
