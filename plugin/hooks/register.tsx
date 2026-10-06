@@ -74,6 +74,10 @@ async function resumeSession($: EngineInterface, id: string) {
   await $.command.run({ command: recap.name, args: id })
 }
 
+async function hideBand($: EngineInterface) {
+  if (!(await read($, isBandHidden))) await update($, isBandHidden, () => true)
+}
+
 // Not awaited: the turn starts once the session is idle, and a command or a
 // press waiting on it would hold the session until then. A failure is said
 // in a toast rather than lost.
@@ -310,8 +314,15 @@ export const register: Register = on => {
     return started
   })
 
+  // The band goes once the person does anything: a prompt, or a slash
+  // command (which is not a prompt, so needs a hook of its own).
   on('prompt.submit', async ($, e, next) => {
-    if (!(await read($, isBandHidden))) await update($, isBandHidden, () => true)
+    await hideBand($)
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
+  on('command.run', async ($, e, next) => {
+    await hideBand($)
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -443,6 +454,7 @@ export const register: Register = on => {
   // the model also reads (so "read number 2" works next), in English; the
   // terminal draws the same result as a table.
   on('command.run', { command: 'recall' }, async ($, e) => {
+    await hideBand($)
     const args = e.args.trim()
     if (args === '') return { text: `Usage: /${e.command} <query> [--all] | /${e.command} <n>` }
 

@@ -394,6 +394,15 @@ test('the band goes once the first prompt is sent', async ($, on) => {
   await ui.unmount()
 })
 
+test('the band goes once a slash command runs', async ($, on) => {
+  await startSession($, on, [listed('work0001', 'Fix the deploy', 40)])
+  await (await mountBand($, /Fix the deploy/)).unmount()
+  await $.command.run({ command: 'recall', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
+  const ui = await $.ui.mount(BAND as never)
+  expect(await ui.find({ type: 'Text', text: /Fix the deploy/ })).toBe(undefined)
+  await ui.unmount()
+})
+
 test('drawings use Japanese when the language setting is Japanese', async ($, on) => {
   await startSession($, on, [listed('work0001', 'Fix the deploy', 40)], 'japanese')
   const band = await mountBand($, /Fix the deploy/)
