@@ -68,7 +68,7 @@ It runs signed in as you, a Claude plan included, so recall needs no API key. It
 
 ## Recalling in a new claude
 
-`claude -r` cannot resume a session whose folder is gone, such as one in a removed worktree, or whose transcript Claude Code has deleted (after `cleanupPeriodDays`, 30 days by default). Its `enter resume` in the footer is struck through, and `Enter` says why and names this key. `c` recalls any session instead: recall quits and starts a new claude in the folder recall was started in, with recall's MCP server, asking it to recall the session, the way you would ask in a session yourself:
+`claude -r` cannot resume a session whose folder is gone, such as one in a removed worktree, whose transcript Claude Code has deleted (after `cleanupPeriodDays`, 30 days by default), or whose transcript is in a tree listed in `extra_projects_dirs`, such as a container's, which `claude -r` does not read. Such a session's folder, the container's, is not struck through as removed when it is not on this host; its Path says `not on this host`. Its `enter resume` in the footer is struck through, and `Enter` says why and names this key. `c` recalls any session instead: recall quits and starts a new claude in the folder recall was started in, with recall's MCP server, asking it to recall the session, the way you would ask in a session yourself:
 
 ```console
 claude "Use the recall tools to recall session <id> ..." \
