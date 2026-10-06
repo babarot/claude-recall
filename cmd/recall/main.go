@@ -29,6 +29,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/mcp"
+	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/tui"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/watcher"
@@ -74,10 +75,10 @@ func run(args []string, stdout, stderr io.Writer) error {
 // options are the flags of every subcommand, each defined only on the
 // commands it applies to.
 type options struct {
-	db, session, project, format, from, to, output string
-	limit, port                                    int
-	dryRun, foreground                             bool
-	limitSet                                       bool
+	db, session, project, repo, format, from, to, output string
+	limit, port                                          int
+	dryRun, foreground, substring                        bool
+	limitSet                                             bool
 }
 
 // limitArg is the --limit given, or nil to use the command's default.
@@ -180,6 +181,8 @@ Run without a command, it opens the TUI.`,
 	searchLimit := limit(searchCmd, 20, "max results")
 	searchCmd.Flags().StringVar(&o.from, "from", "", "start date (YYYY-MM-DD)")
 	searchCmd.Flags().StringVar(&o.to, "to", "", "end date (YYYY-MM-DD)")
+	searchCmd.Flags().BoolVar(&o.substring, "substring", false, "match anywhere in the text, newest first (Japanese and other unspaced text always is)")
+	searchCmd.Flags().StringVar(&o.repo, "repo", "", "limit to the repository a directory is in, its worktrees included")
 	searchFormat := format(searchCmd, "text", "json")
 	searchCmd.RunE = func(c *cobra.Command, args []string) error {
 		searchLimit()
@@ -195,6 +198,7 @@ Run without a command, it opens the TUI.`,
 		Args:  cobra.NoArgs,
 	}
 	project(listCmd, "filter by project")
+	listCmd.Flags().StringVar(&o.repo, "repo", "", "limit to the repository a directory is in, its worktrees included")
 	listLimit := limit(listCmd, 50, "max sessions")
 	listFormat := format(listCmd, "text", "json")
 	listCmd.RunE = func(c *cobra.Command, _ []string) error {
@@ -333,12 +337,50 @@ func runImport(o *options, stdout io.Writer) error {
 	return importer.Run(d, opts, stdout)
 }
 
+// searchJSON is a search result as `search --format json` prints it: the
+// message, then the repository its session belongs to.
+type searchJSON struct {
+	db.SearchResult
+	Repository string `json:"repository"`
+	Worktree   string `json:"worktree,omitempty"`
+}
+
+// listJSON is a session as `list --format json` prints it.
+type listJSON struct {
+	db.ListedSession
+	Repository string `json:"repository"`
+	Worktree   string `json:"worktree,omitempty"`
+}
+
+// repoIndex resolves the archive's repositories when the output or --repo
+// needs them; nil otherwise, which costs nothing.
+func repoIndex(o *options, d *db.DB) (*repos.Index, error) {
+	if o.repo == "" && o.format != "json" {
+		return nil, nil
+	}
+	return repos.Load(d)
+}
+
+// repoPaths is --repo as the directories to narrow to, or nil without it.
+func repoPaths(o *options, idx *repos.Index) []string {
+	if o.repo == "" {
+		return nil
+	}
+	return idx.PathsIn(o.repo)
+}
+
 func runSearch(o *options, query string, stdout io.Writer) error {
 	d, err := openRead(o)
 	if err != nil {
 		return err
 	}
-	results, err := d.Search(query, db.SearchOptions{Project: o.project, Limit: o.limitArg(), From: o.from, To: o.to})
+	idx, err := repoIndex(o, d)
+	if err != nil {
+		d.Close()
+		return err
+	}
+	results, err := d.Search(query, db.SearchOptions{Project: o.project, Limit: o.limitArg(), From: o.from, To: o.to,
+		Substring: o.substring, ProjectPaths: repoPaths(o, idx)})
 	d.Close()
 	if err != nil {
 		return err
@@ -348,7 +390,12 @@ func runSearch(o *options, query string, stdout io.Writer) error {
 		return nil
 	}
 	if o.format == "json" {
-		return cli.WriteJSON(stdout, results)
+		out := make([]searchJSON, len(results))
+		for i, r := range results {
+			repo := idx.Of(deref(r.ProjectPath))
+			out[i] = searchJSON{SearchResult: r, Repository: repo.Name, Worktree: repo.Worktree}
+		}
+		return cli.WriteJSON(stdout, out)
 	}
 	cli.Search(stdout, results)
 	return nil
@@ -359,7 +406,12 @@ func runList(o *options, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	sessions, err := d.ListSessions(db.ListOptions{Project: o.project, Limit: o.limitArg()})
+	idx, err := repoIndex(o, d)
+	if err != nil {
+		d.Close()
+		return err
+	}
+	sessions, err := d.ListSessions(db.ListOptions{Project: o.project, Limit: o.limitArg(), ProjectPaths: repoPaths(o, idx)})
 	d.Close()
 	if err != nil {
 		return err
@@ -369,7 +421,12 @@ func runList(o *options, stdout io.Writer) error {
 		return nil
 	}
 	if o.format == "json" {
-		return cli.WriteJSON(stdout, sessions)
+		out := make([]listJSON, len(sessions))
+		for i, s := range sessions {
+			repo := idx.Of(deref(s.ProjectPath))
+			out[i] = listJSON{ListedSession: s, Repository: repo.Name, Worktree: repo.Worktree}
+		}
+		return cli.WriteJSON(stdout, out)
 	}
 	cli.List(stdout, sessions)
 	return nil
@@ -634,4 +691,11 @@ func recallSession(self []string, r tui.Recall) error {
 		return errors.New("claude is not on PATH")
 	}
 	return syscall.Exec(claude, append([]string{"claude"}, tui.RecallArgs(self, r)...), os.Environ())
+}
+
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }

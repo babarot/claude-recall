@@ -322,3 +322,72 @@ func TestDetailCountsUseACoveringIndex(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchMatchesJapaneseAsSubstring(t *testing.T) {
+	d := newTestDB(t)
+	seedSession(t, d, "s1", "p", "/home/user/p")
+	seedMessage(t, d, "s1", "m1", "user", "SLO のロード時間を見たい", "2026-01-01T00:00:00Z", 0)
+	seedMessage(t, d, "s1", "m2", "assistant", "ロード時間の p95 は 2 秒です", "2026-01-02T00:00:00Z", 1)
+	seedMessage(t, d, "s1", "m3", "user", "100% と 50_000 件", "2026-01-03T00:00:00Z", 2)
+
+	// Japanese is matched as a substring without asking: FTS5 indexes
+	// "ロード時間を" as one token, so it would find nothing.
+	for _, opts := range []SearchOptions{{}, {Substring: true}} {
+		r := search(t, d, "ロード", opts)
+		if len(r) != 2 || r[0].Content != "ロード時間の p95 は 2 秒です" {
+			t.Fatalf("%+v: want both messages, newest first, got %+v", opts, r)
+		}
+	}
+	if r := search(t, d, `"ロード"`, SearchOptions{}); len(r) != 2 {
+		t.Fatalf("a quoted Japanese phrase is matched without its quotes, got %+v", r)
+	}
+	if r := search(t, d, "ロード OR p95", SearchOptions{}); len(r) != 1 {
+		t.Fatalf("a query with an FTS5 operator stays FTS5, got %+v", r)
+	}
+	if r := search(t, d, "%", SearchOptions{Substring: true}); len(r) != 1 {
+		t.Fatalf("%% should be literal, got %+v", r)
+	}
+	if r := search(t, d, "ロード", SearchOptions{Substring: true, Project: "other"}); len(r) != 0 {
+		t.Fatalf("project filter should apply, got %+v", r)
+	}
+}
+
+func TestSearchAndListNarrowToProjectPaths(t *testing.T) {
+	d := newTestDB(t)
+	seedSession(t, d, "s1", "a", "/work/repo")
+	seedSession(t, d, "s2", "b", "/wt/repo/feature")
+	seedSession(t, d, "s3", "c", "/work/other")
+	for _, id := range []string{"s1", "s2", "s3"} {
+		seedMessage(t, d, id, "m-"+id, "user", "deploy the service", ts, 0)
+	}
+	repo := []string{"/work/repo", "/wt/repo/feature"}
+
+	r := search(t, d, "deploy", SearchOptions{ProjectPaths: repo})
+	if len(r) != 2 {
+		t.Fatalf("search: want the two sessions of the repository, got %+v", r)
+	}
+	if r := search(t, d, "deploy", SearchOptions{ProjectPaths: []string{}}); len(r) != 0 {
+		t.Fatalf("search: an empty list narrows to nothing, got %+v", r)
+	}
+	ls, err := d.ListSessions(ListOptions{ProjectPaths: repo})
+	if err != nil || len(ls) != 2 {
+		t.Fatalf("list: want 2 sessions, got %+v (%v)", ls, err)
+	}
+	paths, err := d.ProjectPaths()
+	if err != nil || len(paths) != 3 {
+		t.Fatalf("ProjectPaths = %v (%v)", paths, err)
+	}
+}
+
+func TestSearchCarriesTitleAndMessageCount(t *testing.T) {
+	d := newTestDB(t)
+	seedSession(t, d, "s1", "p", "/home/user/p")
+	if _, err := d.sql.Exec(`UPDATE sessions SET title = 'Fix the deploy', message_count = 7 WHERE session_id = 's1'`); err != nil {
+		t.Fatal(err)
+	}
+	seedMessage(t, d, "s1", "m1", "user", "deploy terraform", ts, 0)
+	r := search(t, d, "deploy", SearchOptions{})
+	if len(r) != 1 || r[0].Title == nil || *r[0].Title != "Fix the deploy" || r[0].MessageCount == nil || *r[0].MessageCount != 7 {
+		t.Fatalf("got %+v", r)
+	}
+}

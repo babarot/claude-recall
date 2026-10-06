@@ -19,18 +19,24 @@ func slice(p *string, n int) *string {
 }
 
 // SearchHit is a search result. The MCP tool shortens the session ID to 8
-// characters; the web API keeps it whole.
+// characters; the web API keeps it whole. The session's title, its message
+// count and, where the caller resolves it, its repository follow.
 type SearchHit struct {
-	SessionID string  `json:"sessionId"`
-	Project   string  `json:"project"`
-	Branch    *string `json:"branch"`
-	Date      *string `json:"date,omitempty"`
-	Role      string  `json:"role"`
-	Content   string  `json:"content"`
+	SessionID  string  `json:"sessionId"`
+	Project    string  `json:"project"`
+	Branch     *string `json:"branch"`
+	Date       *string `json:"date,omitempty"`
+	Role       string  `json:"role"`
+	Content    string  `json:"content"`
+	Title      *string `json:"title,omitempty"`
+	Messages   *int64  `json:"messages"`
+	Repository string  `json:"repository,omitempty"`
+	Worktree   string  `json:"worktree,omitempty"`
 }
 
-// SearchHits converts search results.
-func SearchHits(results []db.SearchResult, shortID bool) []SearchHit {
+// SearchHits converts search results. repoOf, when not nil, names the
+// repository and worktree of a session directory.
+func SearchHits(results []db.SearchResult, shortID bool, repoOf func(projectPath string) (repo, worktree string)) []SearchHit {
 	out := make([]SearchHit, len(results))
 	for i, r := range results {
 		id := r.SessionID
@@ -38,7 +44,10 @@ func SearchHits(results []db.SearchResult, shortID bool) []SearchHit {
 			id = jscompat.Slice(id, 8)
 		}
 		out[i] = SearchHit{SessionID: id, Project: cli.DisplayProject(r.ProjectPath, r.Project), Branch: r.GitBranch,
-			Date: slice(r.StartedAt, 10), Role: r.Role, Content: r.Content}
+			Date: slice(r.StartedAt, 10), Role: r.Role, Content: r.Content, Title: r.Title, Messages: r.MessageCount}
+		if repoOf != nil && r.ProjectPath != nil {
+			out[i].Repository, out[i].Worktree = repoOf(*r.ProjectPath)
+		}
 	}
 	return out
 }
@@ -90,6 +99,9 @@ type ExportMessage struct {
 type Export struct {
 	Session  *SessionHeader  `json:"session"`
 	Messages []ExportMessage `json:"messages"`
+	// Omitted counts the earlier messages a tail left out; absent when the
+	// result holds them all.
+	Omitted int `json:"omitted,omitempty"`
 }
 
 // ExportError is recall_export's result for an unknown session.
@@ -97,12 +109,18 @@ type ExportError struct {
 	Error string `json:"error"`
 }
 
-// ExportResult converts an exported session for recall_export.
-func ExportResult(id string, s *db.ExportedSession, msgs []db.ExportedMessage) any {
+// ExportResult converts an exported session for recall_export. A tail above
+// zero keeps only that many of the last messages.
+func ExportResult(id string, s *db.ExportedSession, msgs []db.ExportedMessage, tail int) any {
 	if s == nil {
 		return ExportError{Error: "Session not found: " + id}
 	}
-	out := Export{Session: header(s), Messages: make([]ExportMessage, len(msgs))}
+	omitted := 0
+	if tail > 0 && tail < len(msgs) {
+		omitted = len(msgs) - tail
+		msgs = msgs[omitted:]
+	}
+	out := Export{Session: header(s), Messages: make([]ExportMessage, len(msgs)), Omitted: omitted}
 	for i, m := range msgs {
 		out.Messages[i] = ExportMessage{Role: m.Role, Content: m.Content}
 	}

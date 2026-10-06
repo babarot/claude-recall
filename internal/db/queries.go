@@ -31,6 +31,9 @@ type ListOptions struct {
 	Project string
 	Limit   *int // nil means 50
 	Offset  int
+	// ProjectPaths, when not nil, keeps the sessions run in one of these
+	// directories, as SearchOptions.ProjectPaths does.
+	ProjectPaths []string
 }
 
 // ListSessions returns sessions, most recently active first.
@@ -39,10 +42,24 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	if opts.Limit != nil {
 		limit = *opts.Limit
 	}
-	where, args := "", []any{}
+	var conds []string
+	args := []any{}
 	if opts.Project != "" {
-		where = "WHERE (project LIKE ? OR project_path LIKE ?)"
+		conds = append(conds, "(project LIKE ? OR project_path LIKE ?)")
 		args = append(args, "%"+opts.Project+"%", "%"+opts.Project+"%")
+	}
+	if opts.ProjectPaths != nil {
+		if len(opts.ProjectPaths) == 0 {
+			return []ListedSession{}, nil
+		}
+		conds = append(conds, "project_path IN (?"+strings.Repeat(", ?", len(opts.ProjectPaths)-1)+")")
+		for _, p := range opts.ProjectPaths {
+			args = append(args, p)
+		}
+	}
+	where := ""
+	if len(conds) > 0 {
+		where = "WHERE " + strings.Join(conds, " AND ")
 	}
 	args = append(args, limit, opts.Offset)
 	title := "NULLIF(title, '')"
@@ -313,4 +330,22 @@ func (d *DB) GetImage(sessionID, messageUUID string, index int) (mediaType strin
 		return "", nil, false, err
 	}
 	return mediaType, data, true, nil
+}
+
+// ProjectPaths returns every directory a session ran in, each once.
+func (d *DB) ProjectPaths() ([]string, error) {
+	rows, err := d.sql.Query(`SELECT DISTINCT project_path FROM sessions WHERE project_path IS NOT NULL AND project_path != ''`)
+	if err != nil {
+		return nil, fmt.Errorf("project paths: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, fmt.Errorf("project paths: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }

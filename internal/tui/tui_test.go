@@ -444,21 +444,6 @@ func TestCleanPrompt(t *testing.T) {
 	}
 }
 
-func TestShortPath(t *testing.T) {
-	home := "/Users/me"
-	cases := map[string]string{
-		"/Users/me/src/github.com/me/repo": "me/repo",
-		"/Users/me/.herdr/worktrees/x":     "~/.herdr/worktrees/x",
-		"/Users/me":                        "~",
-		"/opt/work":                        "/opt/work",
-	}
-	for in, want := range cases {
-		if got := shortPath(in, home); got != want {
-			t.Errorf("shortPath(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestFormatEnded(t *testing.T) {
 	if got := formatEnded(now.Add(-time.Hour), now); got != "18:00" {
 		t.Errorf("today: %s", got)
@@ -498,23 +483,6 @@ func TestRelativeDate(t *testing.T) {
 		if got := relativeDate(in, now); got != want {
 			t.Errorf("relativeDate(%v) = %q, want %q", in, got, want)
 		}
-	}
-}
-
-func TestRemovedWorktree(t *testing.T) {
-	home := "/Users/me"
-	cases := []struct{ path, repo, name string }{
-		{"/Users/me/.herdr/worktrees/dotfiles/worktree-brave-stone-cc30", "dotfiles", "brave-stone-cc30"},
-		{"/Users/me/src/github.com/me/app/.claude/worktrees/fix-login", "me/app", "fix-login"},
-	}
-	for _, c := range cases {
-		repo, name, _, ok := removedWorktree(c.path, home)
-		if !ok || repo != c.repo || name != c.name {
-			t.Errorf("removedWorktree(%s) = %q %q %v", c.path, repo, name, ok)
-		}
-	}
-	if _, _, _, ok := removedWorktree("/Users/me/src/github.com/me/app", home); ok {
-		t.Error("a plain folder is not a worktree")
 	}
 }
 

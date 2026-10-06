@@ -6,6 +6,10 @@
         "session_id": {
           "description": "Session ID (full UUID or prefix). Get this from recall_search or recall_list results.",
           "type": "string"
+        },
+        "tail": {
+          "description": "Return only the last N messages, for a long session; omitted in the result counts the earlier ones left out. Default: all",
+          "type": "number"
         }
       },
       "required": [
@@ -33,7 +37,7 @@
     "name": "recall_list"
   },
   {
-    "description": "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions.",
+    "description": "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count and repository. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
     "inputSchema": {
       "properties": {
         "from": {

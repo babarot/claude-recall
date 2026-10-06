@@ -5,6 +5,8 @@
     "branch": "feature/login",
     "date": "2026-04-02",
     "role": "user",
-    "content": "Fix the login bug where the session cookie expires early"
+    "content": "Fix the login bug where the session cookie expires early",
+    "messages": 3,
+    "repository": "/work/api"
   }
 ]

@@ -1,0 +1,16 @@
+{
+  "session": {
+    "sessionId": "22222222-aaaa-4bbb-8ccc-000000000002",
+    "project": "/work/api",
+    "branch": "feature/login",
+    "date": "2026-04-02",
+    "summary": null
+  },
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "The cookie max age was set in seconds where milliseconds were expected; fixed in auth/cookie.go."
+    }
+  ],
+  "omitted": 2
+}
