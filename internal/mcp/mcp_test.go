@@ -110,6 +110,7 @@ func TestResults(t *testing.T) {
 		{"list-project", "recall_list", map[string]any{"project": "app"}},
 		{"export", "recall_export", map[string]any{"session_id": fixture.APISession[:4]}},
 		{"export-missing", "recall_export", map[string]any{"session_id": "ffff"}},
+		{"export-tail", "recall_export", map[string]any{"session_id": fixture.APISession[:4], "tail": 1}},
 		{"stats", "recall_stats", map[string]any{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -191,5 +192,36 @@ func TestLimit(t *testing.T) {
 		if got := count(tc.tool, tc.a); got != tc.want {
 			t.Errorf("%s %v: got %d, want %d", tc.tool, tc.a, got, tc.want)
 		}
+	}
+}
+
+// The prompt is part of the interface too: its name and argument.
+func TestRecapPrompt(t *testing.T) {
+	cs := connect(t, openDB(t, fixture.Archive(t)))
+	ctx := context.Background()
+	list, err := cs.ListPrompts(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Prompts) != 1 || list.Prompts[0].Name != "recap" ||
+		len(list.Prompts[0].Arguments) != 1 || list.Prompts[0].Arguments[0].Name != "session_id" {
+		b, _ := json.Marshal(list.Prompts)
+		t.Fatalf("prompts: %s", b)
+	}
+
+	r, err := cs.GetPrompt(ctx, &mcp.GetPromptParams{Name: "recap", Arguments: map[string]string{"session_id": "ef7eecb9"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Messages) != 1 || r.Messages[0].Role != "user" {
+		t.Fatalf("messages: %+v", r.Messages)
+	}
+	if tc, ok := r.Messages[0].Content.(*mcp.TextContent); !ok || !strings.Contains(tc.Text, "ef7eecb9") || !strings.Contains(tc.Text, "recall_export") ||
+		!strings.Contains(tc.Text, "tail 40") || !strings.Contains(tc.Text, "ask the user") {
+		t.Fatalf("content: %+v", r.Messages[0].Content)
+	}
+
+	if _, err := cs.GetPrompt(ctx, &mcp.GetPromptParams{Name: "recap", Arguments: map[string]string{"session_id": " "}}); err == nil {
+		t.Fatal("an empty session_id should be refused")
 	}
 }

@@ -5,7 +5,9 @@
     "branch": "main",
     "date": "2026-03-01",
     "role": "user",
-    "content": "How do I configure the terraform module for staging?"
+    "content": "How do I configure the terraform module for staging?",
+    "messages": 4,
+    "repository": "/work/app"
   },
   {
     "sessionId": "11111111",
@@ -13,7 +15,9 @@
     "branch": "main",
     "date": "2026-03-01",
     "role": "assistant",
-    "content": "Use a separate workspace so the terraform state of production stays apart."
+    "content": "Use a separate workspace so the terraform state of production stays apart.",
+    "messages": 4,
+    "repository": "/work/app"
   },
   {
     "sessionId": "11111111",
@@ -21,6 +25,8 @@
     "branch": "main",
     "date": "2026-03-01",
     "role": "assistant",
-    "content": "Put the staging values in a terraform.tfvars file and pass the module a variables block."
+    "content": "Put the staging values in a terraform.tfvars file and pass the module a variables block.",
+    "messages": 4,
+    "repository": "/work/app"
   }
 ]

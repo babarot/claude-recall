@@ -1,5 +1,6 @@
 // Package mcp is the MCP server: the recall_search, recall_list,
-// recall_export and recall_stats tools over stdio, on the official Go SDK.
+// recall_export and recall_stats tools and the recap prompt over stdio,
+// on the official Go SDK.
 package mcp
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/babarot/claude-recall/internal/api"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/version"
 )
 
@@ -33,7 +35,7 @@ var (
 
 	searchTool = &mcp.Tool{
 		Name:        "recall_search",
-		Description: "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions.",
+		Description: "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count and repository. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
 		InputSchema: schema{Type: "object", Required: []string{"query"}, Properties: map[string]prop{
 			"query":   {"string", `Full-text search query. Supports FTS5 syntax: "exact phrase", term1 AND term2, term1 OR term2, term1 NOT term2`},
 			"project": projectProp,
@@ -55,6 +57,7 @@ var (
 		Description: "Export the full conversation of a specific session. Use this to get detailed context from a past session found via recall_search or recall_list.",
 		InputSchema: schema{Type: "object", Required: []string{"session_id"}, Properties: map[string]prop{
 			"session_id": {"string", "Session ID (full UUID or prefix). Get this from recall_search or recall_list results."},
+			"tail":       {"number", "Return only the last N messages, for a long session; omitted in the result counts the earlier ones left out. Default: all"},
 		}},
 	}
 	statsTool = &mcp.Tool{
@@ -104,7 +107,14 @@ func (h Handlers) Call(name string, a args) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		return api.SearchHits(r, true), nil
+		idx, err := repos.Load(h.DB)
+		if err != nil {
+			return nil, err
+		}
+		return api.SearchHits(r, true, func(path string) (string, string) {
+			repo := idx.Of(path)
+			return repo.Name, repo.Worktree
+		}), nil
 	case "recall_list":
 		s, err := h.DB.ListSessions(db.ListOptions{Project: a.str("project"), Limit: a.num("limit", 20)})
 		if err != nil {
@@ -117,7 +127,7 @@ func (h Handlers) Call(name string, a args) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		return api.ExportResult(id, s, msgs), nil
+		return api.ExportResult(id, s, msgs, *a.num("tail", 0)), nil
 	case "recall_stats":
 		s, err := h.DB.Stats(a.str("project"))
 		if err != nil {
@@ -148,13 +158,52 @@ func (h Handlers) handler(name string) mcp.ToolHandler {
 	}
 }
 
-// NewServer returns the MCP server with the four tools.
+// recapPrompt asks the agent to read where a past session ended and say
+// where it stood, then stop: how the work goes on is the user's to say,
+// with their next message and Claude Code's own settings, not recall's. A
+// client shows it as a command (Claude Code: /<server>:recap <session_id>);
+// the instruction is English, and the agent answers in the user's language.
+var recapPrompt = &mcp.Prompt{
+	Name:        "recap",
+	Title:       "Recap a past session",
+	Description: "Read where a past session ended and sum up what was done, what was decided and what was left, then ask how to go on.",
+	Arguments: []*mcp.PromptArgument{{
+		Name:        "session_id",
+		Description: "Session ID (full UUID or prefix), as recall_search or recall_list shows it.",
+		Required:    true,
+	}},
+}
+
+// recapTail is how many of the last messages the prompt asks for first:
+// enough to see where a session stopped, little enough to read whole.
+const recapTail = 40
+
+func recapMessage(id string) string {
+	return "Recap the past session " + id + ". Read where it ended first, with recall_export and tail " +
+		strconv.Itoa(recapTail) + "; read further back (a larger tail, or no tail) only if that is not enough. " +
+		"Then sum up in a few lines what was being done, what was decided and what was left open, " +
+		"and stop there to ask the user how to go on. If no session has that ID, say so and stop."
+}
+
+func handleRecap(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	id := strings.TrimSpace(req.Params.Arguments["session_id"])
+	if id == "" {
+		return nil, fmt.Errorf("session_id is required")
+	}
+	return &mcp.GetPromptResult{
+		Description: recapPrompt.Description,
+		Messages:    []*mcp.PromptMessage{{Role: "user", Content: &mcp.TextContent{Text: recapMessage(id)}}},
+	}, nil
+}
+
+// NewServer returns the MCP server with the four tools and the prompt.
 func NewServer(d *db.DB) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "claude-recall", Version: version.Version}, nil)
 	h := Handlers{DB: d}
 	for _, t := range []*mcp.Tool{searchTool, listTool, exportTool, statsTool} {
 		s.AddTool(t, h.handler(t.Name))
 	}
+	s.AddPrompt(recapPrompt, handleRecap)
 	return s
 }
 

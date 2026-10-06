@@ -21,10 +21,16 @@ recall search <query> [options]
   --limit <n>         Max results (default: 20)
   --from <date>       Start date (YYYY-MM-DD)
   --to <date>         End date (YYYY-MM-DD)
+  --repo <dir>        Only the repository <dir> is in, its worktrees included
   --format text|json  Output format (default: text)
+  --substring         Match anywhere in the text, newest first
 ```
 
 Supports FTS5 query syntax: `"exact phrase"`, `term1 AND term2`, `term1 OR term2`, `term1 NOT term2`.
+
+The full-text index splits words at spaces and punctuation, so it cannot find a word inside Japanese or other text written without spaces: `ロード` would not match `ロード時間`. A query in such a script (Japanese, Chinese, Korean) is therefore matched as plain text anywhere in a message, newest first, unless it uses `AND`, `OR` or `NOT`. `--substring` asks for the same with any query.
+
+`--repo` takes the repository the way the TUI groups sessions: a linked worktree belongs to its main checkout, and a removed herdr or Claude Code worktree to the checkout its path names. With `--format json`, each result also has `title`, `messageCount`, `repository` and, in a worktree, `worktree`.
 
 ## List
 
@@ -32,9 +38,12 @@ Supports FTS5 query syntax: `"exact phrase"`, `term1 AND term2`, `term1 OR term2
 recall list [options]
 
   --project <name>    Filter by project
+  --repo <dir>        Only the repository <dir> is in, its worktrees included
   --limit <n>         Max sessions (default: 50)
   --format text|json  Output format (default: text)
 ```
+
+With `--format json`, each session also has `repository` and, in a worktree, `worktree`.
 
 ## Export
 

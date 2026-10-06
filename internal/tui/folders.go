@@ -3,7 +3,6 @@ package tui
 import (
 	"cmp"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
+	"github.com/babarot/claude-recall/internal/worktree"
 )
 
 // The list can be narrowed to one folder: a repository with its worktrees,
@@ -20,11 +20,6 @@ import (
 // and the sidebar (← to open, → to close) picks any other.
 
 const (
-	// herdrGroup marks the group of a removed herdr worktree, whose path
-	// names only the repository; New replaces it with that repository's
-	// checkout when the other sessions show which one it is.
-	herdrGroup = "herdr:"
-
 	sidebarWidth    = 30
 	minSidebarWidth = 100 // narrowest terminal that shows the sidebar
 )
@@ -40,22 +35,17 @@ type folderInfo struct {
 // groupRows resolves herdr placeholders and lists the folders, the most
 // recently active first.
 func groupRows(rows []row) []folderInfo {
-	byBase := map[string][]string{}
-	seen := map[string]bool{}
-	for _, r := range rows {
-		if !strings.HasPrefix(r.group, herdrGroup) && !seen[r.group] {
-			seen[r.group] = true
-			byBase[filepath.Base(r.group)] = append(byBase[filepath.Base(r.group)], r.group)
-		}
+	keys := make([]string, len(rows))
+	for i, r := range rows {
+		keys[i] = r.group
 	}
+	settled := worktree.SettleKeys(keys)
 	names := map[string]string{}
 	for i := range rows {
 		r := &rows[i]
 		names[r.group] = r.groupName
-		if repo, ok := strings.CutPrefix(r.group, herdrGroup); ok {
-			if keys := byBase[repo]; len(keys) == 1 {
-				r.group = keys[0]
-			}
+		if key, ok := settled[r.group]; ok {
+			r.group = key
 		}
 	}
 	for i := range rows {
@@ -95,8 +85,7 @@ func groupRows(rows []row) []folderInfo {
 // to it.
 func (m Model) StartIn(dir string) Model {
 	m.startDir = dir
-	info := m.resolver.Resolve(dir)
-	key := cmp.Or(realPath(info.MainRoot), info.Root, realPath(dir))
+	key := m.resolver.KeyOf(dir)
 	if slices.ContainsFunc(m.folders, func(f folderInfo) bool { return f.key == key }) {
 		m.startFolder = key
 		if m.cfg.Scope == config.ScopeFolder {

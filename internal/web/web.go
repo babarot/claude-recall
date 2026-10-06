@@ -309,7 +309,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, path string) error 
 		if err != nil {
 			return err
 		}
-		writeJSON(w, api.SearchHits(results, false))
+		writeJSON(w, api.SearchHits(results, false, nil))
 		return nil
 
 	case "/api/sessions":
