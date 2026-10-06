@@ -279,6 +279,16 @@ function searchHits(output: unknown): SearchHit[] | undefined {
   return Array.isArray(hits) ? hits : undefined
 }
 
+// The hits of a recall_search result, less the running session's own: it
+// matches the words it was just asked, as /recall leaves it out too. The
+// MCP server shortens IDs, so the running session's is matched by prefix.
+async function drawnHits($: EngineInterface, output: unknown): Promise<SearchHit[] | undefined> {
+  const hits = searchHits(output)
+  if (!hits) return undefined
+  const current = await $.session.id().catch(() => '')
+  return current ? hits.filter(hit => !current.startsWith(hit.sessionId)) : hits
+}
+
 function inputQuery(input: unknown): string {
   return input && typeof input === 'object' && typeof (input as { query?: unknown }).query === 'string'
     ? (input as { query: string }).query
@@ -403,7 +413,7 @@ export const register: Register = on => {
     const p = e.props
     if (!isRecallTool(p.tool, 'recall_search') || p.isRunning || p.isErrored || p.isInterrupted) return next(e)
     if (e.surface !== 'terminal') return next(e)
-    const hits = searchHits(p.output)
+    const hits = await drawnHits($, p.output)
     if (!hits) return next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     const query = inputQuery(p.input)
@@ -430,7 +440,7 @@ export const register: Register = on => {
   on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
     if (!isRecallTool(e.props.tool, 'recall_search') || e.props.isErrored) return next(e)
     if (e.surface !== 'terminal') return next(e)
-    const hits = searchHits(e.props.output)
+    const hits = await drawnHits($, e.props.output)
     if (!hits) return next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     const query = (await read($, queries))[e.props.tool_use_id] ?? ''

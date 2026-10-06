@@ -488,3 +488,27 @@ test('/recall says how to use it, an unknown number and a failed search', async 
   expect((await run('9')).text).toBe('There is no result 9. Search first with /recall <query>.')
   expect((await run('uriba')).text).toBe('recall search failed: boom')
 })
+
+test('a recall_search tree leaves out the running session', async ($, on) => {
+  on('session.id', () => ({ value: 'ef7eecb9-0000-4000-8000-000000000000' }) as never)
+  const other = { ...MCP_HITS[0], sessionId: 'd9862606', title: 'SLO load time', displayTitle: 'SLO load time' }
+  const ui = await $.ui.mount({
+    plugin: 'claude-recall',
+    surface: 'terminal',
+    component: 'ToolUse',
+    props: {
+      tool_use_id: 't5',
+      tool: SEARCH_TOOL,
+      input: { query: 'uriba' },
+      isRunning: false,
+      isErrored: false,
+      isInterrupted: false,
+      output: [{ type: 'text', text: JSON.stringify([...MCP_HITS, other]) }],
+    },
+    viewport: { columns: 120, rows: 40 },
+  } as never)
+  expect(await ui.find({ type: 'Text', text: /1 session · 1 hit/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /SLO load time/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /uribaチームの送信先確認/ })).toBe(undefined)
+  await ui.unmount()
+})
