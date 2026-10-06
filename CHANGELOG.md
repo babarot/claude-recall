@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.0](https://github.com/babarot/claude-recall/compare/1.6.2...1.7.0) - 2026-10-06
+### New Features
+- Support importing transcripts from more than one directory by @babarot in https://github.com/babarot/claude-recall/pull/67
+### Improvements
+- Give search results their repository, title and size; find words in Japanese by @babarot in https://github.com/babarot/claude-recall/pull/62
+- Add the first prompt to search results by @babarot in https://github.com/babarot/claude-recall/pull/64
+- Name sessions, tell recall-only ones and narrow to a repository over MCP too by @babarot in https://github.com/babarot/claude-recall/pull/66
+- Let the Details grid use the width it has by @babarot in https://github.com/babarot/claude-recall/pull/68
+
 ## [1.6.2](https://github.com/babarot/claude-recall/compare/1.6.1...1.6.2) - 2026-10-05
 ### Bug fixes
 - Do not resume a session whose transcript Claude Code has deleted by @babarot in https://github.com/babarot/claude-recall/pull/56
