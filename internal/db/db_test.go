@@ -392,3 +392,43 @@ func TestSearchCarriesTitleMessageCountAndFirstPrompt(t *testing.T) {
 		t.Fatalf("got %+v", r)
 	}
 }
+
+func seedToolUse(t *testing.T, d *DB, sessionID, uuid, tool string) {
+	t.Helper()
+	_, err := d.sql.Exec(`INSERT INTO messages (session_id, uuid, role, block_type, block_index, content, timestamp, turn_index, tool_name)
+		VALUES (?, ?, 'assistant', 'tool_use', 1, '{}', ?, 0, ?)`, sessionID, uuid, ts, tool)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A session that called recall's tools and nothing else but ToolSearch was
+// only a look back; one that went on to work, or never used recall, was not.
+func TestRecallOnly(t *testing.T) {
+	d := newTestDB(t)
+	for _, id := range []string{"search", "renamed", "worked", "plain"} {
+		seedSession(t, d, id, "p", "/home/user/p")
+		seedMessage(t, d, id, "m-"+id, "user", "uriba", ts, 0)
+	}
+	seedToolUse(t, d, "search", "t1", "ToolSearch")
+	seedToolUse(t, d, "search", "t2", "mcp__plugin_claude-recall_claude-recall__recall_search")
+	seedToolUse(t, d, "renamed", "t3", "mcp__agent-recall__recall_export")
+	seedToolUse(t, d, "worked", "t4", "mcp__claude-recall__recall_search")
+	seedToolUse(t, d, "worked", "t5", "Bash")
+
+	want := map[string]bool{"search": true, "renamed": true, "worked": false, "plain": false}
+	for _, r := range search(t, d, "uriba", SearchOptions{}) {
+		if r.RecallOnly != want[r.SessionID] {
+			t.Errorf("search: %s recallOnly = %v", r.SessionID, r.RecallOnly)
+		}
+	}
+	ls, err := d.ListSessions(ListOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range ls {
+		if s.RecallOnly != want[s.SessionID] {
+			t.Errorf("list: %s recallOnly = %v", s.SessionID, s.RecallOnly)
+		}
+	}
+}

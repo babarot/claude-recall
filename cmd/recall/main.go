@@ -30,6 +30,7 @@ import (
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/mcp"
 	"github.com/babarot/claude-recall/internal/repos"
+	"github.com/babarot/claude-recall/internal/title"
 	"github.com/babarot/claude-recall/internal/tui"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/watcher"
@@ -341,15 +342,17 @@ func runImport(o *options, stdout io.Writer) error {
 // message, then the repository its session belongs to.
 type searchJSON struct {
 	db.SearchResult
-	Repository string `json:"repository"`
-	Worktree   string `json:"worktree,omitempty"`
+	DisplayTitle string `json:"displayTitle"`
+	Repository   string `json:"repository"`
+	Worktree     string `json:"worktree,omitempty"`
 }
 
 // listJSON is a session as `list --format json` prints it.
 type listJSON struct {
 	db.ListedSession
-	Repository string `json:"repository"`
-	Worktree   string `json:"worktree,omitempty"`
+	DisplayTitle string `json:"displayTitle"`
+	Repository   string `json:"repository"`
+	Worktree     string `json:"worktree,omitempty"`
 }
 
 // repoIndex resolves the archive's repositories when the output or --repo
@@ -393,7 +396,8 @@ func runSearch(o *options, query string, stdout io.Writer) error {
 		out := make([]searchJSON, len(results))
 		for i, r := range results {
 			repo := idx.Of(deref(r.ProjectPath))
-			out[i] = searchJSON{SearchResult: r, Repository: repo.Name, Worktree: repo.Worktree}
+			out[i] = searchJSON{SearchResult: r, DisplayTitle: title.Display(deref(r.Title), deref(r.FirstPrompt)),
+				Repository: repo.Name, Worktree: repo.Worktree}
 		}
 		return cli.WriteJSON(stdout, out)
 	}
@@ -424,7 +428,8 @@ func runList(o *options, stdout io.Writer) error {
 		out := make([]listJSON, len(sessions))
 		for i, s := range sessions {
 			repo := idx.Of(deref(s.ProjectPath))
-			out[i] = listJSON{ListedSession: s, Repository: repo.Name, Worktree: repo.Worktree}
+			out[i] = listJSON{ListedSession: s, DisplayTitle: title.Display(deref(s.Title), deref(s.FirstPrompt)),
+				Repository: repo.Name, Worktree: repo.Worktree}
 		}
 		return cli.WriteJSON(stdout, out)
 	}

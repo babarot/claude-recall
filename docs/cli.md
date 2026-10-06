@@ -28,9 +28,11 @@ recall search <query> [options]
 
 Supports FTS5 query syntax: `"exact phrase"`, `term1 AND term2`, `term1 OR term2`, `term1 NOT term2`.
 
-The full-text index splits words at spaces and punctuation, so it cannot find a word inside Japanese or other text written without spaces: `ロード` would not match `ロード時間`. A query in such a script (Japanese, Chinese, Korean) is therefore matched as plain text anywhere in a message, newest first, unless it uses `AND`, `OR` or `NOT`. `--substring` asks for the same with any query.
+The full-text index splits words at spaces and punctuation, so it cannot find a word inside Japanese or other text written without spaces: `ロード` would not match `ロード時間`. A query in such a script (Japanese, Chinese, Korean) is therefore matched as plain text anywhere in a message, newest first, unless it uses `AND`, `OR` or `NOT`. `--substring` asks for the same with any query. Matching as plain text reads every message, so on an archive of a few hundred thousand messages it takes about a second where the index answers at once.
 
-`--repo` takes the repository the way the TUI groups sessions: a linked worktree belongs to its main checkout, and a removed herdr or Claude Code worktree to the checkout its path names. With `--format json`, each result also has its session's `title`, `messageCount`, `firstPrompt`, `repository` and, in a worktree, `worktree`.
+`--repo` takes the repository the way the TUI groups sessions: a linked worktree belongs to its main checkout, a removed Claude Code worktree (`<repo>/.claude/worktrees/<name>`) to the `<repo>` its path names, and a removed herdr worktree (`~/.herdr/worktrees/<name>/...`), whose path names the repository but not its owner, to the one checkout in the archive with that directory name; with none or several, it stays a repository of its own. `<dir>` may be the checkout, a worktree, a directory inside either, or a worktree since removed.
+
+With `--format json`, each result also has its session's `title`, `messageCount`, `firstPrompt`, `displayTitle` (the title, or else the first prompt made readable, as the TUI shows it), `recallOnly` (the session called recall's MCP tools and no other tool, so it was only a look back), `repository` and, in a worktree, `worktree`.
 
 ## List
 
@@ -43,7 +45,7 @@ recall list [options]
   --format text|json  Output format (default: text)
 ```
 
-With `--format json`, each session also has `repository` and, in a worktree, `worktree`.
+With `--format json`, each session also has `displayTitle`, `recallOnly`, `repository` and, in a worktree, `worktree`, as `search` has.
 
 ## Export
 

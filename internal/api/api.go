@@ -8,6 +8,7 @@ import (
 	"github.com/babarot/claude-recall/internal/cli"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/internal/title"
 )
 
 func slice(p *string, n int) *string {
@@ -20,20 +21,24 @@ func slice(p *string, n int) *string {
 
 // SearchHit is a search result. The MCP tool shortens the session ID to 8
 // characters; the web API keeps it whole. The session's title, its message
-// count, its first prompt (what names a session with no title, as in
-// recall_list) and, where the caller resolves it, its repository follow.
+// count, its first prompt, its display title (the title, or the first
+// prompt made readable, as the TUI shows it), whether it was only a look
+// back through recall and, where the caller resolves it, its repository
+// follow.
 type SearchHit struct {
-	SessionID   string  `json:"sessionId"`
-	Project     string  `json:"project"`
-	Branch      *string `json:"branch"`
-	Date        *string `json:"date,omitempty"`
-	Role        string  `json:"role"`
-	Content     string  `json:"content"`
-	Title       *string `json:"title,omitempty"`
-	Messages    *int64  `json:"messages"`
-	FirstPrompt *string `json:"firstPrompt,omitempty"`
-	Repository  string  `json:"repository,omitempty"`
-	Worktree    string  `json:"worktree,omitempty"`
+	SessionID    string  `json:"sessionId"`
+	Project      string  `json:"project"`
+	Branch       *string `json:"branch"`
+	Date         *string `json:"date,omitempty"`
+	Role         string  `json:"role"`
+	Content      string  `json:"content"`
+	Title        *string `json:"title,omitempty"`
+	Messages     *int64  `json:"messages"`
+	FirstPrompt  *string `json:"firstPrompt,omitempty"`
+	DisplayTitle string  `json:"displayTitle"`
+	RecallOnly   bool    `json:"recallOnly"`
+	Repository   string  `json:"repository,omitempty"`
+	Worktree     string  `json:"worktree,omitempty"`
 }
 
 // SearchHits converts search results. repoOf, when not nil, names the
@@ -47,7 +52,8 @@ func SearchHits(results []db.SearchResult, shortID bool, repoOf func(projectPath
 		}
 		out[i] = SearchHit{SessionID: id, Project: cli.DisplayProject(r.ProjectPath, r.Project), Branch: r.GitBranch,
 			Date: slice(r.StartedAt, 10), Role: r.Role, Content: r.Content, Title: r.Title, Messages: r.MessageCount,
-			FirstPrompt: slice(r.FirstPrompt, 200)}
+			FirstPrompt: slice(r.FirstPrompt, 200), DisplayTitle: title.Display(deref(r.Title), deref(r.FirstPrompt)),
+			RecallOnly: r.RecallOnly}
 		if repoOf != nil && r.ProjectPath != nil {
 			out[i].Repository, out[i].Worktree = repoOf(*r.ProjectPath)
 		}
@@ -55,7 +61,9 @@ func SearchHits(results []db.SearchResult, shortID bool, repoOf func(projectPath
 	return out
 }
 
-// ListedSession is a recall_list entry.
+// ListedSession is a recall_list entry. The display title, whether the
+// session was only a look back through recall and, where the caller
+// resolves it, its repository follow the fields it has always had.
 type ListedSession struct {
 	SessionID     string  `json:"sessionId"`
 	FullSessionID string  `json:"fullSessionId"`
@@ -65,15 +73,24 @@ type ListedSession struct {
 	FirstPrompt   *string `json:"firstPrompt,omitempty"`
 	Messages      *int64  `json:"messages"`
 	Date          *string `json:"date,omitempty"`
+	DisplayTitle  string  `json:"displayTitle"`
+	RecallOnly    bool    `json:"recallOnly"`
+	Repository    string  `json:"repository,omitempty"`
+	Worktree      string  `json:"worktree,omitempty"`
 }
 
-// List converts sessions for recall_list.
-func List(sessions []db.ListedSession) []ListedSession {
+// List converts sessions for recall_list. repoOf, when not nil, names the
+// repository and worktree of a session directory.
+func List(sessions []db.ListedSession, repoOf func(projectPath string) (repo, worktree string)) []ListedSession {
 	out := make([]ListedSession, len(sessions))
 	for i, s := range sessions {
 		out[i] = ListedSession{SessionID: jscompat.Slice(s.SessionID, 8), FullSessionID: s.SessionID, Title: s.Title,
 			Project: cli.DisplayProject(s.ProjectPath, s.Project), Branch: s.GitBranch,
-			FirstPrompt: slice(s.FirstPrompt, 200), Messages: s.MessageCount, Date: slice(s.StartedAt, 10)}
+			FirstPrompt: slice(s.FirstPrompt, 200), Messages: s.MessageCount, Date: slice(s.StartedAt, 10),
+			DisplayTitle: title.Display(deref(s.Title), deref(s.FirstPrompt)), RecallOnly: s.RecallOnly}
+		if repoOf != nil && s.ProjectPath != nil {
+			out[i].Repository, out[i].Worktree = repoOf(*s.ProjectPath)
+		}
 	}
 	return out
 }
@@ -279,4 +296,11 @@ func WebSessionDetailResult(s *db.ExportedSession, msgs []db.ExportedMessage) We
 			ToolName: m.ToolName, ToolInput: m.ToolInput, Timestamp: m.Timestamp}
 	}
 	return out
+}
+
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }

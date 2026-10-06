@@ -11,6 +11,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/title"
 )
 
 // The detail pane is three frames: Conversation (how the session began and
@@ -366,9 +367,9 @@ func (m Model) messageLine(msg db.Message) string {
 		when = msg.Timestamp.Local().Format("15:04")
 	}
 	if msg.Role == "user" {
-		return m.st.dim.Render(when) + " " + m.st.user.Render("you   ") + " " + m.st.strong.Bold(true).Render(collapse(msg.Content))
+		return m.st.dim.Render(when) + " " + m.st.user.Render("you   ") + " " + m.st.strong.Bold(true).Render(title.Collapse(msg.Content))
 	}
-	return m.st.dim.Render(when) + " " + m.st.claude.Render("claude") + " " + m.st.subtle.Render(collapse(msg.Content))
+	return m.st.dim.Render(when) + " " + m.st.claude.Render("claude") + " " + m.st.subtle.Render(title.Collapse(msg.Content))
 }
 
 func (m Model) dayLine(t time.Time) string {

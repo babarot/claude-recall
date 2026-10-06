@@ -111,6 +111,9 @@ func TestResults(t *testing.T) {
 		{"export", "recall_export", map[string]any{"session_id": fixture.APISession[:4]}},
 		{"export-missing", "recall_export", map[string]any{"session_id": "ffff"}},
 		{"export-tail", "recall_export", map[string]any{"session_id": fixture.APISession[:4], "tail": 1}},
+		{"search-repo", "recall_search", map[string]any{"query": "the", "repo": "/work/api"}},
+		{"search-substring", "recall_search", map[string]any{"query": "erraform", "substring": true}},
+		{"list-repo", "recall_list", map[string]any{"repo": "/work/app"}},
 		{"stats", "recall_stats", map[string]any{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

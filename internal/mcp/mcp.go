@@ -32,16 +32,19 @@ type schema struct {
 
 var (
 	projectProp = prop{"string", "Filter by project name (partial match)"}
+	repoProp    = prop{"string", `Only the sessions of the repository this directory is in, its worktrees included ("." is the directory the session runs in)`}
 
 	searchTool = &mcp.Tool{
 		Name:        "recall_search",
 		Description: "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count, first prompt and repository. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
 		InputSchema: schema{Type: "object", Required: []string{"query"}, Properties: map[string]prop{
-			"query":   {"string", `Full-text search query. Supports FTS5 syntax: "exact phrase", term1 AND term2, term1 OR term2, term1 NOT term2`},
-			"project": projectProp,
-			"limit":   {"number", "Max results (default: 10)"},
-			"from":    {"string", "Start date filter (YYYY-MM-DD)"},
-			"to":      {"string", "End date filter (YYYY-MM-DD)"},
+			"query":     {"string", `Full-text search query. Supports FTS5 syntax: "exact phrase", term1 AND term2, term1 OR term2, term1 NOT term2`},
+			"project":   projectProp,
+			"repo":      repoProp,
+			"substring": {"boolean", "Match the query as plain text anywhere in a message, newest first, instead of as FTS5 words (always so for Japanese and other unspaced text)"},
+			"limit":     {"number", "Max results (default: 10)"},
+			"from":      {"string", "Start date filter (YYYY-MM-DD)"},
+			"to":        {"string", "End date filter (YYYY-MM-DD)"},
 		}},
 	}
 	listTool = &mcp.Tool{
@@ -49,6 +52,7 @@ var (
 		Description: "List archived coding agent sessions. Use this to see what sessions are available before exporting a specific one.",
 		InputSchema: schema{Type: "object", Properties: map[string]prop{
 			"project": projectProp,
+			"repo":    repoProp,
 			"limit":   {"number", "Max sessions to return (default: 20)"},
 		}},
 	}
@@ -76,6 +80,25 @@ func (a args) str(key string) string {
 	return s
 }
 
+func (a args) flag(key string) bool {
+	switch v := a[key].(type) {
+	case bool:
+		return v
+	case string:
+		return strings.EqualFold(strings.TrimSpace(v), "true")
+	}
+	return false
+}
+
+// repoPaths is the repo input as the directories to narrow to, or nil when
+// it is not given.
+func (a args) repoPaths(idx *repos.Index) []string {
+	if dir := strings.TrimSpace(a.str("repo")); dir != "" {
+		return idx.PathsIn(dir)
+	}
+	return nil
+}
+
 func (a args) num(key string, def int) *int {
 	v, ok := a[key]
 	if !ok || v == nil {
@@ -94,6 +117,14 @@ func (a args) num(key string, def int) *int {
 	return &def
 }
 
+// repoOf names the repository and worktree of a session directory.
+func repoOf(idx *repos.Index) func(string) (string, string) {
+	return func(path string) (string, string) {
+		repo := idx.Of(path)
+		return repo.Name, repo.Worktree
+	}
+}
+
 // Handlers holds the tool implementations, separate from the transport so
 // they can be tested directly.
 type Handlers struct{ DB *db.DB }
@@ -102,25 +133,27 @@ type Handlers struct{ DB *db.DB }
 func (h Handlers) Call(name string, a args) (any, error) {
 	switch name {
 	case "recall_search":
-		r, err := h.DB.Search(a.str("query"), db.SearchOptions{Project: a.str("project"), Limit: a.num("limit", 10),
-			From: a.str("from"), To: a.str("to")})
-		if err != nil {
-			return nil, err
-		}
 		idx, err := repos.Load(h.DB)
 		if err != nil {
 			return nil, err
 		}
-		return api.SearchHits(r, true, func(path string) (string, string) {
-			repo := idx.Of(path)
-			return repo.Name, repo.Worktree
-		}), nil
-	case "recall_list":
-		s, err := h.DB.ListSessions(db.ListOptions{Project: a.str("project"), Limit: a.num("limit", 20)})
+		r, err := h.DB.Search(a.str("query"), db.SearchOptions{Project: a.str("project"), Limit: a.num("limit", 10),
+			From: a.str("from"), To: a.str("to"), Substring: a.flag("substring"), ProjectPaths: a.repoPaths(idx)})
 		if err != nil {
 			return nil, err
 		}
-		return api.List(s), nil
+		return api.SearchHits(r, true, repoOf(idx)), nil
+	case "recall_list":
+		idx, err := repos.Load(h.DB)
+		if err != nil {
+			return nil, err
+		}
+		s, err := h.DB.ListSessions(db.ListOptions{Project: a.str("project"), Limit: a.num("limit", 20),
+			ProjectPaths: a.repoPaths(idx)})
+		if err != nil {
+			return nil, err
+		}
+		return api.List(s, repoOf(idx)), nil
 	case "recall_export":
 		id := a.str("session_id")
 		s, msgs, err := h.DB.ExportSession(id)

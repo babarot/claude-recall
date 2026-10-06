@@ -24,6 +24,20 @@ type ListedSession struct {
 	StartedAt    *string `json:"startedAt"`
 	EndedAt      *string `json:"endedAt"`
 	Title        *string `json:"title,omitempty"`
+	RecallOnly   bool    `json:"recallOnly"`
+}
+
+// recallOnly is an SQL expression, for the session whose ID is in
+// sessionID, that is true when the session called recall's MCP tools
+// (`mcp__<server>__recall_*`, the server named however it was registered)
+// and no other tool but ToolSearch, which loads them. Such a session was
+// only a look back, such as a search for a word, and matches every later
+// search for the same word.
+func recallOnly(sessionID string) string {
+	const recallTool = `t.tool_name LIKE 'mcp\_\_%\_\_recall\_%' ESCAPE '\'`
+	return `(EXISTS (SELECT 1 FROM messages t WHERE t.session_id = ` + sessionID + ` AND ` + recallTool + `)
+        AND NOT EXISTS (SELECT 1 FROM messages t WHERE t.session_id = ` + sessionID + `
+          AND t.tool_name IS NOT NULL AND t.tool_name != '' AND t.tool_name != 'ToolSearch' AND NOT ` + recallTool + `))`
 }
 
 // ListOptions narrows ListSessions.
@@ -70,7 +84,7 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	}
 	rows, err := d.sql.Query(`
       SELECT session_id, project, project_path, git_branch, first_prompt,
-             message_count, started_at, ended_at, `+title+`
+             message_count, started_at, ended_at, `+title+`, `+recallOnly("sessions.session_id")+`
       FROM sessions `+where+`
       ORDER BY COALESCE(ended_at, started_at) DESC
       LIMIT ? OFFSET ?`, args...)
@@ -82,7 +96,7 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	for rows.Next() {
 		var s ListedSession
 		if err := rows.Scan(&s.SessionID, &s.Project, &s.ProjectPath, &s.GitBranch, &s.FirstPrompt,
-			&s.MessageCount, &s.StartedAt, &s.EndedAt, &s.Title); err != nil {
+			&s.MessageCount, &s.StartedAt, &s.EndedAt, &s.Title, &s.RecallOnly); err != nil {
 			return nil, fmt.Errorf("list sessions: %w", err)
 		}
 		out = append(out, s)
