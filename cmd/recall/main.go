@@ -77,9 +77,12 @@ func run(args []string, stdout, stderr io.Writer) error {
 // commands it applies to.
 type options struct {
 	db, session, project, repo, format, from, to, output string
-	limit, port                                          int
-	dryRun, foreground, substring                        bool
-	limitSet                                             bool
+	// trees are the transcript trees to read, the primary first, from
+	// ProjectsDir and extra_projects_dirs under [core].
+	trees                         []string
+	limit, port                   int
+	dryRun, foreground, substring bool
+	limitSet                      bool
 }
 
 // limitArg is the --limit given, or nil to use the command's default.
@@ -122,6 +125,7 @@ Run without a command, it opens the TUI.`,
 		if !c.Flags().Changed("db") {
 			o.db = cfg.DBPath()
 		}
+		o.trees = cfg.ProjectsDirs()
 		if f := c.Flags().Lookup("port"); f != nil && !f.Changed {
 			o.port = cfg.UI.Port
 		}
@@ -314,18 +318,18 @@ func openWrite(o *options) (*db.DB, error) { return db.Open(o.db, db.Options{}) 
 // take a while, and Claude Code gives an MCP server 30 seconds to start. A
 // failed import is reported and the server keeps running; the watcher
 // imports the session again when it changes.
-func catchUp(d *db.DB, w io.Writer) {
-	if err := importer.Run(d, importer.Options{ProjectsDir: config.ProjectsDir()}, w); err != nil {
+func catchUp(d *db.DB, trees []string, w io.Writer) {
+	if err := importer.Run(d, importer.Options{ProjectsDirs: trees}, w); err != nil {
 		fmt.Fprintln(os.Stderr, "recall: import:", err)
 	}
 }
 
 func runImport(o *options, stdout io.Writer) error {
 	opts := importer.Options{
-		ProjectsDir: config.ProjectsDir(),
-		Session:     o.session,
-		Project:     o.project,
-		DryRun:      o.dryRun,
+		ProjectsDirs: o.trees,
+		Session:      o.session,
+		Project:      o.project,
+		DryRun:       o.dryRun,
 	}
 	if o.dryRun {
 		return importer.Run(nil, opts, stdout)
@@ -498,10 +502,10 @@ func runMCP(o *options) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	w := &watcher.Watcher{DB: d, ProjectsDir: config.ProjectsDir()}
+	w := &watcher.Watcher{DB: d, ProjectsDirs: o.trees}
 	go w.Run(ctx)
 	// The import summary goes to stderr: stdout carries the protocol.
-	go catchUp(d, os.Stderr)
+	go catchUp(d, o.trees, os.Stderr)
 	return mcp.Run(ctx, d)
 }
 
@@ -525,14 +529,34 @@ func stopUI(o *options, stdout io.Writer) error {
 
 func uiStatus(o *options, stdout io.Writer) error {
 	var st struct {
-		PID  int `json:"pid"`
-		Port int `json:"port"`
+		PID     int            `json:"pid"`
+		Port    int            `json:"port"`
+		Watcher watcher.Status `json:"watcher"`
 	}
 	if err := getStatus(uiAddr(o), &st); err != nil {
 		fmt.Fprintln(stdout, "UI server is not running.")
 		return nil
 	}
 	fmt.Fprintf(stdout, "UI server is running (pid: %d, port: %d).\n", st.PID, st.Port)
+	// A server from before extra_projects_dirs reports no trees.
+	if w := st.Watcher; len(w.ProjectsDirs) > 1 {
+		var watched []string
+		for _, d := range w.ProjectsDirs {
+			if !slices.Contains(w.MissingDirs, d) {
+				watched = append(watched, config.TildePath(d))
+			}
+		}
+		if w.Running && len(watched) > 0 {
+			fmt.Fprintf(stdout, "Watching %s.\n", joinAnd(watched))
+		}
+		if len(w.MissingDirs) > 0 {
+			var missing []string
+			for _, d := range w.MissingDirs {
+				missing = append(missing, config.TildePath(d))
+			}
+			fmt.Fprintf(stdout, "Not found: %s.\n", strings.Join(missing, ", "))
+		}
+	}
 	return nil
 }
 
@@ -565,9 +589,9 @@ func serveUI(o *options, stdout io.Writer) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	s := web.New(d, config.ProjectsDir())
+	s := web.New(d, o.trees...)
 	s.Shutdown = stop
-	go catchUp(d, stdout)
+	go catchUp(d, o.trees, stdout)
 	return s.Serve(ctx, ln)
 }
 
@@ -654,7 +678,7 @@ func runTUI(o *options, c *cobra.Command) error {
 		self[0] = exe
 		model = model.AskWith(self, filepath.Join(filepath.Dir(config.StatePath()), "ask"))
 	}
-	model = model.RecallWith(self).TranscriptsIn(config.ProjectsDir())
+	model = model.RecallWith(self).TranscriptsIn(o.trees...)
 	final, err := tea.NewProgram(model).Run()
 	if err != nil {
 		return err
@@ -703,4 +727,12 @@ func deref(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+// joinAnd lists words as a sentence does: a, b and c.
+func joinAnd(words []string) string {
+	if len(words) < 2 {
+		return strings.Join(words, "")
+	}
+	return strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1]
 }

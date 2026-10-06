@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -262,5 +263,38 @@ func TestLoadPaneKeys(t *testing.T) {
 	want := Keys{"resume": {Keys: []string{"space"}}, "list.folders_open": {Keys: []string{"o"}}, "folders.back": {Keys: []string{"b"}}}
 	if !reflect.DeepEqual(got.Keys, want) {
 		t.Fatalf("got %+v", got.Keys)
+	}
+}
+
+// Each mistake in extra_projects_dirs is shown at its element.
+func TestExtraProjectsDirsMistakes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	os.WriteFile(path, []byte("[core]\nextra_projects_dirs = [\"~/c/projects\", \"rel/projects\", \"\", \"~/c/projects/\"]\n"), 0o644)
+	_, err := LoadCore(path)
+	for _, want := range []string{
+		`:2:40: core.extra_projects_dirs[1] must be an absolute path or start with ~/, got "rel/projects"`,
+		`:2:56: core.extra_projects_dirs[2] must not be empty`,
+		`:2:60: core.extra_projects_dirs[3] "~/c/projects/" is already listed`,
+	} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("got %v, want %q", err, want)
+		}
+	}
+}
+
+// The primary tree comes first, then the extra ones with ~/ expanded,
+// leaving out one that is the primary under another name.
+func TestProjectsDirs(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	primary := filepath.Join(home, ".claude", "projects")
+	os.MkdirAll(primary, 0o755)
+	os.Symlink(primary, filepath.Join(home, "link"))
+	f := Default()
+	f.Core.ExtraProjectsDirs = []string{"~/.claude/projects", "~/link", "~/c/projects", "/srv/projects"}
+	want := []string{primary, filepath.Join(home, "c", "projects"), "/srv/projects"}
+	if got := f.ProjectsDirs(); !slices.Equal(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
 	}
 }

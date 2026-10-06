@@ -12,6 +12,18 @@ recall import [options]
   -n, --dry-run       Show what would be imported without writing
 ```
 
+It reads `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` when set) and the trees listed in `extra_projects_dirs` under `[core]` in the [config file](configuration.md). With more than one tree it first says what it found in each:
+
+```console
+$ recall import
+~/.claude/projects: 812 session files
+~/containers/claude/projects: 57 session files
+Syncing 869 sessions...
+Imported 12 sessions (3104 messages). 857 unchanged.
+```
+
+A session whose transcript is in two trees, copied from one to the other, is imported from the copy written last. `--dry-run` names the tree of a file outside `~/.claude/projects`, and the copies it was chosen over.
+
 ## Search
 
 ```
@@ -69,7 +81,7 @@ recall stats [--project <name>]
 ```
 recall ui [--port <n>]        Start in the background (default port: port in the config file, or 6276)
 recall ui --foreground        Run in the foreground
-recall ui status              Show server status
+recall ui status              Show server status, and with extra_projects_dirs, the trees it watches
 recall ui stop                Stop the server
 ```
 

@@ -571,7 +571,10 @@ func (m Model) detailsLines(r *row, d *db.Detail) []string {
 	if d != nil && d.Images > 0 {
 		size += m.st.muted.Render(fmt.Sprintf("  %d images", d.Images))
 	}
-	if r.noTranscript {
+	switch {
+	case r.transcriptDir != "":
+		size += m.st.muted.Render("  transcript in " + tildePath(r.transcriptDir, m.home))
+	case r.noTranscript:
 		size += m.st.muted.Render("  transcript deleted")
 	}
 	lines = append(lines, kv("Size", size))
@@ -580,7 +583,7 @@ func (m Model) detailsLines(r *row, d *db.Detail) []string {
 	}
 
 	name, badge := m.st.strong, m.st.worktree
-	if r.gone {
+	if r.removed() {
 		name, badge = m.st.gone, m.st.gone
 	}
 	folder := name.Render(r.folder)
@@ -593,9 +596,7 @@ func (m Model) detailsLines(r *row, d *db.Detail) []string {
 	}
 	lines = append(lines, kv("Branch", m.st.dim.Render(r.s.GitBranch)))
 	path := tildePath(r.s.ProjectPath, m.home)
-	if r.gone {
-		path += ", removed"
-	}
+	path += m.goneNote(r)
 	return append(lines, kv("Path", m.st.muted.Render(path)))
 }
 
@@ -684,12 +685,25 @@ func (m Model) detailsGrid(r *row, d *db.Detail, inner int) ([]string, bool) {
 	lines = append(lines, kv(8, "Folder", m.folderPath(folder, r, badge, inner-8)))
 	if ownLine {
 		path := tildePath(r.s.ProjectPath, m.home)
-		if r.gone {
-			path += ", removed"
-		}
+		path += m.goneNote(r)
 		lines = append(lines, kv(8, "Path", m.st.muted.Render(middleEllipsis(path, inner-8))))
 	}
+	// A transcript in another tree gets the full width its path needs.
+	if r.transcriptDir != "" {
+		lines = append(lines, kv(8, "JSONL", m.st.muted.Render(middleEllipsis("in "+tildePath(r.transcriptDir, m.home), inner-8))))
+	}
 	return lines, true
+}
+
+// goneNote follows the Path of a session whose folder is not there.
+func (m Model) goneNote(r *row) string {
+	switch {
+	case r.removed():
+		return ", removed"
+	case r.gone:
+		return ", not on this host"
+	}
+	return ""
 }
 
 // folderPath draws a path in w cells with the folder's name at its end
@@ -714,7 +728,7 @@ func (m Model) folderPath(path string, r *row, badge string, w int) string {
 		head = head[:strings.LastIndex(head, "/")+1] + "…/"
 	}
 	name, mark := m.st.strong.Bold(true), m.st.worktree
-	if r.gone {
+	if r.removed() {
 		name, mark = m.st.gone, m.st.gone
 	}
 	out := m.st.muted.Render(head) + name.Render(tail)

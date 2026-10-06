@@ -65,7 +65,7 @@ var columns = []column{
 		header: folderHeader, flex: 1,
 		cell: func(c cellCtx, r *row, w int) string {
 			name, badge := c.style(c.st.text), c.style(c.st.worktree)
-			if r.gone {
+			if r.removed() {
 				name, badge = c.style(c.st.gone), c.style(c.st.gone)
 			}
 			if c.scoped {

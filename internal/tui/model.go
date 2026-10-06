@@ -4,11 +4,8 @@ package tui
 
 import (
 	"cmp"
-	"errors"
-	"io/fs"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -20,6 +17,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/theme"
 	"github.com/babarot/claude-recall/internal/worktree"
 )
@@ -239,13 +237,31 @@ func New(sessions []db.Session, source Source, cfg config.TUI) Model {
 	return m
 }
 
-// TranscriptsIn marks the sessions whose JSONL transcript Claude Code has
-// deleted from dir, its projects directory: claude -r cannot resume them.
-func (m Model) TranscriptsIn(dir string) Model {
+// TranscriptsIn marks the sessions claude -r cannot resume for where their
+// JSONL transcripts are in dirs, the transcript trees, the primary first:
+// those Claude Code has deleted, and those in another tree. Of a session in
+// more than one tree it takes the copy the importer takes, the one the
+// archive holds.
+func (m Model) TranscriptsIn(dirs ...string) Model {
+	if len(dirs) == 0 {
+		return m
+	}
+	found := map[string]parser.File{}
+	for _, f := range parser.Choose(parser.Discover(dirs...)) {
+		found[f.SessionID] = f
+	}
 	for i := range m.rows {
 		r := &m.rows[i]
-		_, err := os.Stat(filepath.Join(dir, r.s.Project, r.s.ID+".jsonl"))
-		r.noTranscript = errors.Is(err, fs.ErrNotExist)
+		f, ok := found[r.s.ID]
+		r.transcriptDir = ""
+		switch {
+		case ok && f.Dir != dirs[0]:
+			r.transcriptDir = f.Dir
+		case ok:
+			// claude -r reads it from the project's own directory.
+			ok = f.Project == r.s.Project
+		}
+		r.noTranscript = !ok
 	}
 	return m
 }
@@ -714,8 +730,13 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	switch {
 	case key.Matches(msg, s.Resume):
 		if !r.resumable() {
-			text := "Folder no longer exists: " + tildePath(r.s.ProjectPath, m.home)
-			if !r.gone {
+			var text string
+			switch {
+			case r.transcriptDir != "":
+				text = "Its transcript is in another tree: " + tildePath(r.transcriptDir, m.home)
+			case r.gone:
+				text = "Folder no longer exists: " + tildePath(r.s.ProjectPath, m.home)
+			default:
 				text = "Claude Code has deleted its transcript"
 			}
 			if k := m.hintKeys("{recall.0}"); k != "" {

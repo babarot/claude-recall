@@ -85,11 +85,11 @@ func testSessions(t *testing.T) []db.Session {
 	t.Helper()
 	dir := t.TempDir()
 	return []db.Session{
-		{ID: "aaaaaaaa-1111", ProjectPath: dir, GitBranch: "main", FirstPrompt: "fix the login bug",
+		{ID: "aaaaaaaa-1111", Project: "-test", ProjectPath: dir, GitBranch: "main", FirstPrompt: "fix the login bug",
 			MessageCount: 10, FileSize: 2048, StartedAt: now.Add(-3 * time.Hour), EndedAt: now.Add(-2 * time.Hour)},
-		{ID: "bbbbbbbb-2222", ProjectPath: filepath.Join(dir, "gone"), GitBranch: "feature", FirstPrompt: "write the docs",
+		{ID: "bbbbbbbb-2222", Project: "-test", ProjectPath: filepath.Join(dir, "gone"), GitBranch: "feature", FirstPrompt: "write the docs",
 			MessageCount: 50, FileSize: 4 << 20, StartedAt: now.Add(-30 * time.Hour), EndedAt: now.Add(-1 * time.Hour)},
-		{ID: "cccccccc-3333", ProjectPath: dir, GitBranch: "main", Title: "Refactor the parser",
+		{ID: "cccccccc-3333", Project: "-test", ProjectPath: dir, GitBranch: "main", Title: "Refactor the parser",
 			MessageCount: 5, FileSize: 100, StartedAt: now.Add(-5 * time.Hour), EndedAt: now.Add(-4 * time.Hour)},
 	}
 }
@@ -249,12 +249,23 @@ func TestFooterStrikesResumeForMissingFolder(t *testing.T) {
 func withTranscripts(t *testing.T, m Model) Model {
 	t.Helper()
 	dir := t.TempDir()
-	for _, id := range []string{"aaaaaaaa-1111", "bbbbbbbb-2222"} {
-		if err := os.WriteFile(filepath.Join(dir, id+".jsonl"), nil, 0o644); err != nil {
+	writeTranscripts(t, dir, "aaaaaaaa-1111", "bbbbbbbb-2222")
+	return m.TranscriptsIn(dir)
+}
+
+// writeTranscripts puts the transcripts of the sessions ids, in the test
+// project, in the tree dir.
+func writeTranscripts(t *testing.T, dir string, ids ...string) {
+	t.Helper()
+	project := filepath.Join(dir, "-test")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range ids {
+		if err := os.WriteFile(filepath.Join(project, id+".jsonl"), nil, 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return m.TranscriptsIn(dir)
 }
 
 func TestEnterRefusesDeletedTranscript(t *testing.T) {
@@ -1096,4 +1107,82 @@ func TestCtrlCQuitsFromAnywhere(t *testing.T) {
 	fm := press(t, folderModel(t, config.Default().TUI, f, 140, 40), "left", "left")
 	quits("folder list", fm)
 	quits("folder search", press(t, fm, "/"))
+}
+
+// A session whose transcript is in an extra tree, as a container's, cannot
+// be resumed, and says why: Enter names the tree and c, the footer strikes
+// resume, Y copies the recall command, and its missing folder, the
+// container's, is not shown as removed.
+func TestTranscriptInAnotherTree(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
+	primary, extra := t.TempDir(), t.TempDir()
+	writeTranscripts(t, primary, "aaaaaaaa-1111")
+	writeTranscripts(t, extra, "bbbbbbbb-2222", "cccccccc-3333")
+	m = m.TranscriptsIn(primary, extra).RecallWith([]string{"/bin/recall", "mcp"})
+
+	// Rows: bbbbbbbb (folder gone), aaaaaaaa, cccccccc.
+	for _, keys := range [][]string{{"enter"}, {"down", "down", "enter"}} {
+		r := press(t, m, keys...)
+		if r.Result != nil || !strings.Contains(r.toast, "Its transcript is in another tree: "+extra+" · c recalls it in a new claude") {
+			t.Fatalf("%v: result %+v toast %q", keys, r.Result, r.toast)
+		}
+	}
+	if r := press(t, m, "down", "enter"); r.Result == nil || r.Result.SessionID != "aaaaaaaa-1111" {
+		t.Fatalf("result %+v", r.Result)
+	}
+	if r := press(t, m, "Y"); !strings.Contains(r.toast, "recalls it in a new claude") {
+		t.Fatalf("toast %q", r.toast)
+	}
+	struck := m.st.gone.Render("enter resume")
+	if footer := press(t, m, "down", "down").renderHelp(); !strings.Contains(footer, struck) {
+		t.Fatalf("footer %q", footer)
+	}
+
+	r := m.current()
+	if r.removed() {
+		t.Fatal("a container's folder is shown as removed")
+	}
+	details := ansi.Strip(strings.Join(m.detailsLines(r, nil), "\n"))
+	if !strings.Contains(details, "transcript in "+extra) || !strings.Contains(details, ", not on this host") || strings.Contains(details, "removed") {
+		t.Fatalf("details:\n%s", details)
+	}
+}
+
+// Of a session in two trees, the TUI takes the copy the importer takes,
+// the one written last: resumable only when that is the primary's.
+func TestTranscriptInTwoTrees(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
+	for _, primaryNewer := range []bool{true, false} {
+		primary, extra := t.TempDir(), t.TempDir()
+		writeTranscripts(t, primary, "aaaaaaaa-1111")
+		writeTranscripts(t, extra, "aaaaaaaa-1111")
+		older := extra
+		if !primaryNewer {
+			older = primary
+		}
+		past := time.Now().Add(-time.Hour)
+		os.Chtimes(filepath.Join(older, "-test", "aaaaaaaa-1111.jsonl"), past, past)
+
+		r := press(t, m.TranscriptsIn(primary, extra), "down", "enter")
+		if resumed := r.Result != nil; resumed != primaryNewer {
+			t.Fatalf("primary newer %v: result %+v toast %q", primaryNewer, r.Result, r.toast)
+		}
+	}
+}
+
+// In the wide Details grid, a transcript in another tree gets a line of
+// its own with the tree, not a word squeezed beside Size.
+func TestTranscriptInAnotherTreeGrid(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 200, 30)
+	primary, extra := t.TempDir(), t.TempDir()
+	writeTranscripts(t, extra, "aaaaaaaa-1111")
+	m = press(t, m.TranscriptsIn(primary, extra), "down")
+	lines, ok := m.detailsGrid(m.current(), nil, 180)
+	if !ok {
+		t.Fatal("no grid at 180 cells")
+	}
+	grid := ansi.Strip(strings.Join(lines, "\n"))
+	if !strings.Contains(grid, "JSONL   in "+extra) || strings.Contains(grid, "elsewhere") {
+		t.Fatalf("grid:\n%s", grid)
+	}
 }

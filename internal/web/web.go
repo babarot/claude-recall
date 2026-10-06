@@ -111,12 +111,12 @@ type Server struct {
 	port int
 }
 
-// New prepares a server. When projectsDir is not empty, a watcher keeps the
-// archive current and pushes updates to SSE clients.
-func New(d *db.DB, projectsDir string) *Server {
+// New prepares a server. Given transcript trees, the primary first, a
+// watcher keeps the archive current and pushes updates to SSE clients.
+func New(d *db.DB, projectsDirs ...string) *Server {
 	s := &Server{DB: d, Broadcaster: NewBroadcaster()}
-	if projectsDir != "" {
-		s.Watcher = &watcher.Watcher{DB: d, ProjectsDir: projectsDir, OnImport: func(r *importer.Result) {
+	if len(projectsDirs) > 0 {
+		s.Watcher = &watcher.Watcher{DB: d, ProjectsDirs: projectsDirs, OnImport: func(r *importer.Result) {
 			s.Broadcaster.Broadcast(SessionUpdated{Type: "session_updated", SessionID: r.SessionID, Project: r.Project,
 				Status: string(r.Status), AddedMessages: r.TotalMessages, TotalMessages: r.TotalMessages})
 		}}

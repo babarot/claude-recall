@@ -160,7 +160,7 @@ func TestLimit(t *testing.T) {
 		os.MkdirAll(filepath.Dir(f), 0o755)
 		os.WriteFile(f, append(line, '\n'), 0o644)
 	}
-	if err := importer.Run(w, importer.Options{ProjectsDir: dir}, &strings.Builder{}); err != nil {
+	if err := importer.Run(w, importer.Options{ProjectsDirs: []string{dir}}, &strings.Builder{}); err != nil {
 		t.Fatal(err)
 	}
 	w.Close()
