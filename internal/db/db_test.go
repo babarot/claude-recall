@@ -379,7 +379,7 @@ func TestSearchAndListNarrowToProjectPaths(t *testing.T) {
 	}
 }
 
-func TestSearchCarriesTitleAndMessageCount(t *testing.T) {
+func TestSearchCarriesTitleMessageCountAndFirstPrompt(t *testing.T) {
 	d := newTestDB(t)
 	seedSession(t, d, "s1", "p", "/home/user/p")
 	if _, err := d.sql.Exec(`UPDATE sessions SET title = 'Fix the deploy', message_count = 7 WHERE session_id = 's1'`); err != nil {
@@ -387,7 +387,8 @@ func TestSearchCarriesTitleAndMessageCount(t *testing.T) {
 	}
 	seedMessage(t, d, "s1", "m1", "user", "deploy terraform", ts, 0)
 	r := search(t, d, "deploy", SearchOptions{})
-	if len(r) != 1 || r[0].Title == nil || *r[0].Title != "Fix the deploy" || r[0].MessageCount == nil || *r[0].MessageCount != 7 {
+	if len(r) != 1 || r[0].Title == nil || *r[0].Title != "Fix the deploy" || r[0].MessageCount == nil || *r[0].MessageCount != 7 ||
+		r[0].FirstPrompt == nil || *r[0].FirstPrompt != "prompt for s1" {
 		t.Fatalf("got %+v", r)
 	}
 }

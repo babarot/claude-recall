@@ -30,7 +30,7 @@ Supports FTS5 query syntax: `"exact phrase"`, `term1 AND term2`, `term1 OR term2
 
 The full-text index splits words at spaces and punctuation, so it cannot find a word inside Japanese or other text written without spaces: `ロード` would not match `ロード時間`. A query in such a script (Japanese, Chinese, Korean) is therefore matched as plain text anywhere in a message, newest first, unless it uses `AND`, `OR` or `NOT`. `--substring` asks for the same with any query.
 
-`--repo` takes the repository the way the TUI groups sessions: a linked worktree belongs to its main checkout, and a removed herdr or Claude Code worktree to the checkout its path names. With `--format json`, each result also has `title`, `messageCount`, `repository` and, in a worktree, `worktree`.
+`--repo` takes the repository the way the TUI groups sessions: a linked worktree belongs to its main checkout, and a removed herdr or Claude Code worktree to the checkout its path names. With `--format json`, each result also has its session's `title`, `messageCount`, `firstPrompt`, `repository` and, in a worktree, `worktree`.
 
 ## List
 

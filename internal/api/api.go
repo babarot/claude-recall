@@ -20,18 +20,20 @@ func slice(p *string, n int) *string {
 
 // SearchHit is a search result. The MCP tool shortens the session ID to 8
 // characters; the web API keeps it whole. The session's title, its message
-// count and, where the caller resolves it, its repository follow.
+// count, its first prompt (what names a session with no title, as in
+// recall_list) and, where the caller resolves it, its repository follow.
 type SearchHit struct {
-	SessionID  string  `json:"sessionId"`
-	Project    string  `json:"project"`
-	Branch     *string `json:"branch"`
-	Date       *string `json:"date,omitempty"`
-	Role       string  `json:"role"`
-	Content    string  `json:"content"`
-	Title      *string `json:"title,omitempty"`
-	Messages   *int64  `json:"messages"`
-	Repository string  `json:"repository,omitempty"`
-	Worktree   string  `json:"worktree,omitempty"`
+	SessionID   string  `json:"sessionId"`
+	Project     string  `json:"project"`
+	Branch      *string `json:"branch"`
+	Date        *string `json:"date,omitempty"`
+	Role        string  `json:"role"`
+	Content     string  `json:"content"`
+	Title       *string `json:"title,omitempty"`
+	Messages    *int64  `json:"messages"`
+	FirstPrompt *string `json:"firstPrompt,omitempty"`
+	Repository  string  `json:"repository,omitempty"`
+	Worktree    string  `json:"worktree,omitempty"`
 }
 
 // SearchHits converts search results. repoOf, when not nil, names the
@@ -44,7 +46,8 @@ func SearchHits(results []db.SearchResult, shortID bool, repoOf func(projectPath
 			id = jscompat.Slice(id, 8)
 		}
 		out[i] = SearchHit{SessionID: id, Project: cli.DisplayProject(r.ProjectPath, r.Project), Branch: r.GitBranch,
-			Date: slice(r.StartedAt, 10), Role: r.Role, Content: r.Content, Title: r.Title, Messages: r.MessageCount}
+			Date: slice(r.StartedAt, 10), Role: r.Role, Content: r.Content, Title: r.Title, Messages: r.MessageCount,
+			FirstPrompt: slice(r.FirstPrompt, 200)}
 		if repoOf != nil && r.ProjectPath != nil {
 			out[i].Repository, out[i].Worktree = repoOf(*r.ProjectPath)
 		}

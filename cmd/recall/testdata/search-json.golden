@@ -9,6 +9,7 @@
     "content": "How do I configure the terraform module for staging?",
     "timestamp": "2026-03-01T10:00:00.000Z",
     "messageCount": 4,
+    "firstPrompt": "How do I configure the terraform module for staging?",
     "repository": "/work/app"
   },
   {
@@ -21,6 +22,7 @@
     "content": "Use a separate workspace so the terraform state of production stays apart.",
     "timestamp": "2026-03-01T10:01:05.000Z",
     "messageCount": 4,
+    "firstPrompt": "How do I configure the terraform module for staging?",
     "repository": "/work/app"
   },
   {
@@ -33,6 +35,7 @@
     "content": "Put the staging values in a terraform.tfvars file and pass the module a variables block.",
     "timestamp": "2026-03-01T10:00:05.000Z",
     "messageCount": 4,
+    "firstPrompt": "How do I configure the terraform module for staging?",
     "repository": "/work/app"
   }
 ]
