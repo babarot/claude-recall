@@ -35,7 +35,7 @@ var (
 
 	searchTool = &mcp.Tool{
 		Name:        "recall_search",
-		Description: "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count and repository. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
+		Description: "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count, first prompt and repository. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
 		InputSchema: schema{Type: "object", Required: []string{"query"}, Properties: map[string]prop{
 			"query":   {"string", `Full-text search query. Supports FTS5 syntax: "exact phrase", term1 AND term2, term1 OR term2, term1 NOT term2`},
 			"project": projectProp,

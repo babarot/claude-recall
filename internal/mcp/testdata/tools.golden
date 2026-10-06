@@ -37,7 +37,7 @@
     "name": "recall_list"
   },
   {
-    "description": "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count and repository. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
+    "description": "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count, first prompt and repository. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
     "inputSchema": {
       "properties": {
         "from": {
