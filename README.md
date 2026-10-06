@@ -81,8 +81,6 @@ recall ui stop
 
 A session browser, a chat viewer and search. While it runs, new and changed sessions are imported within about half a second, the session list moves them to the top, and the chat view of a running session follows new messages. The server listens on 127.0.0.1 only.
 
-`/recall` in Claude Code (from the [plugin](#claude-code-plugin)) opens it on the current session.
-
 ## Why
 
 claude-recall is a recall tool, not a memory system. The goal is to make `grep ~/.claude/projects/**/*.jsonl` a better experience, and to keep those files around after Claude Code deletes them. When you or the agent realize something was discussed before, you look it up. See [ADR-001](docs/adr/001-recall-not-memory-extension.md).
@@ -162,7 +160,11 @@ The plugin is the recommended way to connect claude-recall to Claude Code. [`plu
 |-----------|--------------|
 | MCP server | Runs `recall mcp` |
 | `SessionEnd` hook | Runs `recall import` when a session ends |
-| `recall` skill | `/recall` opens the web UI on the current session; also `/recall list`, `/recall stats`, `/recall <session-id>` and `/recall stop` |
+| `/recall` command | `/recall <query>` searches this repository's sessions without a model turn (`--all` for every session); pressing a session's ID, or `/recall <n>`, runs the `recap` prompt on it |
+| Previous sessions | When a session starts, the latest sessions of the same repository show above the prompt; pressing one runs the `recap` prompt on it |
+| Search results | `recall_search` results are drawn as a tree of repositories, sessions and matches; what Claude reads is unchanged |
+
+The last three are a hooks module (`hooks/register.tsx`), which needs a Claude Code that loads function hooks (tested on 2.1.291); an older one still gets the MCP server and the hook. They show English, or Japanese when Claude Code's `language` setting is Japanese.
 
 Each release ships it as `claude-recall-plugin.tar.gz`. A plugin directory under `~/.claude/skills/` loads as `claude-recall@skills-dir`, so with Nix:
 
@@ -171,8 +173,6 @@ ln -s ~/.nix-profile/share/claude-plugin/claude-recall ~/.claude/skills/claude-r
 ```
 
 Without the plugin, register just the MCP server, as in [Set up](#set-up).
-
-For Codex and other agents, link just the skill: `plugin/skills/recall` into `~/.agents/skills/recall`.
 
 ### Set up
 
