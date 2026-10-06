@@ -47,8 +47,8 @@ Each Claude Code session runs its own `recall mcp`, so Claude can look into past
 
 | Tool | Description |
 |------|-------------|
-| `recall_search` | Full-text search across past sessions; each hit names its session's title, size and repository |
-| `recall_list` | List archived sessions |
+| `recall_search` | Full-text search across past sessions, optionally within one repository (`repo`); each hit names its session's title, size and repository |
+| `recall_list` | List archived sessions, optionally of one repository (`repo`) |
 | `recall_export` | Export a session's full conversation, or with `tail` only its last messages |
 | `recall_stats` | Show archive statistics |
 

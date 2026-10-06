@@ -125,7 +125,8 @@ type SearchOptions struct {
 
 // SearchResult is one matching message. Field order and JSON names match the
 // output of `search --format json` from before the Go port; the session's
-// title, message count and first prompt follow.
+// title, message count, first prompt and whether it was only a look back
+// through recall (see recallOnly) follow.
 type SearchResult struct {
 	SessionID    string  `json:"sessionId"`
 	Project      string  `json:"project"`
@@ -138,6 +139,7 @@ type SearchResult struct {
 	Title        *string `json:"title,omitempty"`
 	MessageCount *int64  `json:"messageCount"`
 	FirstPrompt  *string `json:"firstPrompt"`
+	RecallOnly   bool    `json:"recallOnly"`
 }
 
 var (
@@ -219,7 +221,8 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 	}
 	rows, err := d.sql.Query(`
       SELECT s.session_id, s.project, s.project_path, s.git_branch,
-             s.started_at, m.role, m.content, m.timestamp, `+title+`, s.message_count, s.first_prompt
+             s.started_at, m.role, m.content, m.timestamp, `+title+`, s.message_count, s.first_prompt,
+             `+recallOnly("s.session_id")+`
       FROM `+from+`
       JOIN sessions s ON s.session_id = m.session_id
       WHERE `+strings.Join(conds, " AND ")+`
@@ -234,7 +237,7 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 	for rows.Next() {
 		var r SearchResult
 		if err := rows.Scan(&r.SessionID, &r.Project, &r.ProjectPath, &r.GitBranch,
-			&r.StartedAt, &r.Role, &r.Content, &r.Timestamp, &r.Title, &r.MessageCount, &r.FirstPrompt); err != nil {
+			&r.StartedAt, &r.Role, &r.Content, &r.Timestamp, &r.Title, &r.MessageCount, &r.FirstPrompt, &r.RecallOnly); err != nil {
 			return nil, fmt.Errorf("search: %w", err)
 		}
 		results = append(results, r)

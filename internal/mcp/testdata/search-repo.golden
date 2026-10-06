@@ -1,0 +1,28 @@
+[
+  {
+    "sessionId": "22222222",
+    "project": "/work/api",
+    "branch": "feature/login",
+    "date": "2026-04-02",
+    "role": "user",
+    "content": "Fix the login bug where the session cookie expires early",
+    "messages": 3,
+    "firstPrompt": "Fix the login bug where the session cookie expires early",
+    "displayTitle": "Fix the login bug where the session cookie expires early",
+    "recallOnly": false,
+    "repository": "/work/api"
+  },
+  {
+    "sessionId": "22222222",
+    "project": "/work/api",
+    "branch": "feature/login",
+    "date": "2026-04-02",
+    "role": "assistant",
+    "content": "The cookie max age was set in seconds where milliseconds were expected; fixed in auth/cookie.go.",
+    "messages": 3,
+    "firstPrompt": "Fix the login bug where the session cookie expires early",
+    "displayTitle": "Fix the login bug where the session cookie expires early",
+    "recallOnly": false,
+    "repository": "/work/api"
+  }
+]

@@ -8,6 +8,8 @@
     "content": "Fix the login bug where the session cookie expires early",
     "messages": 3,
     "firstPrompt": "Fix the login bug where the session cookie expires early",
+    "displayTitle": "Fix the login bug where the session cookie expires early",
+    "recallOnly": false,
     "repository": "/work/api"
   }
 ]

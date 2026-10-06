@@ -30,6 +30,10 @@
         "project": {
           "description": "Filter by project name (partial match)",
           "type": "string"
+        },
+        "repo": {
+          "description": "Only the sessions of the repository this directory is in, its worktrees included (\".\" is the directory the session runs in)",
+          "type": "string"
         }
       },
       "type": "object"
@@ -55,6 +59,14 @@
         "query": {
           "description": "Full-text search query. Supports FTS5 syntax: \"exact phrase\", term1 AND term2, term1 OR term2, term1 NOT term2",
           "type": "string"
+        },
+        "repo": {
+          "description": "Only the sessions of the repository this directory is in, its worktrees included (\".\" is the directory the session runs in)",
+          "type": "string"
+        },
+        "substring": {
+          "description": "Match the query as plain text anywhere in a message, newest first, instead of as FTS5 words (always so for Japanese and other unspaced text)",
+          "type": "boolean"
         },
         "to": {
           "description": "End date filter (YYYY-MM-DD)",

@@ -2,11 +2,11 @@ package tui
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/title"
 	"github.com/babarot/claude-recall/internal/worktree"
 )
 
@@ -56,46 +56,8 @@ func tildePath(path, home string) string {
 	return path
 }
 
-var (
-	commandName = regexp.MustCompile(`<command-name>\s*([^<]*?)\s*</command-name>`)
-	commandArgs = regexp.MustCompile(`<command-args>\s*([^<]*?)\s*</command-args>`)
-	bashInput   = regexp.MustCompile(`<bash-input>\s*([^<]*?)\s*</bash-input>`)
-	anyTag      = regexp.MustCompile(`</?[a-zA-Z][\w-]*(\s[^>]*)?>`)
-	spaces      = regexp.MustCompile(`\s+`)
-)
-
-// displayTitle picks what the list shows for a session: the stored title, or
-// failing that the first prompt with Claude Code's markup turned into text.
-func displayTitle(s db.Session) string {
-	if t := strings.TrimSpace(s.Title); t != "" {
-		return t
-	}
-	return cleanPrompt(s.FirstPrompt)
-}
-
-func cleanPrompt(p string) string {
-	if m := commandName.FindStringSubmatch(p); m != nil {
-		name := m[1]
-		if !strings.HasPrefix(name, "/") {
-			name = "/" + name
-		}
-		if a := commandArgs.FindStringSubmatch(p); a != nil && a[1] != "" {
-			name += " " + a[1]
-		}
-		return collapse(name)
-	}
-	if m := bashInput.FindStringSubmatch(p); m != nil {
-		return collapse("! " + m[1])
-	}
-	if t := collapse(anyTag.ReplaceAllString(p, " ")); t != "" {
-		return t
-	}
-	return "(no prompt)"
-}
-
-func collapse(s string) string {
-	return strings.TrimSpace(spaces.ReplaceAllString(s, " "))
-}
+// displayTitle picks what the list shows for a session.
+func displayTitle(s db.Session) string { return title.Display(s.Title, s.FirstPrompt) }
 
 // formatEnded shows a time of day for today, a date and time this year, and
 // a full date otherwise.

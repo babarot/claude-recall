@@ -428,22 +428,6 @@ func TestColumnsAdaptToWidth(t *testing.T) {
 	}
 }
 
-func TestCleanPrompt(t *testing.T) {
-	cases := map[string]string{
-		"fix the bug": "fix the bug",
-		"<command-message>commit</command-message> <command-name>/commit</command-name> <command-args>staged only</command-args>": "/commit staged only",
-		"<command-name>/clear</command-name>":                         "/clear",
-		"<bash-input>git status</bash-input>":                         "! git status",
-		"<pasted_content id=\"x\"> # Handoff\nnotes</pasted_content>": "# Handoff notes",
-		"": "(no prompt)",
-	}
-	for in, want := range cases {
-		if got := cleanPrompt(in); got != want {
-			t.Errorf("cleanPrompt(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestFormatEnded(t *testing.T) {
 	if got := formatEnded(now.Add(-time.Hour), now); got != "18:00" {
 		t.Errorf("today: %s", got)

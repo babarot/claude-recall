@@ -39,4 +39,19 @@ func TestIndex(t *testing.T) {
 	if p := x.PathsIn(filepath.Join(home, "elsewhere")); p == nil || len(p) != 0 {
 		t.Fatalf("a directory with no sessions narrows to nothing, got %v", p)
 	}
+
+	// The removed worktree itself, or another removed one of the same
+	// repository, narrows to the repository as the checkout does.
+	for _, dir := range []string{removed, filepath.Join(home, ".herdr/worktrees/repo/worktree-never-seen")} {
+		got := x.PathsIn(dir)
+		slices.Sort(got)
+		if !slices.Equal(got, want) {
+			t.Errorf("PathsIn(%s) = %v, want %v", dir, got, want)
+		}
+	}
+
+	// A session with no directory has no repository, not a placeholder name.
+	if r := x.Of(""); r.Name != "" || r.Key != "" {
+		t.Errorf(`Of("") = %+v`, r)
+	}
 }
