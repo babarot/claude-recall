@@ -248,7 +248,7 @@ test('pressing an ID without the recap prompt says to update recall', async ($, 
   let toast = ''
   on('ui.toast', (_$, e) => {
     toast = String((e as { text?: unknown }).text ?? '')
-    return {} as never
+    return { value: undefined } as never
   })
   const ui = await $.ui.mount({
     plugin: 'claude-recall',
