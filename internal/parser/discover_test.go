@@ -94,3 +94,32 @@ func TestChoose(t *testing.T) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
+
+// FindSession lists what Discover lists for the session, in the same
+// order and under the same paths, symlinks and second mounts included.
+func TestFindSessionMatchesDiscover(t *testing.T) {
+	elsewhere := t.TempDir()
+	put(t, elsewhere, "-linked", "s1")
+	put(t, elsewhere, "-other", "s1")
+	file := put(t, elsewhere, "-files", "s2")
+	tree := t.TempDir()
+	os.Symlink(filepath.Join(elsewhere, "-linked"), filepath.Join(tree, "-linked"))
+	os.MkdirAll(filepath.Join(tree, "-own"), 0o755)
+	os.Symlink(file, filepath.Join(tree, "-own", "s2.jsonl"))
+	put(t, tree, "-own", "s1")
+	os.WriteFile(filepath.Join(tree, "s1.jsonl"), nil, 0o644) // not in a project directory
+
+	dirs := []string{tree, elsewhere, filepath.Join(tree, "missing")}
+	all := Discover(dirs...)
+	for _, id := range []string{"s1", "s2", "s3"} {
+		var want []File
+		for _, f := range all {
+			if f.SessionID == id {
+				want = append(want, f)
+			}
+		}
+		if got := FindSession(dirs, id); !slices.Equal(got, want) {
+			t.Errorf("FindSession(%s) = %v, want %v", id, got, want)
+		}
+	}
+}

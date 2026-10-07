@@ -71,8 +71,11 @@ type ImageRow struct {
 
 // ReplaceSession deletes everything stored for a session and inserts the
 // given rows, in one transaction, so a reader or a concurrent import never
-// sees the session half written.
-func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow) (err error) {
+// sees the session half written. check, when not nil, is called once the
+// transaction holds the write lock, so no other import can commit before
+// this one; an error from it rolls the transaction back and is returned as
+// it is.
+func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, check func() error) (err error) {
 	tx, err := d.sql.Begin()
 	if err != nil {
 		return fmt.Errorf("replace session: %w", err)
@@ -82,6 +85,11 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow) (e
 			tx.Rollback()
 		}
 	}()
+	if check != nil {
+		if err = check(); err != nil {
+			return err
+		}
+	}
 
 	for _, q := range []string{
 		`DELETE FROM images WHERE session_id = ?`,

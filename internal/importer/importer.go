@@ -7,6 +7,7 @@ package importer
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -36,10 +37,49 @@ type Result struct {
 	TotalMessages int
 }
 
-// ImportFile imports <projects>/<project>/<session>.jsonl. It returns nil,
-// nil when the file cannot be read or holds no session, so callers can try
-// again later.
-func ImportFile(d *db.DB, path string, index *parser.IndexEntry) (*Result, error) {
+// afterRead, when set by a test, is called once ImportFile has read the
+// file, to change it or import it again before the read content is stored.
+var afterRead func()
+
+// importAttempts bounds how often ImportFile reads a file again that
+// changed while it was being imported.
+const importAttempts = 3
+
+var (
+	// errChanged is the file changing between its stat and the write.
+	errChanged = errors.New("transcript changed while it was imported")
+	// errSuperseded is another copy of the session, in another tree, being
+	// the one to import by then, or the file gone.
+	errSuperseded = errors.New("transcript is no longer the copy to import")
+)
+
+// ImportFile imports <projects>/<project>/<session>.jsonl, a transcript of
+// the trees dirs. It returns nil, nil when the file cannot be read or holds
+// no session, so callers can try again later.
+//
+// Several imports can run at once, from the watcher, the catch-up import
+// and the SessionEnd hook, and one that read the file before it changed
+// must not replace what one that read it after stored. So the rows are
+// written only if, with the write lock held, the file is still the copy of
+// the session parser.Choose picks among the trees, as it was read. A file
+// that changed is read again, up to importAttempts times; a copy elsewhere
+// that became the one to import is left to the watcher, which sees it
+// change. With no dirs, the file's own tree is used.
+func ImportFile(d *db.DB, path string, index *parser.IndexEntry, dirs []string) (*Result, error) {
+	for range importAttempts {
+		r, err := importOnce(d, path, index, dirs)
+		switch {
+		case errors.Is(err, errChanged):
+			continue
+		case errors.Is(err, errSuperseded):
+			return nil, nil
+		}
+		return r, err
+	}
+	return nil, nil
+}
+
+func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) (*Result, error) {
 	sessionID := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 	project := filepath.Base(filepath.Dir(path))
 	if sessionID == "" || project == "" {
@@ -68,6 +108,9 @@ func ImportFile(d *db.DB, path string, index *parser.IndexEntry) (*Result, error
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil
+	}
+	if afterRead != nil {
+		afterRead()
 	}
 	parsed := parser.Parse(decodeText(raw), project, index)
 	if parsed == nil {
@@ -103,7 +146,24 @@ func ImportFile(d *db.DB, path string, index *parser.IndexEntry) (*Result, error
 		imgs = append(imgs, db.ImageRow{MessageUUID: img.MessageUUID, ImageIndex: img.ImageIndex, MediaType: img.MediaType, Data: data})
 	}
 
-	if err := d.ReplaceSession(row, msgs, imgs); err != nil {
+	if len(dirs) == 0 {
+		dirs = []string{filepath.Dir(filepath.Dir(path))}
+	}
+	check := func() error {
+		copies := parser.FindSession(dirs, sessionID)
+		if len(copies) == 0 {
+			return errSuperseded
+		}
+		pick := parser.Choose(copies)[0]
+		if filepath.Clean(pick.Path) != filepath.Clean(path) {
+			return errSuperseded
+		}
+		if !pick.ModTime.Equal(fi.ModTime()) || pick.Size != fi.Size() {
+			return errChanged
+		}
+		return nil
+	}
+	if err := d.ReplaceSession(row, msgs, imgs, check); err != nil {
 		return nil, err
 	}
 	status := New
@@ -230,7 +290,7 @@ func Run(vault *db.DB, opts Options, w io.Writer) error {
 	for _, project := range order {
 		index := parser.LoadIndex(filepath.Join(project.tree, project.project))
 		for _, f := range byProject[project] {
-			r, err := ImportFile(vault, f.Path, index[f.SessionID])
+			r, err := ImportFile(vault, f.Path, index[f.SessionID], opts.ProjectsDirs)
 			if err != nil {
 				failed++
 				if firstErr == nil {
