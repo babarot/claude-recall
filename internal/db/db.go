@@ -16,6 +16,10 @@ type DB struct {
 	sql *sql.DB
 }
 
+// journalSizeLimit is the size, in bytes, the WAL is truncated to when it
+// is reset. A variable so a test can use a small one.
+var journalSizeLimit int64 = 64 << 20
+
 // Options controls how the database is opened.
 type Options struct {
 	// ReadOnly opens the file with mode=ro and skips applying the schema, so
@@ -40,6 +44,10 @@ func Open(path string, opts Options) (*DB, error) {
 		// a writer waiting for a while, hence the long timeout.
 		q.Add("_pragma", "busy_timeout(60000)")
 		q.Add("_pragma", "journal_mode(WAL)")
+		// SQLite reuses the WAL file from its start after a checkpoint but
+		// never shrinks it on its own, so one large import would leave a
+		// WAL of that size behind for good. Cut it back when it is reset.
+		q.Add("_pragma", fmt.Sprintf("journal_size_limit(%d)", journalSizeLimit))
 		q.Set("_txlock", "immediate")
 	}
 	dsn := "file:" + path + "?" + q.Encode()
