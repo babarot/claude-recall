@@ -3,6 +3,7 @@ package watcher
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -23,10 +24,10 @@ var (
 	// is taken to be stopped, as a `claude` suspended with Ctrl-Z stops its
 	// `recall mcp` with it, and another process starts watching.
 	aloneStale = time.Minute
+	// aloneSlots bounds how many stopped holders are watched around; past
+	// it, every process watches without a lock.
+	aloneSlots = 64
 )
-
-// aloneSlots bounds how many stopped holders are watched around.
-const aloneSlots = 4
 
 // LockPath is the lock file of the watcher that imports the trees dirs
 // into the database at dbPath. Each set of trees has its own, so processes
@@ -80,37 +81,67 @@ func fresh(path string) bool {
 	return err == nil && time.Since(fi.ModTime()) < aloneStale
 }
 
-// takeSlot takes the first free lock unless a holder is watching. It
-// returns no lock and no error when one is, or when every slot is held by
-// a stopped process.
+// errNoSlot is returned by takeSlot when every lock is held by a stopped
+// process.
+var errNoSlot = errors.New("every watch lock is held by a stopped process")
+
+// takeSlot takes the first free lock unless a holder is watching, and
+// returns no lock and no error when one is. A lock is tried before its
+// file is looked at: a holder that crashed left its file touched a moment
+// ago, but the lock went with it.
 func takeSlot(base string) (*flock.Lock, string, error) {
-	for i := range aloneSlots {
-		if fresh(slotPath(base, i)) {
-			return nil, "", nil
-		}
-	}
 	for i := range aloneSlots {
 		path := slotPath(base, i)
 		l, err := flock.TryLock(path)
 		if err != nil {
 			return nil, "", err
 		}
-		if l != nil {
-			return l, path, nil
+		if l == nil {
+			if fresh(path) {
+				return nil, "", nil
+			}
+			continue // stopped
 		}
-		if fresh(path) {
-			return nil, "", nil // taken a moment ago
+		if watchingAfter(base, i) {
+			l.Unlock()
+			return nil, "", nil
 		}
+		return l, path, nil
 	}
-	return nil, "", nil
+	return nil, "", errNoSlot
 }
 
-// hold runs run while touching the lock file at path, then marks the file
-// untouched for long, so the next process takes over at its next look
-// rather than after aloneStale, and releases the lock.
+// watchingAfter reports whether a holder of a slot after i is watching, as
+// one is when the holder of i exited after the other watched around it.
+func watchingAfter(base string, i int) bool {
+	for j := i + 1; j < aloneSlots; j++ {
+		path := slotPath(base, j)
+		if _, err := os.Stat(path); err != nil {
+			return false // slots are taken in order
+		}
+		l, err := flock.TryLock(path)
+		if err != nil {
+			return false
+		}
+		if l != nil {
+			l.Unlock()
+			continue
+		}
+		if fresh(path) {
+			return true
+		}
+	}
+	return false
+}
+
+// hold runs run while touching the lock file at path, then releases the
+// lock.
 func hold(ctx context.Context, l *flock.Lock, path string, run func(context.Context)) {
-	touch := func(t time.Time) { os.Chtimes(path, t, t) }
-	touch(time.Now())
+	touch := func() {
+		now := time.Now()
+		os.Chtimes(path, now, now)
+	}
+	touch()
 
 	beatCtx, stop := context.WithCancel(ctx)
 	var wg sync.WaitGroup
@@ -122,13 +153,12 @@ func hold(ctx context.Context, l *flock.Lock, path string, run func(context.Cont
 			case <-beatCtx.Done():
 				return
 			case <-t.C:
-				touch(time.Now())
+				touch()
 			}
 		}
 	})
 	run(ctx)
 	stop()
 	wg.Wait()
-	touch(time.Unix(0, 0))
 	l.Unlock()
 }

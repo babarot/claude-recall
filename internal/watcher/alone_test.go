@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/babarot/claude-recall/internal/flock"
 )
 
 func shortAlone(t *testing.T, beat time.Duration) {
@@ -70,7 +72,7 @@ func TestRunAloneOneAtATime(t *testing.T) {
 		t.Fatal("a second runner ran while the first held the lock")
 	}
 	a.stop()
-	// The holder marks the lock file free when it exits, so the takeover
+	// The lock is tried before the file is looked at, so the takeover
 	// comes at the next look, well before aloneStale.
 	if !b.runs(aloneStale / 2) {
 		t.Fatal("the second runner did not take over when the first exited")
@@ -124,5 +126,59 @@ func TestLockPath(t *testing.T) {
 	}
 	if filepath.Dir(one) != "/h/.claude" {
 		t.Errorf("lock file %s is not next to the database", one)
+	}
+}
+
+// holdSlot takes the lock at path as another process would, touched at
+// mtime.
+func holdSlot(t *testing.T, path string, mtime time.Time) *flock.Lock {
+	t.Helper()
+	l, err := flock.TryLock(path)
+	if err != nil || l == nil {
+		t.Fatalf("TryLock(%s) = %v, %v", path, l, err)
+	}
+	if err := os.Chtimes(path, mtime, mtime); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { l.Unlock() })
+	return l
+}
+
+func TestRunAloneAfterCrashedHolder(t *testing.T) {
+	shortAlone(t, 20*time.Millisecond)
+	aloneStale = time.Hour
+	lock := filepath.Join(t.TempDir(), "vault.db.watch.lock")
+
+	// A crash releases the lock but leaves the file touched a moment ago.
+	holdSlot(t, lock, time.Now()).Unlock()
+	if !startRunner(t, lock).runs(time.Second) {
+		t.Fatal("a runner waited on the freshly touched file of a crashed holder")
+	}
+}
+
+func TestRunAloneLeavesFreedSlotBelowWatcher(t *testing.T) {
+	shortAlone(t, 20*time.Millisecond)
+	lock := filepath.Join(t.TempDir(), "vault.db.watch.lock")
+
+	// Slot 0's holder exited after slot 1's watched around it.
+	holdSlot(t, lock, time.Now()).Unlock()
+	holdSlot(t, slotPath(lock, 1), time.Now().Add(time.Hour))
+	if startRunner(t, lock).runs(aloneStale / 2) {
+		t.Fatal("a runner took slot 0 while slot 1's holder was watching")
+	}
+}
+
+func TestRunAloneAllSlotsStopped(t *testing.T) {
+	shortAlone(t, 20*time.Millisecond)
+	old := aloneSlots
+	aloneSlots = 2
+	t.Cleanup(func() { aloneSlots = old })
+	lock := filepath.Join(t.TempDir(), "vault.db.watch.lock")
+
+	stale := time.Now().Add(-2 * aloneStale)
+	holdSlot(t, slotPath(lock, 0), stale)
+	holdSlot(t, slotPath(lock, 1), stale)
+	if !startRunner(t, lock).runs(time.Second) {
+		t.Fatal("no runner ran with every slot held by a stopped process")
 	}
 }
