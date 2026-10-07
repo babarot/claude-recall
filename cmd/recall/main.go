@@ -512,8 +512,9 @@ func runMCP(o *options) error {
 	wg.Go(func() {
 		watcher.RunAlone(watchCtx, watcher.LockPath(o.db, o.trees), func(ctx context.Context) {
 			// The import summary goes to stderr: stdout carries the protocol.
-			go catchUp(d, o.trees, os.Stderr)
-			(&watcher.Watcher{DB: d, ProjectsDirs: o.trees}).Run(ctx)
+			(&watcher.Watcher{DB: d, ProjectsDirs: o.trees, Started: func() {
+				go catchUp(d, o.trees, os.Stderr)
+			}}).Run(ctx)
 		}, os.Stderr)
 	})
 	err = mcp.Run(ctx, d)
@@ -606,7 +607,11 @@ func serveUI(o *options, stdout io.Writer) error {
 	defer stop()
 	s := web.New(d, o.trees...)
 	s.Shutdown = stop
-	go catchUp(d, o.trees, stdout)
+	if s.Watcher != nil {
+		s.Watcher.Started = func() { go catchUp(d, o.trees, stdout) }
+	} else {
+		go catchUp(d, o.trees, stdout)
+	}
 	return s.Serve(ctx, ln)
 }
 
