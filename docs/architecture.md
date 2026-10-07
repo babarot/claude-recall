@@ -2,7 +2,7 @@
 
 `recall` is one binary. The CLI starts each way into the archive: the TUI (`recall`), the MCP server (`recall mcp`, started by Claude Code) and the web UI (`recall ui`), and it also searches, lists and exports on its own.
 
-The web UI and the MCP server import everything on startup and run the watcher while they are up. The `SessionEnd` hook imports when a session ends. The TUI and the CLI read the archive as it is.
+The web UI and the MCP server import everything on startup and run the watcher while they are up, the MCP servers one at a time. The `SessionEnd` hook imports when a session ends. The TUI and the CLI read the archive as it is.
 
 ```mermaid
 flowchart TD
@@ -28,7 +28,7 @@ flowchart TD
 
 A tree in `extra_projects_dirs` that is not there yet, such as a container's before its first run, is looked for again on every poll and imported from once it appears. Inside a container, the plugin's `SessionEnd` hook imports into the container's own `~/.claude/vault.db`, not the host's: the host's watcher and catch-up import are what archive a container's sessions. Do not bind-mount the host's `vault.db` into a container.
 
-The watcher polls file sizes and mtimes every 250 ms; see [ADR-002](adr/002-fs-watch-for-realtime-updates.md). Every Claude Code session runs its own `recall mcp`, so several importers often run at once: writers take the write lock at BEGIN and wait for it, and a session that fails to import does not stop the others.
+The watcher polls file sizes and mtimes every 250 ms; see [ADR-002](adr/002-fs-watch-for-realtime-updates.md). Every Claude Code session runs its own `recall mcp`, but only the one holding the lock file next to the database (`vault.db.watch.lock`) watches and imports; the others check every 5 seconds whether it has exited and then take over, importing first what changed while nobody watched. The web UI watches regardless, and the `SessionEnd` hook and `recall import` still import alongside, so several importers can run at once: writers take the write lock at BEGIN and wait for it, and a session that fails to import does not stop the others. The WAL is cut back to 64 MB whenever it is reset, so a large import does not leave a WAL of its size behind.
 
 ## Database
 
