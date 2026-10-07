@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.7.1](https://github.com/babarot/claude-recall/compare/1.7.0...1.7.1) - 2026-10-07
+### Bug fixes
+- Watch transcripts from one recall mcp at a time by @babarot in https://github.com/babarot/claude-recall/pull/69
+
 ## [1.7.0](https://github.com/babarot/claude-recall/compare/1.6.2...1.7.0) - 2026-10-06
 ### New Features
 - Support importing transcripts from more than one directory by @babarot in https://github.com/babarot/claude-recall/pull/67
