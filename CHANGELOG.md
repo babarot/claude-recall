@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.7.2](https://github.com/babarot/claude-recall/compare/1.7.1...1.7.2) - 2026-10-07
+### Bug fixes
+- Do not let an import replace a newer one with stale content by @babarot in https://github.com/babarot/claude-recall/pull/71
+
 ## [1.7.1](https://github.com/babarot/claude-recall/compare/1.7.0...1.7.1) - 2026-10-07
 ### Bug fixes
 - Watch transcripts from one recall mcp at a time by @babarot in https://github.com/babarot/claude-recall/pull/69
