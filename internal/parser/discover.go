@@ -68,6 +68,36 @@ func Discover(dirs ...string) []File {
 	return out
 }
 
+// FindSession lists the transcripts of the session id in the trees dirs,
+// as Discover would list them, with one stat per project directory instead
+// of reading each.
+func FindSession(dirs []string, id string) []File {
+	var out []File
+	seen := map[fileID]bool{}
+	name := id + ".jsonl"
+	for _, tree := range dirs {
+		projects, err := os.ReadDir(tree)
+		if err != nil {
+			continue
+		}
+		for _, p := range projects {
+			path := filepath.Join(tree, p.Name(), name)
+			info, err := os.Stat(path)
+			if err != nil || !info.Mode().IsRegular() {
+				continue
+			}
+			if fid, ok := idOf(info); ok {
+				if seen[fid] {
+					continue
+				}
+				seen[fid] = true
+			}
+			out = append(out, File{Dir: tree, Project: p.Name(), SessionID: id, Path: path, Size: info.Size(), ModTime: info.ModTime()})
+		}
+	}
+	return out
+}
+
 // isDir reports whether the entry e at path is a directory, following a
 // symlink.
 func isDir(path string, e os.DirEntry) bool {
