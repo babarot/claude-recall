@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/babarot/claude-recall/internal/cli"
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
-	"github.com/babarot/claude-recall/internal/flock"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/mcp"
 	"github.com/babarot/claude-recall/internal/repos"
@@ -503,43 +503,25 @@ func runMCP(o *options) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	go watchAlone(ctx, d, o)
-	return mcp.Run(ctx, d)
-}
-
-// watchRetry is how often a `recall mcp` that is not watching checks
-// whether the one that was has exited.
-const watchRetry = 5 * time.Second
-
-// watchAlone keeps the archive current from one `recall mcp` at a time.
-// Every Claude Code session runs its own, and each watching would scan the
-// transcript trees and import every change once per session. The others
-// wait on a lock next to the database and take over when its holder exits,
-// importing first what changed while nobody watched.
-func watchAlone(ctx context.Context, d *db.DB, o *options) {
-	tick := time.NewTicker(watchRetry)
-	defer tick.Stop()
-	for {
-		l, err := flock.TryLock(o.db + ".watch.lock")
-		if err != nil {
-			// Better each watching, as before the lock, than none.
-			fmt.Fprintln(os.Stderr, "recall: watch lock:", err)
-		}
-		if l != nil || err != nil {
-			if l != nil {
-				defer l.Unlock()
-			}
+	// Every Claude Code session runs its own `recall mcp`, and each watching
+	// would scan the transcript trees and import every change once per
+	// session, so one at a time watches. The others take over when it
+	// exits, importing first what changed while nobody watched.
+	watchCtx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		watcher.RunAlone(watchCtx, watcher.LockPath(o.db, o.trees), func(ctx context.Context) {
 			// The import summary goes to stderr: stdout carries the protocol.
 			go catchUp(d, o.trees, os.Stderr)
 			(&watcher.Watcher{DB: d, ProjectsDirs: o.trees}).Run(ctx)
-			return
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-		}
-	}
+		}, os.Stderr)
+	})
+	err = mcp.Run(ctx, d)
+	// Let the lock go before exiting, so the next process takes over at
+	// its next look.
+	cancel()
+	wg.Wait()
+	return err
 }
 
 func uiAddr(o *options) string { return fmt.Sprintf("http://localhost:%d", o.port) }
