@@ -4,6 +4,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -33,9 +35,11 @@ import (
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/title"
 	"github.com/babarot/claude-recall/internal/tui"
+	"github.com/babarot/claude-recall/internal/update"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/watcher"
 	"github.com/babarot/claude-recall/internal/web"
+	"github.com/babarot/claude-recall/internal/webui"
 )
 
 // exitError carries an exit status for errors already reported to stderr.
@@ -83,6 +87,7 @@ type options struct {
 	trees                         []string
 	limit, port                   int
 	dryRun, foreground, substring bool
+	check                         bool
 	limitSet                      bool
 }
 
@@ -127,7 +132,8 @@ Run without a command, it opens the TUI.`,
 			o.db = cfg.DBPath()
 		}
 		o.trees = cfg.ProjectsDirs()
-		if f := c.Flags().Lookup("port"); f != nil && !f.Changed {
+		// recall update has no --port, and restarts the UI on this one.
+		if f := c.Flags().Lookup("port"); f == nil || !f.Changed {
 			o.port = cfg.UI.Port
 		}
 		return nil
@@ -251,13 +257,13 @@ Run without a command, it opens the TUI.`,
 		Short: "Start the web UI in the background",
 		Long: fmt.Sprintf(`Start the web UI in the background, on http://localhost:%d unless port under
 [ui] in the config file or --port says otherwise. If it is already running,
-print its URL.`, config.DefaultPort),
+print its URL, or restart it if it is an older release.`, config.DefaultPort),
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if o.foreground {
 				return serveUI(o, c.OutOrStdout())
 			}
-			return startBackground(o, c.OutOrStdout(), c.ErrOrStderr())
+			return runUI(o, c.OutOrStdout(), c.ErrOrStderr())
 		},
 	}
 	uiCmd.PersistentFlags().IntVar(&o.port, "port", 0, "port of the web UI (default: port under [ui] in the config file, or 6276)")
@@ -284,7 +290,18 @@ print its URL.`, config.DefaultPort),
 		Run:   func(c *cobra.Command, _ []string) { fmt.Fprintf(c.OutOrStdout(), "recall %s\n", version.Version) },
 	}
 
-	root.AddCommand(tuiCmd, importCmd, searchCmd, listCmd, exportCmd, statsCmd, mcpCmd, uiCmd, versionCmd)
+	updateCmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update recall to the latest release",
+		Long: `Replace recall with the latest release from GitHub, and restart the web UI if
+it is running. An install from Nix or Homebrew, or a build from source, is
+updated the way it was installed; recall says how.`,
+		Args: cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error { return runUpdate(o, c.OutOrStdout(), c.ErrOrStderr()) },
+	}
+	updateCmd.Flags().BoolVar(&o.check, "check", false, "only say whether a newer release is out")
+
+	root.AddCommand(tuiCmd, importCmd, searchCmd, listCmd, exportCmd, statsCmd, mcpCmd, uiCmd, updateCmd, versionCmd)
 	return root
 }
 
@@ -525,11 +542,15 @@ func runMCP(o *options) error {
 	return err
 }
 
-func uiAddr(o *options) string { return fmt.Sprintf("http://localhost:%d", o.port) }
+func uiAddr(port int) string { return fmt.Sprintf("http://localhost:%d", port) }
+
+// local asks the web UI on this machine. It gives up after a second, so a
+// UI that hangs cannot hold up recall ui or recall update.
+var local = &http.Client{Timeout: time.Second}
 
 func stopUI(o *options, stdout io.Writer) error {
-	addr := uiAddr(o)
-	resp, err := http.Post(addr+"/api/shutdown", "", nil)
+	addr := uiAddr(o.port)
+	resp, err := local.Post(addr+"/api/shutdown", "", nil)
 	if err != nil {
 		fmt.Fprintln(stdout, "UI server is not running.")
 		return nil
@@ -549,7 +570,7 @@ func uiStatus(o *options, stdout io.Writer) error {
 		Port    int            `json:"port"`
 		Watcher watcher.Status `json:"watcher"`
 	}
-	if err := getStatus(uiAddr(o), &st); err != nil {
+	if err := getStatus(uiAddr(o.port), &st); err != nil {
 		fmt.Fprintln(stdout, "UI server is not running.")
 		return nil
 	}
@@ -577,7 +598,7 @@ func uiStatus(o *options, stdout io.Writer) error {
 }
 
 func getStatus(addr string, v any) error {
-	resp, err := http.Get(addr + "/api/status")
+	resp, err := local.Get(addr + "/api/status")
 	if err != nil {
 		return err
 	}
@@ -615,15 +636,70 @@ func serveUI(o *options, stdout io.Writer) error {
 	return s.Serve(ctx, ln)
 }
 
-// startBackground runs `recall ui --foreground` detached and waits for it
-// to answer.
-func startBackground(o *options, stdout, stderr io.Writer) error {
-	addr := uiAddr(o)
+// uiServer is what recall ui and recall update read from /api/status.
+type uiServer struct {
+	PID int `json:"pid"`
+	// Version is empty for a server from before /api/status reported it.
+	Version string `json:"version"`
+}
+
+// olderThan reports whether the server runs a release before ver.
+func (s uiServer) olderThan(ver string) bool {
+	if s.Version == "" {
+		return true
+	}
+	newer, err := update.Newer(ver, s.Version)
+	return err == nil && newer
+}
+
+// runUI starts the web UI in the background. One already running is left
+// alone and its URL printed, unless it is an older release, which is
+// restarted with this binary: a binary without the web UI (go install)
+// never replaces one.
+func runUI(o *options, stdout, stderr io.Writer) error {
+	addr := uiAddr(o.port)
+	var st uiServer
+	if getStatus(addr, &st) == nil {
+		if !webui.Embedded || !st.olderThan(version.Version) {
+			fmt.Fprintf(stdout, "recall UI: %s (pid: %d)\n", addr, st.PID)
+			return nil
+		}
+		fmt.Fprintf(stdout, "Restarting the web UI (%s → %s).\n", cmp.Or(st.Version, "older"), version.Version)
+		if err := stopAndWait(o.port); err != nil {
+			return err
+		}
+	}
 	self, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(self, "ui", "--foreground", "--port", strconv.Itoa(o.port), "--db", o.db)
+	return startBackground(self, o.port, o.db, stdout, stderr)
+}
+
+// stopAndWait asks the web UI on port to stop and waits, up to 5 seconds,
+// until the port is free for a new one.
+func stopAndWait(port int) error {
+	resp, err := local.Post(uiAddr(port)+"/api/shutdown", "", nil)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	for range 50 {
+		time.Sleep(100 * time.Millisecond)
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 100*time.Millisecond)
+		if err != nil {
+			return nil
+		}
+		conn.Close()
+	}
+	return fmt.Errorf("the web UI on %s did not stop; stop it with recall ui stop", uiAddr(port))
+}
+
+// startBackground runs `exe ui --foreground` detached and waits for it to
+// answer.
+func startBackground(exe string, port int, db string, stdout, stderr io.Writer) error {
+	addr := uiAddr(port)
+	cmd := exec.Command(exe, "ui", "--foreground", "--port", strconv.Itoa(port), "--db", db)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return err
@@ -641,6 +717,95 @@ func startBackground(o *options, stdout, stderr io.Writer) error {
 		}
 	}
 	fmt.Fprintln(stderr, "Failed to start UI server.")
+	return nil
+}
+
+// releases is where recall update looks for releases; tests point it at a
+// fake. self is the running binary.
+var (
+	releases = &update.Client{BaseURL: update.DefaultBaseURL}
+	self     = os.Executable
+)
+
+// runUpdate replaces recall with the latest release, when install.sh put
+// it in place, and restarts an older web UI with it. Any other install
+// gets told how to update it.
+func runUpdate(o *options, stdout, stderr io.Writer) error {
+	exe, err := self()
+	if err != nil {
+		return err
+	}
+	// The file itself, not a link to it: the new one is written beside it
+	// and renamed over it.
+	if p, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = p
+	}
+	method := update.Detect(version.Source, exe)
+	if method != update.Binary && !o.check {
+		return errors.New(method.Hint())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	latest, err := releases.Latest(ctx)
+	if err != nil {
+		return fmt.Errorf("find the latest release: %w", err)
+	}
+	newer, err := update.Newer(latest, version.Version)
+	if err != nil {
+		return err
+	}
+	if !newer {
+		fmt.Fprintf(stdout, "recall %s is the latest.\n", version.Version)
+		return nil
+	}
+	if o.check {
+		fmt.Fprintf(stdout, "recall %s is available (you have %s).\n%s\n", latest, version.Version, method.Hint())
+		return nil
+	}
+
+	asset, err := update.Asset(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "Updating recall %s → %s...\n", version.Version, latest)
+	err = releases.Apply(ctx, latest, asset, exe, func(p string) error { return runsAs(p, latest) })
+	if errors.Is(err, update.ErrNotPublished) {
+		return fmt.Errorf("recall %s is still being published; try again in a few minutes", latest)
+	}
+	if err != nil {
+		return err
+	}
+
+	// The binary is in place by now, so a UI that will not restart is
+	// reported and the update still succeeds.
+	var st uiServer
+	if getStatus(uiAddr(o.port), &st) == nil && st.olderThan(latest) {
+		fmt.Fprintf(stdout, "Restarting the web UI (%s → %s).\n", cmp.Or(st.Version, "older"), latest)
+		if err := stopAndWait(o.port); err != nil {
+			fmt.Fprintln(stderr, err)
+		} else if err := startBackground(exe, o.port, o.db, stdout, stderr); err != nil {
+			fmt.Fprintln(stderr, "Failed to start UI server:", err)
+		}
+	}
+	fmt.Fprintf(stdout, "Updated recall %s → %s\n", version.Version, latest)
+	fmt.Fprintf(stdout, "Running MCP servers keep %s until their Claude Code session ends.\n", version.Version)
+	return nil
+}
+
+// runsAs checks that the binary at path runs and is release ver.
+func runsAs(path, ver string) error {
+	cmd := exec.Command(path, "version")
+	// Without a terminal on stderr it would not check for releases
+	// anyway; this says so for the day it does.
+	cmd.Env = append(os.Environ(), "RECALL_NO_UPDATE_CHECK=1")
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("the downloaded recall does not run: %w", err)
+	}
+	if got := strings.TrimSpace(string(out)); got != "recall "+ver {
+		return fmt.Errorf("the downloaded recall says %q, not recall %s", got, ver)
+	}
 	return nil
 }
 

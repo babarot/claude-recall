@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -11,12 +12,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/update"
 	"github.com/babarot/claude-recall/internal/version"
 )
 
@@ -344,6 +347,141 @@ func TestNoArchive(t *testing.T) {
 		}
 		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%v: created the archive", args)
+		}
+	}
+}
+
+// fakeReleases serves a latest release, its checksums.txt and, for this
+// platform, a stand-in binary that prints its version, and points recall
+// update at it.
+func fakeReleases(t *testing.T, latest string) {
+	t.Helper()
+	asset, err := update.Asset(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Skip(err)
+	}
+	bin := []byte("#!/bin/sh\necho recall " + latest + "\n")
+	sum := sha256.Sum256(bin)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			http.Redirect(w, r, "/releases/tag/"+latest, http.StatusFound)
+		case "/releases/download/" + latest + "/checksums.txt":
+			fmt.Fprintf(w, "%x  %s\n", sum, asset)
+		case "/releases/download/" + latest + "/" + asset:
+			w.Write(bin)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	old := releases
+	releases = &update.Client{BaseURL: srv.URL}
+	t.Cleanup(func() { releases = old })
+}
+
+// installedAs makes recall update see a release binary at a path in a
+// temporary directory, and returns the path.
+func installedAs(t *testing.T, source string) string {
+	t.Helper()
+	exe := filepath.Join(t.TempDir(), "recall")
+	if err := os.WriteFile(exe, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	oldSelf, oldSource := self, version.Source
+	self = func() (string, error) { return exe, nil }
+	version.Source = source
+	t.Cleanup(func() { self, version.Source = oldSelf, oldSource })
+	return exe
+}
+
+// noUI points the commands at a port nothing listens on.
+func noUI(t *testing.T) {
+	t.Helper()
+	closed := httptest.NewServer(http.NotFoundHandler())
+	port := closed.Listener.Addr().(*net.TCPAddr).Port
+	closed.Close()
+	writeConfig(t, fmt.Sprintf("[ui]\nport = %d\n", port))
+}
+
+func TestUpdate(t *testing.T) {
+	fakeReleases(t, "99.0.0")
+	exe := installedAs(t, "release")
+	noUI(t)
+	out, err := runArgs("update")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	want := "Updating recall " + version.Version + " → 99.0.0...\nUpdated recall " + version.Version + " → 99.0.0\n"
+	if !strings.HasPrefix(out, want) {
+		t.Errorf("got %q, want it to start %q", out, want)
+	}
+	if b, _ := os.ReadFile(exe); !strings.Contains(string(b), "echo recall 99.0.0") {
+		t.Errorf("not replaced: %q", b)
+	}
+}
+
+func TestUpdateUpToDate(t *testing.T) {
+	fakeReleases(t, version.Version)
+	exe := installedAs(t, "release")
+	out, err := runArgs("update")
+	if err != nil || out != "recall "+version.Version+" is the latest.\n" {
+		t.Errorf("got %q, %v", out, err)
+	}
+	if b, _ := os.ReadFile(exe); string(b) != "old" {
+		t.Errorf("replaced with %q", b)
+	}
+}
+
+// Builds recall did not install are told how to update and left alone;
+// --check still says whether a release is out.
+func TestUpdateOtherInstalls(t *testing.T) {
+	fakeReleases(t, "99.0.0")
+	exe := installedAs(t, "")
+	_, err := runArgs("update")
+	if err == nil || !strings.Contains(err.Error(), "built from source") {
+		t.Errorf("source build: %v", err)
+	}
+	if b, _ := os.ReadFile(exe); string(b) != "old" {
+		t.Errorf("replaced with %q", b)
+	}
+	out, err := runArgs("update", "--check")
+	if err != nil || !strings.HasPrefix(out, "recall 99.0.0 is available (you have "+version.Version+").\nrecall was built from source") {
+		t.Errorf("--check: got %q, %v", out, err)
+	}
+}
+
+// recall ui leaves a running UI of this release or a newer one alone.
+func TestUILeavesCurrentServer(t *testing.T) {
+	for _, v := range []string{version.Version, "99.0.0"} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/status" {
+				fmt.Fprintf(w, `{"pid":42,"version":%q}`, v)
+				return
+			}
+			t.Errorf("%s: %s %s", v, r.Method, r.URL.Path)
+		}))
+		port := srv.Listener.Addr().(*net.TCPAddr).Port
+		want := fmt.Sprintf("recall UI: http://localhost:%d (pid: 42)\n", port)
+		if out, err := runArgs("ui", "--port", strconv.Itoa(port)); err != nil || out != want {
+			t.Errorf("%s: got %q, %v", v, out, err)
+		}
+		srv.Close()
+	}
+}
+
+func TestOlderThan(t *testing.T) {
+	for _, tc := range []struct {
+		running string
+		want    bool
+	}{
+		{"", true}, // from before /api/status reported it
+		{"1.0.0", true},
+		{version.Version, false},
+		{"99.0.0", false},
+	} {
+		if got := (uiServer{Version: tc.running}).olderThan(version.Version); got != tc.want {
+			t.Errorf("%q: got %v", tc.running, got)
 		}
 	}
 }

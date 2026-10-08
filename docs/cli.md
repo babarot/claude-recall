@@ -79,11 +79,22 @@ recall stats [--project <name>]
 ## Web UI
 
 ```
-recall ui [--port <n>]        Start in the background (default port: port in the config file, or 6276)
+recall ui [--port <n>]        Start in the background (default port: port in the config file, or 6276); restart an older one
 recall ui --foreground        Run in the foreground
 recall ui status              Show server status, and with extra_projects_dirs, the trees it watches
 recall ui stop                Stop the server
 ```
+
+## Update
+
+```
+recall update                 Replace recall with the latest release, and restart the web UI if it runs an older one
+recall update --check         Only say whether a newer release is out
+```
+
+`recall update` downloads the release binary for this platform from GitHub, checks it against the release's `checksums.txt`, runs it once and renames it over the installed one. It updates only the binary the curl installer put in place: an install from Nix or Homebrew, or a build from source, is left alone, and `recall update` says how to update it. The web UI comes back on the port in the config file and the `--db` given (or the config file's), not those of a UI started by hand with other ones.
+
+`recall ui` also restarts a running web UI that is an older release than itself, so the UI follows an update made another way (Nix, for one). It leaves a newer one alone.
 
 ## Global options
 

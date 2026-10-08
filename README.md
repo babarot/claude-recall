@@ -185,6 +185,17 @@ claude mcp add claude-recall -s user -- recall mcp   # or install the plugin
 
 Until the archive exists, `recall` and its `search`, `list`, `export` and `stats` commands say how to set it up and exit with status 1. The MCP server and the web UI create the archive and import into it when they start, so with the MCP server connected, the first Claude Code session you start does the import too.
 
+### Upgrade
+
+A curl install updates itself:
+
+```bash
+recall update           # replace recall with the latest release, and restart the web UI
+recall update --check   # only say whether a newer release is out
+```
+
+It does not import or register the MCP server again. Running MCP servers keep the old version until their Claude Code session ends. `recall update` came in a release after 1.7.2; to get it, re-run the installer once more. A Nix install is updated with Nix, and a build from source by building it again; `recall update` says so.
+
 ## Your archive
 
 The archive is `~/.claude/vault.db`. Sessions whose JSONL Claude Code has deleted stay in it, so it is the only copy of them: back it up, and never delete it to rebuild it.
@@ -237,6 +248,7 @@ recall export <session-id> --format json --output session.json
 recall stats
 recall ui                   # Web UI in the background (http://localhost:6276)
 recall mcp                  # MCP server over stdio (started by Claude Code)
+recall update               # Update to the latest release
 recall version
 ```
 

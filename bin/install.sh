@@ -18,8 +18,14 @@ main() {
 
   echo "Installing claude-recall ${tag} (${os}/${arch})..."
   mkdir -p "${INSTALL_DIR}"
-  download_and_verify "claude-recall-${os}-${arch}" "${tag}" "${INSTALL_DIR}/recall"
-  chmod +x "${INSTALL_DIR}/recall"
+  # Written beside recall and renamed over it: a recall that is running
+  # (the web UI, an MCP server) keeps the old file, and macOS does not see a
+  # signed binary change under it.
+  tmp=$(mktemp "${INSTALL_DIR}/.recall-install.XXXXXX")
+  trap 'rm -f "${tmp}"' EXIT
+  download_and_verify "claude-recall-${os}-${arch}" "${tag}" "${tmp}"
+  chmod 755 "${tmp}"
+  mv -f "${tmp}" "${INSTALL_DIR}/recall"
 
   echo ""
   echo "Importing existing sessions..."
