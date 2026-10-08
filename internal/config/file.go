@@ -119,6 +119,9 @@ type Core struct {
 	// config directory is bind-mounted from the host: each absolute or
 	// starting with ~/.
 	ExtraProjectsDirs []string `toml:"extra_projects_dirs"`
+	// UpdateCheck looks for a new release once a day, to say so in the TUI
+	// and in recall version.
+	UpdateCheck bool `toml:"update_check"`
 }
 
 // UI configures the web UI.
@@ -165,7 +168,7 @@ type TUI struct {
 
 // Default returns the settings used when the config file is absent.
 func Default() File {
-	return File{UI: UI{Port: DefaultPort}, TUI: TUI{DetailPosition: DetailBottom, DetailAutoWidth: 160, Theme: theme.Auto, DetailHeight: 16, Scope: ScopeFolder,
+	return File{Core: Core{UpdateCheck: true}, UI: UI{Port: DefaultPort}, TUI: TUI{DetailPosition: DetailBottom, DetailAutoWidth: 160, Theme: theme.Auto, DetailHeight: 16, Scope: ScopeFolder,
 		AskModel: "sonnet-5.5", AskShowCost: true, AskReasons: true, ScrollbarThumb: ThumbHeavy}}
 }
 
@@ -240,6 +243,10 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # run in a container whose config directory is bind-mounted from the host.
 # claude -r does not read them; c recalls their sessions in a new claude.
 # extra_projects_dirs = []
+# Look for a new release of recall once a day, and say so in the TUI and in
+# recall version. Only release builds look. RECALL_NO_UPDATE_CHECK=1 turns it
+# off too.
+# update_check = true
 
 [ui]
 # Where the web UI (recall ui) listens, and where recall ui stop and

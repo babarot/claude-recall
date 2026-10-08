@@ -135,19 +135,19 @@ Where a check runs and what it shows:
 | Where | When it checks | What it shows |
 |---|---|---|
 | TUI | at start, if the cache is stale, as a `tea.Cmd`; never blocks the first frame | the status line (below) |
-| `recall version` | if the cache is stale, synchronously with the 3 s timeout, only when stderr is a terminal | `recall 1.8.0 is available. Run: recall update` on stderr; stdout stays `recall 1.7.2` for scripts |
+| `recall version` | if the cache is stale, synchronously with the 3 s timeout, only when stderr is a terminal | `A new release of recall is available: 1.7.2 → 1.8.0` and how to update this install on stderr; stdout stays `recall 1.7.2` for scripts |
 | `recall update` | always (section 4) | its own output |
 | `recall mcp`, `import`, `list`, `search`, `export`, `stats`, `ui` | never | nothing. `mcp` speaks the protocol on stdout, `import` runs from a hook, the others are often piped |
 
 ### 7. The notice in the TUI
 
-The status line above the footer (`renderStatus`) is empty except while a toast shows. When a newer release is known, it shows, faint:
+The status line above the footer (`renderStatus`) is empty except while a toast shows. When a newer release is known, it shows:
 
 ```
  recall 1.8.0 is available · recall update
 ```
 
-with the command from section 2 for the install method. A toast replaces it for its 2.5 s and it comes back. It stays until the binary is updated (the TUI compares the cache with its own `version.Version`, so a TUI left open after `recall update` keeps showing it until restarted, which is correct).
+in the subtle color, with the version in the OK color and a command in the color of the footer's keys. What follows the dot depends on the install method: `recall update`, `brew upgrade claude-recall` (both commands), or the words `update it with Nix`. A toast replaces it for its 2.5 s and it comes back. It stays until the binary is updated (the TUI compares the cache with its own `version.Version`, so a TUI left open after `recall update` keeps showing it until restarted, which is correct).
 
 A one-off toast was considered and dropped: it disappears in 2.5 s, competes with copy toasts, and the status line is otherwise unused.
 

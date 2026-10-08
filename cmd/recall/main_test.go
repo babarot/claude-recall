@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/update"
 	"github.com/babarot/claude-recall/internal/version"
@@ -30,6 +31,8 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	os.Setenv("XDG_CONFIG_HOME", dir)
+	os.Setenv("XDG_STATE_HOME", dir) // the update cache
+	os.Unsetenv("RECALL_NO_UPDATE_CHECK")
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
@@ -483,5 +486,72 @@ func TestOlderThan(t *testing.T) {
 		if got := (uiServer{Version: tc.running}).olderThan(version.Version); got != tc.want {
 			t.Errorf("%q: got %v", tc.running, got)
 		}
+	}
+}
+
+// recall version says on a terminal's stderr that a newer release is out,
+// and only there; stdout stays the version.
+func TestVersionNotice(t *testing.T) {
+	fakeReleases(t, "99.0.0")
+	installedAs(t, "release")
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"version"}, &stdout, &stderr); err != nil || stderr.Len() != 0 {
+		t.Fatalf("not a terminal: %q, %v", stderr.String(), err)
+	}
+	old := isTerminal
+	isTerminal = func(io.Writer) bool { return true }
+	t.Cleanup(func() { isTerminal = old })
+	stdout.Reset()
+	if err := run([]string{"version"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if stdout.String() != "recall "+version.Version+"\n" {
+		t.Errorf("stdout %q", stdout.String())
+	}
+	want := "\nA new release of recall is available: " + version.Version + " → 99.0.0\nRun: recall update\n"
+	if stderr.String() != want {
+		t.Errorf("stderr %q, want %q", stderr.String(), want)
+	}
+
+	// From the cache, without asking again, until it is a day old.
+	releases = &update.Client{BaseURL: "http://127.0.0.1:1"}
+	stderr.Reset()
+	run([]string{"version"}, &stdout, &stderr)
+	if stderr.String() != want {
+		t.Errorf("from the cache: %q", stderr.String())
+	}
+
+	// Off in the config file.
+	writeConfig(t, "[core]\nupdate_check = false\n")
+	stderr.Reset()
+	run([]string{"version"}, &stdout, &stderr)
+	if stderr.Len() != 0 {
+		t.Errorf("update_check = false: %q", stderr.String())
+	}
+}
+
+// The TUI tells of the release in the cache, and looks again when the
+// cache is a day old; a build from source tells of nothing.
+func TestReleaseNotice(t *testing.T) {
+	fakeReleases(t, "99.0.0")
+	installedAs(t, "release")
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now(), Latest: "98.0.0"})
+	r, ok := releaseNotice(true)
+	if !ok || r.Version != "98.0.0" || r.How != "recall update" || !r.Command || r.Check != nil {
+		t.Errorf("fresh cache: %+v, %v", r, ok)
+	}
+	update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now().Add(-48 * time.Hour), Latest: "98.0.0"})
+	r, _ = releaseNotice(true)
+	if r.Check == nil || r.Check() != "99.0.0" {
+		t.Errorf("stale cache: %+v", r)
+	}
+	if _, ok := releaseNotice(false); ok {
+		t.Error("update_check = false")
+	}
+	version.Source = ""
+	if _, ok := releaseNotice(true); ok {
+		t.Error("a build from source")
 	}
 }

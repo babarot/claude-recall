@@ -184,6 +184,9 @@ type Model struct {
 	// recallSelf is the command line of recall's MCP server, for the
 	// command that recalls a session in a new claude.
 	recallSelf []string
+
+	// release is a newer release of recall to tell of.
+	release Release
 }
 
 // New builds the model from the archived sessions.
@@ -386,9 +389,9 @@ func (m Model) LoadInBackground() Model {
 
 func (m Model) Init() tea.Cmd {
 	if m.settling {
-		return tea.Batch(tea.RequestBackgroundColor, tea.Tick(settleWait, func(time.Time) tea.Msg { return settledMsg{} }))
+		return tea.Batch(tea.RequestBackgroundColor, tea.Tick(settleWait, func(time.Time) tea.Msg { return settledMsg{} }), m.checkRelease())
 	}
-	return tea.RequestBackgroundColor
+	return tea.Batch(tea.RequestBackgroundColor, m.checkRelease())
 }
 
 // Some terminals first report a size a column off and the right one a few
@@ -612,6 +615,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.startTextSearch(msg)
 	case textSearchDone:
 		return m, m.finishTextSearch(msg)
+	case releaseFound:
+		m.foundRelease(msg)
+		return m, nil
 	case toastExpired:
 		if msg.id == m.toastID {
 			m.toast = ""
