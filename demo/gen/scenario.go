@@ -5,8 +5,11 @@ import "time"
 // language is the demo in one language: its sessions, the notes Claude
 // writes before a tool call (fmt forms of the file or command), and what the
 // stand-in claude answers when asked with a: the searches it shows, and the
-// sessions it finds, by title, with why each matches.
+// sessions it finds, by title, with why each matches. setting is Claude
+// Code's language setting for the real claude of the Claude Code demo, which
+// the plugin's drawings follow; empty for English.
 type language struct {
+	setting          string
 	sessions         []session
 	read, edit, bash []string
 	grep             string

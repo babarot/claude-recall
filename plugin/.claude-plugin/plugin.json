@@ -1,9 +1,10 @@
 {
   "name": "claude-recall",
-  "description": "Search past coding agent sessions over MCP, archive each session when it ends, and open the web UI with /recall",
+  "description": "Search past coding agent sessions over MCP and with /recall, show them inside the session, and archive each session when it ends",
   "version": "1.7.2",
   "author": {
     "name": "babarot"
   },
-  "homepage": "https://github.com/babarot/claude-recall"
+  "homepage": "https://github.com/babarot/claude-recall",
+  "types": "./types/index.d.ts"
 }

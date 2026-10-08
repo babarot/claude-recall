@@ -64,8 +64,8 @@ stdenvNoCC.mkDerivation {
   # A static Go binary; stripping it again or patching it gains nothing
   dontFixup = true;
 
-  # The Claude Code plugin (MCP server, SessionEnd hook, skills) lands in
-  # share/claude-plugin/claude-recall; its skills are under skills/<name>
+  # The Claude Code plugin (MCP server, SessionEnd hook, hooks module) lands
+  # in share/claude-plugin/claude-recall
   installPhase = ''
     install -Dm755 \$src \$out/bin/recall
     mkdir -p \$out/share/claude-plugin/claude-recall

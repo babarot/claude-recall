@@ -4,3 +4,5 @@
 ui/dist/
 ui/node_modules/
 /internal/webui/dist/
+# Written by Claude Code when it loads the plugin
+/plugin/.claude-plugin/types/

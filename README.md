@@ -4,13 +4,15 @@
 
 Recall any past Claude Code session: ask Claude to look into it, or find it yourself and go back to it.
 
-![The recall TUI: looking through sessions, narrowing to a folder and what was said, reading a conversation, and asking Claude](demo/demo.gif)
+![The recall TUI: looking through sessions, narrowing to a folder and what was said, reading a conversation, and asking Claude](demo/tui.gif)
 
 claude-recall archives every Claude Code session into SQLite, including the ones whose JSONL Claude Code has since deleted, and gives you three ways back into them from one binary called `recall`:
 
 - MCP server: Claude searches past sessions and reads what was done in them, from inside the session you are working in
 - TUI: find a session yourself and resume it where it left off
 - Web UI: read past conversations comfortably in the browser, live as they are written
+
+With the [Claude Code plugin](#claude-code-plugin), recall also shows up [in Claude Code](#in-claude-code) itself: the repository's last sessions when you start, search results you can read at a glance, and `/recall`.
 
 ## Quick start
 
@@ -38,6 +40,7 @@ A support question comes in, you open a session, and it is settled in ten minute
 | Have Claude remember what happened in a past session | [MCP server](#mcp-server) | The answer lands in the session you are working in, as context Claude can use right away |
 | Find a session yourself and go back to it | [TUI](#tui) | Resume it in place (`claude -r`), recall it in a new claude, or copy its ID to hand to another agent |
 | Find a session yourself and read it | [Web UI](#web-ui) | A comfortable reader in the browser, for long conversations and images |
+| Look back without leaving the session | [In Claude Code](#in-claude-code) | The repository's last sessions as you start, a search without a model turn, and a recap of any session with one press |
 
 The [CLI](#cli) underneath starts each of them (`recall mcp`, `recall`, `recall ui`) and also searches, lists and exports from the terminal or a script.
 
@@ -81,7 +84,27 @@ recall ui stop
 
 A session browser, a chat viewer and search. While it runs, new and changed sessions are imported within about half a second, the session list moves them to the top, and the chat view of a running session follows new messages. The server listens on 127.0.0.1 only.
 
-`/recall` in Claude Code (from the [plugin](#claude-code-plugin)) opens it on the current session.
+### In Claude Code
+
+The [plugin](#claude-code-plugin) carries a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/overview) (a hooks module) that draws recall in the session you are working in.
+
+When a session starts, the latest sessions of the same repository, its worktrees included, show above the prompt until you send the first prompt or command.
+
+![Starting Claude Code in a repository: the band above the prompt lists the sessions that last ran there](demo/claude-band.gif)
+
+When Claude calls `recall_search`, the result shows as a tree of repositories, sessions (title, message count, date) and the messages that matched, instead of JSON. Claude still reads the JSON.
+
+![Asking Claude to look something up with recall: the recall_search result drawn as a tree, then Claude's answer](demo/claude-search.gif)
+
+`/recall <query>` searches this repository's sessions on the spot, without a model turn, and shows them as a table; `--all` searches every session. Claude reads the same list, so "read number 2" works next.
+
+![/recall searching this repository, then every repository with --all](demo/claude-command.gif)
+
+Pressing a session's ID in any of them, or `/recall <n>`, runs the `recap` prompt on it: Claude reads where that session ended, sums up what was done, decided and left, and asks how to go on.
+
+Sessions that only looked back through recall (a search for a word, a recap) are put together on one line instead of a row each; their IDs can still be pressed. The words are English, or Japanese when Claude Code's `language` setting is Japanese.
+
+It needs a Claude Code that loads hooks modules (tested on 2.1.291). [docs/plugin.md](docs/plugin.md) covers how it works.
 
 ## Why
 
@@ -162,7 +185,9 @@ The plugin is the recommended way to connect claude-recall to Claude Code. [`plu
 |-----------|--------------|
 | MCP server | Runs `recall mcp` |
 | `SessionEnd` hook | Runs `recall import` when a session ends |
-| `recall` skill | `/recall` opens the web UI on the current session; also `/recall list`, `/recall stats`, `/recall <session-id>` and `/recall stop` |
+| Hooks module | Draws recall [in Claude Code](#in-claude-code) and adds `/recall` |
+
+An older Claude Code, which does not load hooks modules, still gets the MCP server and the hook.
 
 Each release ships it as `claude-recall-plugin.tar.gz`. A plugin directory under `~/.claude/skills/` loads as `claude-recall@skills-dir`, so with Nix:
 
@@ -171,8 +196,6 @@ ln -s ~/.nix-profile/share/claude-plugin/claude-recall ~/.claude/skills/claude-r
 ```
 
 Without the plugin, register just the MCP server, as in [Set up](#set-up).
-
-For Codex and other agents, link just the skill: `plugin/skills/recall` into `~/.agents/skills/recall`.
 
 ### Set up
 
@@ -256,7 +279,9 @@ go run ./cmd/recall ui --foreground
 
 Work against a copy of the archive (`sqlite3 ~/.claude/vault.db ".backup '/tmp/vault-copy.db'"`), not the live file.
 
-After a change to how the TUI looks, re-record the demo GIF with `make demo` (see [demo/README.md](demo/README.md)).
+After a change to how the TUI looks, re-record its GIF with `make demo-tui`; after a change to what the plugin draws in Claude Code, `make demo-claude` (see [demo/README.md](demo/README.md)).
+
+For the plugin's hooks module, `claude --plugin-dir plugin` loads it from the checkout and reloads it as you edit, and `claude plugin test plugin` runs its tests (see [docs/plugin.md](docs/plugin.md#developing)).
 
 [docs/architecture.md](docs/architecture.md) covers how sessions flow into the archive, the schema and the web UI's live updates. The [ADRs](docs/adr) record the larger decisions, such as why claude-recall moved from Deno to Go ([ADR-004](docs/adr/004-go-port.md)).
 
