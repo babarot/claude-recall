@@ -48,6 +48,7 @@ var helpGroups = []helpGroup{
 		{"{ask.0}", "ask Claude to find sessions (claude -p)", everywhere},
 		{"{sort.0}", "choose the sort order", everywhere},
 		{"{scope.0}", "this folder or all folders", everywhere},
+		{"{whats_new.0}", "what's new in recall: the release notes", everywhere},
 		{"{list.folders_open.0} {list.folders_open.1}", "open the folder list, then move into it", nil},
 		{"{list.folders_close.0} {list.folders_close.1}", "close the folder list", nil},
 		{"{focus_next.0}  {focus_prev.0}", "next or previous frame ({focus_prev.1} and {focus_next.1} too)", notReading},

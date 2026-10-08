@@ -118,7 +118,7 @@ func checkKey(k string) error {
 func (k *keyMap) refs() map[string]*key.Binding {
 	return map[string]*key.Binding{
 		"quit": &k.Global.Quit, "help": &k.Global.Help, "focus_next": &k.Global.FocusNext, "focus_prev": &k.Global.FocusPrev,
-		"ask": &k.Global.Ask, "sort": &k.Global.Sort, "scope": &k.Global.Scope,
+		"ask": &k.Global.Ask, "sort": &k.Global.Sort, "scope": &k.Global.Scope, "whats_new": &k.Global.WhatsNew,
 		"resume": &k.Session.Resume, "recall": &k.Session.Recall, "read": &k.Session.Read, "copy_id": &k.Session.CopyID,
 		"copy_command": &k.Session.CopyCommand, "grow": &k.Session.Grow, "shrink": &k.Session.Shrink,
 		"up": &k.Nav.Up, "down": &k.Nav.Down, "page_up": &k.Nav.PageUp, "page_down": &k.Nav.PageDown,

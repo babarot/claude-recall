@@ -23,7 +23,7 @@ import (
 
 // globalKeys work in any pane.
 type globalKeys struct {
-	Quit, Help, FocusNext, FocusPrev, Ask, Sort, Scope key.Binding
+	Quit, Help, FocusNext, FocusPrev, Ask, Sort, Scope, WhatsNew key.Binding
 }
 
 // sessionKeys act on the selected session, from the list, a frame or the
@@ -62,7 +62,7 @@ func defaultKeyMap() keyMap {
 	return keyMap{
 		Global: globalKeys{
 			Quit: keys("q"), Help: keys("?"), FocusNext: keys("tab", "]"), FocusPrev: keys("shift+tab", "["),
-			Ask: keys("a"), Sort: keys("s"), Scope: keys("."),
+			Ask: keys("a"), Sort: keys("s"), Scope: keys("."), WhatsNew: keys("w"),
 		},
 		Session: sessionKeys{
 			Resume: keys("enter"), Recall: keys("c"), Read: keys("space"), CopyID: keys("y"), CopyCommand: keys("Y"),
@@ -194,7 +194,7 @@ func pick(all map[string]key.Binding, names ...string) []namedKey {
 
 // Operations by layer, as the config file names them.
 var (
-	globalOps  = []string{"quit", "help", "focus_next", "focus_prev", "ask", "sort", "scope"}
+	globalOps  = []string{"quit", "help", "focus_next", "focus_prev", "ask", "sort", "scope", "whats_new"}
 	sessionOps = []string{"resume", "recall", "read", "copy_id", "copy_command", "grow", "shrink"}
 	navOps     = []string{"up", "down", "page_up", "page_down", "top", "bottom", "search", "next_match", "prev_match"}
 )
@@ -239,6 +239,7 @@ func (k keyMap) keyScopes() []struct {
 		{"the key list", pick(all, "help"), []string{"esc", "q"}},
 		{"the sort menu", pick(all, "sort"), []string{"down", "j", "ctrl+n", "tab", "up", "k", "ctrl+p", "shift+tab",
 			"enter", "space", "esc", "q", "1", "2", "3", "4"}},
+		{"what's new", pick(all, "whats_new", "up", "down", "page_up", "page_down", "top", "bottom"), []string{"esc", "q"}},
 	}
 }
 

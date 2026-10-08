@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // State is what the TUI remembers between runs, as opposed to File, which
@@ -30,6 +31,43 @@ func StatePath() string {
 // when it was looked for, beside the state file. It is a file of its own
 // because the TUI rewrites the state file whole when it exits.
 func UpdateCachePath() string { return filepath.Join(filepath.Dir(StatePath()), "update.json") }
+
+// LastVersionPath returns the file that holds the version of the last TUI
+// run, beside the state file. It is a file of its own because the TUI, and
+// an older recall that never heard of it, rewrite the state file whole.
+func LastVersionPath() string { return filepath.Join(filepath.Dir(StatePath()), "last_version") }
+
+// LoadLastVersion reads the version of the last TUI run, empty if none.
+func LoadLastVersion(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// SaveLastVersion records the version of this TUI run, replacing the file
+// atomically.
+func SaveLastVersion(path, v string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(filepath.Dir(path), ".last_version-*")
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(v + "\n")
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Rename(f.Name(), path)
+	}
+	if err != nil {
+		os.Remove(f.Name())
+	}
+	return err
+}
 
 // LoadState reads the state file. A missing or unreadable file is an empty
 // state: losing it only loses a remembered pane height or layout.

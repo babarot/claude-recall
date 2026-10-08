@@ -871,6 +871,18 @@ func releaseNotice(configOn bool) (tui.Release, bool) {
 	return r, true
 }
 
+// releaseNotes fetches the release notes, CHANGELOG.md as of tag, for the
+// TUI's What's new.
+func releaseNotes(tag string) ([]update.Release, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return releases.Changelog(ctx, notesURL, tag)
+}
+
+// notesURL serves the repository's files at a tag; tests point it at a
+// fake.
+var notesURL = update.DefaultRawURL
+
 // runsAs checks that the binary at path runs and is release ver.
 func runsAs(path, ver string) error {
 	cmd := exec.Command(path, "version")
@@ -945,6 +957,7 @@ func runTUI(o *options, c *cobra.Command) error {
 	if r, ok := releaseNotice(cfg.Core.UpdateCheck); ok {
 		model = model.TellOfRelease(r)
 	}
+	model = model.RememberVersionIn(config.LastVersionPath()).NotesFrom(releaseNotes)
 	final, err := tea.NewProgram(model).Run()
 	if err != nil {
 		return err

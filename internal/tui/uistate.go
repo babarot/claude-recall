@@ -22,13 +22,14 @@ const (
 	uiAskRunning
 	uiAskAnswered
 	uiAskFailed
-	uiRecall // the box before recalling a session
+	uiRecall   // the box before recalling a session
+	uiWhatsNew // the release notes
 	numUIStates
 )
 
 var uiStateNames = [numUIStates]string{
 	"list", "frame", "reading", "reading, list focused", "folder list", "folder search", "conversation search", "filter",
-	"key list", "sort menu", "ask typing", "ask running", "ask answered", "ask failed", "recall",
+	"key list", "sort menu", "ask typing", "ask running", "ask answered", "ask failed", "recall", "what's new",
 }
 
 func (s uiState) String() string { return uiStateNames[s] }
@@ -41,6 +42,8 @@ func (m Model) uiState() uiState {
 		return map[askStage]uiState{askTyping: uiAskTyping, askRunning: uiAskRunning, askAnswered: uiAskAnswered, askFailed: uiAskFailed}[m.ask.stage]
 	case m.sortMenu:
 		return uiSort
+	case m.whatsNew.open:
+		return uiWhatsNew
 	case m.helpOpen:
 		return uiHelp
 	case m.mode == modeFilter:
