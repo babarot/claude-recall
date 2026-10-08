@@ -12,13 +12,13 @@ import (
 	"github.com/babarot/claude-recall/internal/fixture"
 )
 
-var update = flag.Bool("update", false, "rewrite the golden files in testdata")
+var updateGolden = flag.Bool("update", false, "rewrite the golden files in testdata")
 
 // golden compares got with testdata/<name>.golden, or writes it with -update.
 func golden(t *testing.T, name, got string) {
 	t.Helper()
 	path := filepath.Join("testdata", name+".golden")
-	if *update {
+	if *updateGolden {
 		if err := os.MkdirAll("testdata", 0o755); err != nil {
 			t.Fatal(err)
 		}

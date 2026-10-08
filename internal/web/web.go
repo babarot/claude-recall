@@ -20,6 +20,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/watcher"
 	"github.com/babarot/claude-recall/internal/webui"
 )
@@ -164,6 +165,9 @@ type statusResponse struct {
 	Port       int            `json:"port"`
 	SSEClients int            `json:"sseClients"`
 	Watcher    watcher.Status `json:"watcher"`
+	// Version is the server's release, so recall ui and recall update can
+	// tell an older server to restart. Servers before it leave it out.
+	Version string `json:"version"`
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -200,7 +204,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if s.Watcher != nil {
 			st = s.Watcher.Status()
 		}
-		writeJSON(w, statusResponse{Status: "running", PID: os.Getpid(), Port: s.port, SSEClients: s.Broadcaster.Count(), Watcher: st})
+		writeJSON(w, statusResponse{Status: "running", PID: os.Getpid(), Port: s.port, SSEClients: s.Broadcaster.Count(), Watcher: st, Version: version.Version})
 	case path == "/api/stream":
 		s.stream(w, r)
 	case strings.HasPrefix(path, "/api/"):

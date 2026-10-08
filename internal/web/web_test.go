@@ -16,6 +16,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/internal/version"
 )
 
 func newServer(t *testing.T) *Server {
@@ -53,6 +54,13 @@ func TestEmptyArchiveResponses(t *testing.T) {
 		if !strings.HasPrefix(rec.Body.String(), want) {
 			t.Errorf("%s: got %d %q, want prefix %q", path, rec.Code, rec.Body.String(), want)
 		}
+	}
+}
+
+func TestStatusVersion(t *testing.T) {
+	rec := get(t, newServer(t), "/api/status")
+	if want := `"version":"` + version.Version + `"`; !strings.Contains(rec.Body.String(), want) {
+		t.Errorf("got %s, want %s in it", rec.Body.String(), want)
 	}
 }
 

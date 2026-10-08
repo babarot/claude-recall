@@ -63,7 +63,8 @@ jobs:
           mkdir -p dist
           for target in darwin/arm64/arm64 darwin/amd64/x86_64 linux/arm64/arm64 linux/amd64/x86_64; do
             IFS=/ read -r goos goarch name <<<"$target"
-            GOOS=$goos GOARCH=$goarch go build -tags embedui -trimpath -ldflags "-s -w" \
+            GOOS=$goos GOARCH=$goarch go build -tags embedui -trimpath \
+              -ldflags "-s -w -X github.com/babarot/claude-recall/internal/version.Source=release" \
               -o "dist/claude-recall-$goos-$name" ./cmd/recall
           done
 
