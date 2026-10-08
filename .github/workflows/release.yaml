@@ -9,7 +9,15 @@ concurrency:
   group: ${{ github.workflow }}
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yaml
+    permissions:
+      contents: read
+
+  # Nothing is released, nor the pull request of the next release made,
+  # from a main that fails the tests
   tagpr:
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
