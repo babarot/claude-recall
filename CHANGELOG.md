@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/babarot/claude-recall/compare/1.7.2...1.8.0) - 2026-10-08
+### New Features
+- Draw recall inside Claude Code with a Claude Mods by @babarot in https://github.com/babarot/claude-recall/pull/65
+- Add recall update to replace recall with the latest release by @babarot in https://github.com/babarot/claude-recall/pull/75
+- Tell of a newer release in the TUI and in recall version by @babarot in https://github.com/babarot/claude-recall/pull/76
+- Show what's new in recall in the TUI by @babarot in https://github.com/babarot/claude-recall/pull/77
+
 ## [1.7.2](https://github.com/babarot/claude-recall/compare/1.7.1...1.7.2) - 2026-10-07
 ### Bug fixes
 - Do not let an import replace a newer one with stale content by @babarot in https://github.com/babarot/claude-recall/pull/71
