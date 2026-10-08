@@ -56,5 +56,12 @@ func (m Model) renderRelease() string {
 		how = m.st.key.Render(m.release.How)
 	}
 	s := m.st.subtle.Render("recall ") + m.st.ok.Render(m.release.Version) + m.st.subtle.Render(" is available · ") + how
+	// The key to the notes goes first when the line is short.
+	if k := m.hintKeys("{whats_new.0}"); k != "" {
+		withKey := s + m.st.subtle.Render(" · ") + m.st.key.Render(k) + m.st.subtle.Render(" what's new")
+		if ansi.StringWidth(withKey) <= m.width-2 {
+			s = withKey
+		}
+	}
 	return " " + ansi.Truncate(s, m.width-2, ellipsis)
 }

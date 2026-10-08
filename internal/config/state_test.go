@@ -43,3 +43,16 @@ func TestState(t *testing.T) {
 		t.Errorf("the temporary file stayed: %v", err)
 	}
 }
+
+func TestLastVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sub", "last_version")
+	if v := LoadLastVersion(path); v != "" {
+		t.Errorf("missing: %q", v)
+	}
+	if err := SaveLastVersion(path, "1.8.0"); err != nil {
+		t.Fatal(err)
+	}
+	if v := LoadLastVersion(path); v != "1.8.0" {
+		t.Errorf("got %q", v)
+	}
+}

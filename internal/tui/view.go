@@ -107,6 +107,8 @@ func (m Model) render() string {
 		return m.withHelp(m.renderScreen())
 	case uiSort:
 		return m.withSortMenu(m.renderScreen())
+	case uiWhatsNew:
+		return m.withWhatsNew(m.renderScreen())
 	}
 	return m.renderScreen()
 }
@@ -315,6 +317,9 @@ func (m Model) renderStatus() string {
 	if m.toast == "" {
 		return m.renderRelease()
 	}
+	if m.toastRender != nil {
+		return " " + ansi.Truncate(m.toastRender(m), m.width-2, ellipsis)
+	}
 	s := m.st.subtle
 	switch m.toastKind {
 	case toastOK:
@@ -346,6 +351,8 @@ func (m Model) renderHelp() string {
 	// narrow for them leaves them undrawn; the footer says how out, first.
 	case uiHelp:
 		pairs = [][2]string{{"{help.0} esc q", "close"}}
+	case uiWhatsNew:
+		pairs = [][2]string{{"{whats_new.0} esc q", "close"}, {"{up.0}{down.0}", "scroll"}, {"{page_down.0} {page_up.0}", "page"}}
 	case uiSort:
 		pairs = [][2]string{{"esc", "close"}, {"enter", "apply"}, {"↑↓", "pick"}, {fmt.Sprintf("1-%d", len(sorts)), "apply that one"}}
 	case uiAskTyping:

@@ -18,6 +18,7 @@ The title is the session's `/rename` name, or else the title Claude Code generat
 | `a` | Ask Claude to find sessions (see [Ask Claude](#ask-claude)) |
 | `s` | Choose the sort order (ended, started, message count or size) from a menu: `↑` `↓` or a number and `Enter`, or a click; from any pane |
 | `.` | Switch between the folder `recall` was started in and all folders |
+| `w` | Show what changed in each release of recall (see [What's new](#whats-new)) |
 | `←` `→` / `h` `l` | Show or hide the folder list (see [Folders](#folders)) |
 | `+` `-` | Make the detail pane taller or shorter |
 | `Tab` `Shift+Tab` (or `]` `[`) | Move focus along the folder list (when shown), the sessions and the detail pane's frames, in the order they are laid out; `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` then scroll it, `Esc` returns to the list |
@@ -118,7 +119,13 @@ With `images = true` under `[tui]`, the images you pasted show in the spread con
 
 ## A new release
 
-When a newer release of recall is out, the line above the footer says so and how to update this install: `recall 1.8.0 is available · recall update`, or `brew upgrade claude-recall` or `update it with Nix` for an install from those. A message such as "Copied session ID" takes the line for a moment, and the notice comes back after it. recall looks for the latest release at most once a day, in the background, so the TUI never waits for it. Builds from source do not look, and `update_check = false` under `[core]` in the [config file](configuration.md) or `RECALL_NO_UPDATE_CHECK=1` turns it off.
+When a newer release of recall is out, the line above the footer says so, how to update this install and how to read what is in it: `recall 1.8.0 is available · recall update · w what's new`, or `brew upgrade claude-recall` or `update it with Nix` for an install from those. A message such as "Copied session ID" takes the line for a moment, and the notice comes back after it. recall looks for the latest release at most once a day, in the background, so the TUI never waits for it. Builds from source do not look, and `update_check = false` under `[core]` in the [config file](configuration.md) or `RECALL_NO_UPDATE_CHECK=1` turns it off.
+
+## What's new
+
+`w` shows the release notes, every release newest first, from the `CHANGELOG.md` of the repository at the latest release recall knows of. A release newer than the running one is marked `not installed`, with how to update; the running one `installed`. They are fetched from GitHub the first time the box opens and kept until the TUI quits; if they cannot be, the box says why and where they are. `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` scroll it, the wheel too; `w`, `Esc` or `q` closes it.
+
+The first time the TUI starts after recall is updated, it says `Updated to 1.8.0 · w what's new` for a few seconds. It remembers the version of the last run in `~/.local/state/claude-recall/last_version`.
 
 ## Mouse
 
@@ -148,6 +155,7 @@ An operation that works in one pane only goes in that pane's table, `[keys.list]
 | `ask` | `a` | Ask Claude to find sessions |
 | `sort` | `s` | Choose the sort order |
 | `scope` | `.` | Switch between the folder recall was started in and all folders |
+| `whats_new` | `w` | Show the release notes (see [What's new](#whats-new)) |
 | `resume` | `enter` | Resume the session |
 | `recall` | `c` | Recall the session in a new claude |
 | `read` | `space` | Read the conversation over the detail pane, or put it back |

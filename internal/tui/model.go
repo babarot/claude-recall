@@ -19,6 +19,8 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/theme"
+	selfupdate "github.com/babarot/claude-recall/internal/update"
+	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/worktree"
 )
 
@@ -187,6 +189,18 @@ type Model struct {
 
 	// release is a newer release of recall to tell of.
 	release Release
+	// version is the running release; versionPath records it for the
+	// next run (RememberVersionIn).
+	version, versionPath string
+	// whatsNew is the What's new box, and fetchNotes how it gets the
+	// release notes.
+	whatsNew   whatsNewState
+	fetchNotes func(tag string) ([]selfupdate.Release, error)
+	// toastRender, when set, draws the toast in place of toast, styled in
+	// parts; startToast is how long a toast set before the first frame
+	// shows.
+	toastRender func(Model) string
+	startToast  time.Duration
 }
 
 // New builds the model from the archived sessions.
@@ -233,6 +247,7 @@ func New(sessions []db.Session, source Source, cfg config.TUI) Model {
 		detailLoading: map[string]bool{},
 		text:          textSearch{found: map[string]map[string]bool{}, pending: map[string]bool{}, delay: textSearchDelay},
 		detailH:       max(config.MinDetailHeight, cfg.DetailHeight),
+		version:       version.Version,
 	}
 	m.branches = values(m.rows, func(r *row) string { return r.s.GitBranch })
 	m.worktrees = values(m.rows, func(r *row) string { return r.worktree })
@@ -389,9 +404,9 @@ func (m Model) LoadInBackground() Model {
 
 func (m Model) Init() tea.Cmd {
 	if m.settling {
-		return tea.Batch(tea.RequestBackgroundColor, tea.Tick(settleWait, func(time.Time) tea.Msg { return settledMsg{} }), m.checkRelease())
+		return tea.Batch(tea.RequestBackgroundColor, tea.Tick(settleWait, func(time.Time) tea.Msg { return settledMsg{} }), m.startCmds())
 	}
-	return tea.Batch(tea.RequestBackgroundColor, m.checkRelease())
+	return tea.Batch(tea.RequestBackgroundColor, m.startCmds())
 }
 
 // Some terminals first report a size a column off and the right one a few
@@ -478,7 +493,7 @@ func (m *Model) clamp() {
 }
 
 func (m *Model) showToast(kind toastKind, text string) tea.Cmd {
-	m.toast, m.toastKind = text, kind
+	m.toast, m.toastKind, m.toastRender = text, kind, nil
 	m.toastID++
 	id := m.toastID
 	return tea.Tick(toastFor, func(time.Time) tea.Msg { return toastExpired{id} })
@@ -531,8 +546,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.MouseClickMsg:
-		if m.helpOpen {
-			m.helpOpen = false
+		if m.helpOpen || m.whatsNew.open {
+			m.helpOpen, m.whatsNew.open = false, false
 			return m, nil
 		}
 		if m.ask.stage != askClosed || m.recall.open {
@@ -570,7 +585,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Button == tea.MouseWheelUp {
 			step = -1
 		}
-		if r, _, _, _, ok := m.suggestRect(); ok && r.contains(msg.X, msg.Y) {
+		if m.whatsNew.open {
+			m.scrollWhatsNew(3 * step)
+		} else if r, _, _, _, ok := m.suggestRect(); ok && r.contains(msg.X, msg.Y) {
 			m.scrollSuggestions(step)
 		} else if m.sidebarAt(msg.X, msg.Y) >= 0 {
 			m.scrollSidebar(3 * step)
@@ -618,6 +635,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case releaseFound:
 		m.foundRelease(msg)
 		return m, nil
+	case whatsNewLoaded:
+		m.whatsNewLoaded(msg)
+		return m, nil
 	case toastExpired:
 		if msg.id == m.toastID {
 			m.toast = ""
@@ -646,6 +666,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateAsk(msg)
 		case uiSort:
 			return m.updateSortMenu(msg)
+		case uiWhatsNew:
+			return m.updateWhatsNew(msg)
 		case uiHelp:
 			// The key list closes on esc, q or the key that opened it.
 			if s := msg.String(); s == "esc" || s == "q" || key.Matches(msg, m.km.Global.Help) {
@@ -710,6 +732,8 @@ func (m *Model) globalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.openAsk()
 	case key.Matches(msg, g.Sort):
 		m.openSortMenu()
+	case key.Matches(msg, g.WhatsNew):
+		return m.openWhatsNew()
 	}
 	return nil
 }

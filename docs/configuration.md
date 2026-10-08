@@ -101,6 +101,7 @@ focus_prev = ["shift+tab", "["]
 ask = "a"
 sort = "s"
 scope = "."
+whats_new = "w"
 #
 # The selected session, from the list, a frame or the spread conversation:
 resume = "enter"

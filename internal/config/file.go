@@ -304,6 +304,7 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # ask = "a"
 # sort = "s"
 # scope = "."
+# whats_new = "w"
 #
 # The selected session, from the list, a frame or the spread conversation:
 # resume = "enter"
