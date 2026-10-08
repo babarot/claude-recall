@@ -26,6 +26,11 @@ func StatePath() string {
 	return filepath.Join(dir, "claude-recall", "state.json")
 }
 
+// UpdateCachePath returns the file that remembers the latest release and
+// when it was looked for, beside the state file. It is a file of its own
+// because the TUI rewrites the state file whole when it exits.
+func UpdateCachePath() string { return filepath.Join(filepath.Dir(StatePath()), "update.json") }
+
 // LoadState reads the state file. A missing or unreadable file is an empty
 // state: losing it only loses a remembered pane height or layout.
 func LoadState(path string) State {

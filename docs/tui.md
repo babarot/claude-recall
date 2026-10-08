@@ -116,6 +116,10 @@ A frame whose content does not fit shows a scrollbar on its right edge; `scrollb
 
 With `images = true` under `[tui]`, the images you pasted show in the spread conversation where their `[Image #N]` markers were. They are drawn with the Kitty graphics protocol's Unicode placeholders, which Ghostty and Kitty support; in a terminal that does not, they come out as stray characters, so the setting is off by default. An image shows as its marker while it is read, and stays one if it cannot be read.
 
+## A new release
+
+When a newer release of recall is out, the line above the footer says so and how to update this install: `recall 1.8.0 is available · recall update`, or `brew upgrade claude-recall` or `update it with Nix` for an install from those. A message such as "Copied session ID" takes the line for a moment, and the notice comes back after it. recall looks for the latest release at most once a day, in the background, so the TUI never waits for it. Builds from source do not look, and `update_check = false` under `[core]` in the [config file](configuration.md) or `RECALL_NO_UPDATE_CHECK=1` turns it off.
+
 ## Mouse
 
 Click a session to select it, click a frame to focus it, scroll the wheel over the list or over a frame, and drag the pane's top edge (or the row count line just above it) to resize the pane. While the TUI has the mouse, most terminals still select text when you hold Shift (Option in iTerm2) while dragging.

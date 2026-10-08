@@ -225,3 +225,19 @@ func TestApplyUnwritableDir(t *testing.T) {
 	}
 	untouched(t, target)
 }
+
+func TestAction(t *testing.T) {
+	for _, c := range []struct {
+		m       Method
+		text    string
+		command bool
+	}{
+		{Binary, "recall update", true},
+		{Homebrew, "brew upgrade claude-recall", true},
+		{Nix, "update it with Nix", false},
+	} {
+		if text, command := c.m.Action(); text != c.text || command != c.command {
+			t.Errorf("%v: got %q, %v", c.m, text, command)
+		}
+	}
+}

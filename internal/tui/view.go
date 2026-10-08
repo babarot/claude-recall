@@ -313,7 +313,7 @@ func fit(lines []string, n int) []string {
 
 func (m Model) renderStatus() string {
 	if m.toast == "" {
-		return ""
+		return m.renderRelease()
 	}
 	s := m.st.subtle
 	switch m.toastKind {

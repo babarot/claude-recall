@@ -87,7 +87,7 @@ type options struct {
 	trees                         []string
 	limit, port                   int
 	dryRun, foreground, substring bool
-	check                         bool
+	check, updateCheck            bool
 	limitSet                      bool
 }
 
@@ -132,6 +132,7 @@ Run without a command, it opens the TUI.`,
 			o.db = cfg.DBPath()
 		}
 		o.trees = cfg.ProjectsDirs()
+		o.updateCheck = cfg.Core.UpdateCheck
 		// recall update has no --port, and restarts the UI on this one.
 		if f := c.Flags().Lookup("port"); f == nil || !f.Changed {
 			o.port = cfg.UI.Port
@@ -287,7 +288,10 @@ print its URL, or restart it if it is an older release.`, config.DefaultPort),
 		Use:   "version",
 		Short: "Show the version",
 		Args:  cobra.NoArgs,
-		Run:   func(c *cobra.Command, _ []string) { fmt.Fprintf(c.OutOrStdout(), "recall %s\n", version.Version) },
+		Run: func(c *cobra.Command, _ []string) {
+			fmt.Fprintf(c.OutOrStdout(), "recall %s\n", version.Version)
+			versionNotice(o, c.ErrOrStderr())
+		},
 	}
 
 	updateCmd := &cobra.Command{
@@ -731,16 +735,10 @@ var (
 // it in place, and restarts an older web UI with it. Any other install
 // gets told how to update it.
 func runUpdate(o *options, stdout, stderr io.Writer) error {
-	exe, err := self()
+	exe, method, err := installed()
 	if err != nil {
 		return err
 	}
-	// The file itself, not a link to it: the new one is written beside it
-	// and renamed over it.
-	if p, err := filepath.EvalSymlinks(exe); err == nil {
-		exe = p
-	}
-	method := update.Detect(version.Source, exe)
 	if method != update.Binary && !o.check {
 		return errors.New(method.Hint())
 	}
@@ -751,6 +749,9 @@ func runUpdate(o *options, stdout, stderr io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("find the latest release: %w", err)
 	}
+	// The TUI and recall version read it, so they stop telling of a
+	// release right after this one installs it.
+	_ = update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now(), Latest: latest})
 	newer, err := update.Newer(latest, version.Version)
 	if err != nil {
 		return err
@@ -791,6 +792,83 @@ func runUpdate(o *options, stdout, stderr io.Writer) error {
 	fmt.Fprintf(stdout, "Updated recall %s → %s\n", version.Version, latest)
 	fmt.Fprintf(stdout, "Running MCP servers keep %s until their Claude Code session ends.\n", version.Version)
 	return nil
+}
+
+// installed returns the running binary, its symlinks resolved, and how it
+// was installed. The file itself, not a link to it: recall update writes
+// the new one beside it and renames it over it.
+func installed() (string, update.Method, error) {
+	exe, err := self()
+	if err != nil {
+		return "", 0, err
+	}
+	if p, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = p
+	}
+	return exe, update.Detect(version.Source, exe), nil
+}
+
+// isTerminal reports whether w is a terminal; tests replace it.
+var isTerminal = func(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
+// versionNotice says on stderr that a newer release is out, looking for
+// one when the last look is a day old. It says nothing unless stderr is a
+// terminal, so a script reading recall version gets the version alone and
+// waits for no network.
+func versionNotice(o *options, stderr io.Writer) {
+	if !isTerminal(stderr) || !update.Checks(version.Source, o.updateCheck) {
+		return
+	}
+	path := config.UpdateCachePath()
+	cache := update.LoadCache(path)
+	if cache.Stale(time.Now()) {
+		ctx, cancel := context.WithTimeout(context.Background(), update.CheckTimeout)
+		defer cancel()
+		cache, _ = releases.Refresh(ctx, path)
+	}
+	latest, ok := cache.Newer(version.Version)
+	if !ok {
+		return
+	}
+	_, method, err := installed()
+	if err != nil {
+		return
+	}
+	fmt.Fprintf(stderr, "\nA new release of recall is available: %s → %s\n%s\n", version.Version, latest, method.Hint())
+}
+
+// releaseNotice is what the TUI tells of a newer release: the one in the
+// cache, and a look for the latest when the cache is a day old.
+func releaseNotice(configOn bool) (tui.Release, bool) {
+	if !update.Checks(version.Source, configOn) {
+		return tui.Release{}, false
+	}
+	_, method, err := installed()
+	if err != nil {
+		return tui.Release{}, false
+	}
+	r := tui.Release{}
+	r.How, r.Command = method.Action()
+	path := config.UpdateCachePath()
+	cache := update.LoadCache(path)
+	r.Version, _ = cache.Newer(version.Version)
+	if cache.Stale(time.Now()) {
+		r.Check = func() string {
+			ctx, cancel := context.WithTimeout(context.Background(), update.CheckTimeout)
+			defer cancel()
+			found, _ := releases.Refresh(ctx, path)
+			v, _ := found.Newer(version.Version)
+			return v
+		}
+	}
+	return r, true
 }
 
 // runsAs checks that the binary at path runs and is release ver.
@@ -864,6 +942,9 @@ func runTUI(o *options, c *cobra.Command) error {
 		model = model.AskWith(self, filepath.Join(filepath.Dir(config.StatePath()), "ask"))
 	}
 	model = model.RecallWith(self).TranscriptsIn(o.trees...)
+	if r, ok := releaseNotice(cfg.Core.UpdateCheck); ok {
+		model = model.TellOfRelease(r)
+	}
 	final, err := tea.NewProgram(model).Run()
 	if err != nil {
 		return err

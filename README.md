@@ -217,7 +217,7 @@ recall update           # replace recall with the latest release, and restart th
 recall update --check   # only say whether a newer release is out
 ```
 
-It does not import or register the MCP server again. Running MCP servers keep the old version until their Claude Code session ends. `recall update` came in a release after 1.7.2; to get it, re-run the installer once more. A Nix install is updated with Nix, and a build from source by building it again; `recall update` says so.
+The TUI and `recall version` say when a newer release is out (see [A new release](docs/tui.md#a-new-release)). `recall update` does not import or register the MCP server again. Running MCP servers keep the old version until their Claude Code session ends. `recall update` came in a release after 1.7.2; to get it, re-run the installer once more. A Nix install is updated with Nix, and a build from source by building it again; `recall update` says so.
 
 ## Your archive
 

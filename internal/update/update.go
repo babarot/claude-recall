@@ -68,6 +68,20 @@ func (m Method) Hint() string {
 	return "Run: recall update"
 }
 
+// Action is how to update an install of this method in a few words for the
+// TUI: a command to run when command is true, else words.
+func (m Method) Action() (text string, command bool) {
+	switch m {
+	case Binary:
+		return "recall update", true
+	case Homebrew:
+		return "brew upgrade claude-recall", true
+	case Nix:
+		return "update it with Nix", false
+	}
+	return "build it again", false
+}
+
 // ErrNotPublished is a release whose binaries are not uploaded yet: the
 // release workflow creates the release a few minutes before its assets.
 var ErrNotPublished = errors.New("the release is still being published")

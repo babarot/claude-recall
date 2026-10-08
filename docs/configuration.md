@@ -4,7 +4,7 @@
 
 | Section | What it sets |
 |---|---|
-| `[core]` | `db`, the archive, and `extra_projects_dirs`, more transcript trees to read, for every command, the MCP server and the web UI |
+| `[core]` | `db`, the archive, and `extra_projects_dirs`, more transcript trees to read, for every command, the MCP server and the web UI; `update_check`, whether to look for new releases |
 | `[ui]` | `port`, where the web UI listens |
 | `[tui]` | The TUI: the detail pane, the color scheme, which sessions to start with, `a` (ask Claude), the scrollbar and images |
 | `[keys]` | Which keys do what in the TUI; see [Changing keys](tui.md#changing-keys) |
@@ -40,6 +40,10 @@ db = "~/.claude/vault.db"
 # run in a container whose config directory is bind-mounted from the host.
 # claude -r does not read them; c recalls their sessions in a new claude.
 extra_projects_dirs = []
+# Look for a new release of recall once a day, and say so in the TUI and in
+# recall version. Only release builds look. RECALL_NO_UPDATE_CHECK=1 turns it
+# off too.
+update_check = true
 
 [ui]
 # Where the web UI (recall ui) listens, and where recall ui stop and
