@@ -54,7 +54,12 @@ type Watcher struct {
 	Debounce     time.Duration
 	// OnImport is called after a new or changed session was imported.
 	OnImport func(*importer.Result)
-	Log      io.Writer
+	// Started, when set, is called once Run has taken the files present as
+	// imported, or has given up for want of a tree. The catch-up import
+	// starts there: started earlier, it could import a file that then
+	// changes before Run looks, and Run would take the change as imported.
+	Started func()
+	Log     io.Writer
 
 	mu     sync.Mutex
 	status Status
@@ -127,6 +132,9 @@ func (w *Watcher) Run(ctx context.Context) {
 	// A tree that is not there yet, as a container's before it first runs,
 	// is looked for again on every tick; with none there, nothing is.
 	gone := missing(dirs)
+	if len(gone) == len(dirs) && w.Started != nil {
+		defer w.Started()
+	}
 	switch {
 	case len(dirs) == 1 && len(gone) == 1:
 		if _, err := os.Stat(primary); err != nil {
@@ -150,6 +158,9 @@ func (w *Watcher) Run(ctx context.Context) {
 	defer w.update(func(s *Status) { s.Running = false })
 
 	seen, _ := scan(dirs)
+	if w.Started != nil {
+		w.Started()
+	}
 	pending := map[string]time.Time{} // path -> time of the last change
 	tick := time.NewTicker(pollInterval)
 	defer tick.Stop()
@@ -204,7 +215,7 @@ func (w *Watcher) importSession(path string, files []parser.File) {
 }
 
 func (w *Watcher) importFile(path string) {
-	r, err := importer.ImportFile(w.DB, path, nil)
+	r, err := importer.ImportFile(w.DB, path, nil, w.ProjectsDirs)
 	if err != nil {
 		w.fail(err.Error())
 		fmt.Fprintf(w.Log, "[watcher] import failed for %s: %v\n", path, err)

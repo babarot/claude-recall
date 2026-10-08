@@ -157,3 +157,48 @@ func TestWatcherNoTrees(t *testing.T) {
 		t.Fatalf("status %+v, log %q", st, log.String())
 	}
 }
+
+// Started comes after Run has taken the files present as imported, so a
+// file that changes from there on, as during the catch-up import Started
+// begins, is imported by the watcher.
+func TestWatcherStartedAfterSnapshot(t *testing.T) {
+	projects := t.TempDir()
+	dir := filepath.Join(projects, "-p")
+	os.MkdirAll(dir, 0o755)
+	path := filepath.Join(dir, "s1.jsonl")
+	os.WriteFile(path, []byte(userLine("s1", "u1", "hello")), 0o644)
+	d, err := db.Open(filepath.Join(t.TempDir(), "vault.db"), db.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	rec := &recorder{}
+	w := &Watcher{DB: d, ProjectsDirs: []string{projects}, Debounce: 50 * time.Millisecond, OnImport: rec.add,
+		Started: func() {
+			f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+			f.WriteString(userLine("s1", "u2", "more"))
+			f.Close()
+			later := time.Now().Add(time.Second)
+			os.Chtimes(path, later, later)
+		}}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { w.Run(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+
+	if got := rec.wait(t, 1); got[0].TotalMessages != 2 {
+		t.Fatalf("%+v; want the file as changed in Started", got[0])
+	}
+}
+
+// Started is called when Run gives up for want of a tree, so the catch-up
+// import runs as it did before it waited for Run.
+func TestWatcherStartedWithoutTree(t *testing.T) {
+	called := false
+	w := &Watcher{ProjectsDirs: []string{filepath.Join(t.TempDir(), "nope")}, Log: io.Discard, Started: func() { called = true }}
+	w.Run(context.Background())
+	if !called {
+		t.Fatal("Started was not called")
+	}
+}

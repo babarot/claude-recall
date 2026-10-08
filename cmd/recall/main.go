@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -502,11 +503,26 @@ func runMCP(o *options) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	w := &watcher.Watcher{DB: d, ProjectsDirs: o.trees}
-	go w.Run(ctx)
-	// The import summary goes to stderr: stdout carries the protocol.
-	go catchUp(d, o.trees, os.Stderr)
-	return mcp.Run(ctx, d)
+	// Every Claude Code session runs its own `recall mcp`, and each watching
+	// would scan the transcript trees and import every change once per
+	// session, so one at a time watches. The others take over when it
+	// exits, importing first what changed while nobody watched.
+	watchCtx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		watcher.RunAlone(watchCtx, watcher.LockPath(o.db, o.trees), func(ctx context.Context) {
+			// The import summary goes to stderr: stdout carries the protocol.
+			(&watcher.Watcher{DB: d, ProjectsDirs: o.trees, Started: func() {
+				go catchUp(d, o.trees, os.Stderr)
+			}}).Run(ctx)
+		}, os.Stderr)
+	})
+	err = mcp.Run(ctx, d)
+	// Let the lock go before exiting, so the next process takes over at
+	// its next look.
+	cancel()
+	wg.Wait()
+	return err
 }
 
 func uiAddr(o *options) string { return fmt.Sprintf("http://localhost:%d", o.port) }
@@ -591,7 +607,11 @@ func serveUI(o *options, stdout io.Writer) error {
 	defer stop()
 	s := web.New(d, o.trees...)
 	s.Shutdown = stop
-	go catchUp(d, o.trees, stdout)
+	if s.Watcher != nil {
+		s.Watcher.Started = func() { go catchUp(d, o.trees, stdout) }
+	} else {
+		go catchUp(d, o.trees, stdout)
+	}
 	return s.Serve(ctx, ln)
 }
 

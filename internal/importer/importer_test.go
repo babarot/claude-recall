@@ -64,7 +64,7 @@ func (e *env) write(lines ...string) {
 
 func (e *env) importFile() *Result {
 	e.t.Helper()
-	r, err := ImportFile(e.db, e.path, nil)
+	r, err := ImportFile(e.db, e.path, nil, nil)
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestImportMirrorsShrunkFile(t *testing.T) {
 func TestImportMissingFile(t *testing.T) {
 	d, _ := db.Open(filepath.Join(t.TempDir(), "vault.db"), db.Options{})
 	defer d.Close()
-	r, err := ImportFile(d, filepath.Join(t.TempDir(), "p", "nope.jsonl"), nil)
+	r, err := ImportFile(d, filepath.Join(t.TempDir(), "p", "nope.jsonl"), nil, nil)
 	if r != nil || err != nil {
 		t.Fatalf("%+v %v", r, err)
 	}
@@ -310,5 +310,83 @@ func TestRunTrees(t *testing.T) {
 		if !strings.Contains(out.String(), line) {
 			t.Errorf("dry run lacks %q:\n%s", line, out.String())
 		}
+	}
+}
+
+// An import that read the file before it grew must not replace a later
+// import of the grown file with what it read.
+func TestImportKeepsNewerImport(t *testing.T) {
+	e := newEnv(t, userLine("hello", "u1", "2026-01-01T00:00:00Z"))
+	done := false
+	afterRead = func() {
+		if done {
+			return
+		}
+		done = true
+		e.write(userLine("hello", "u1", "2026-01-01T00:00:00Z"), assistantLine("hi", "a1", "2026-01-01T00:00:01Z"))
+		e.importFile()
+	}
+	t.Cleanup(func() { afterRead = nil })
+
+	e.importFile()
+	if got := e.messageCount(); got != 2 {
+		t.Errorf("message count = %d after both imports; want 2, from the grown file", got)
+	}
+}
+
+// An import of a copy that another tree's newer copy superseded while it
+// ran stores nothing, though the newer copy was not there when it began.
+func TestImportKeepsNewerCopyFromAnotherTree(t *testing.T) {
+	e := newEnv(t, userLine("hello", "u1", "2026-01-01T00:00:00Z"))
+	first := filepath.Dir(filepath.Dir(e.path))
+	second := t.TempDir()
+	newer := filepath.Join(second, "my-project", "sess-001.jsonl")
+	dirs := []string{first, second}
+
+	done := false
+	afterRead = func() {
+		if done {
+			return
+		}
+		done = true
+		os.MkdirAll(filepath.Dir(newer), 0o755)
+		os.WriteFile(newer, []byte(userLine("hello", "u1", "2026-01-01T00:00:00Z")+"\n"+
+			assistantLine("hi", "a1", "2026-01-01T00:00:01Z")+"\n"), 0o644)
+		later := time.Now().Add(time.Hour)
+		os.Chtimes(newer, later, later)
+		if r, err := ImportFile(e.db, newer, nil, dirs); err != nil || r == nil {
+			t.Fatalf("import of the newer copy = %v, %v", r, err)
+		}
+	}
+	t.Cleanup(func() { afterRead = nil })
+
+	r, err := ImportFile(e.db, e.path, nil, dirs)
+	if err != nil || r != nil {
+		t.Errorf("import of the superseded copy = %+v, %v; want nil, nil", r, err)
+	}
+	if got := e.messageCount(); got != 2 {
+		t.Errorf("message count = %d; want 2, from the newer copy", got)
+	}
+}
+
+// A file that changes between its read and the write is read again, and
+// what is stored is the changed file.
+func TestImportRereadsChangedFile(t *testing.T) {
+	e := newEnv(t, userLine("hello", "u1", "2026-01-01T00:00:00Z"))
+	done := false
+	afterRead = func() {
+		if done {
+			return
+		}
+		done = true
+		e.write(userLine("hello", "u1", "2026-01-01T00:00:00Z"), assistantLine("hi", "a1", "2026-01-01T00:00:01Z"))
+	}
+	t.Cleanup(func() { afterRead = nil })
+
+	if r := e.importFile(); r == nil || r.TotalMessages != 2 {
+		t.Fatalf("import = %+v; want the changed file's 2 messages", r)
+	}
+	if got := e.messageCount(); got != 2 {
+		t.Errorf("message count = %d; want 2", got)
 	}
 }
