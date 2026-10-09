@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.8.1](https://github.com/babarot/claude-recall/compare/1.8.0...1.8.1) - 2026-10-09
+### Improvements
+- Release with GoReleaser by @babarot in https://github.com/babarot/claude-recall/pull/80
+
 ## [1.8.0](https://github.com/babarot/claude-recall/compare/1.7.2...1.8.0) - 2026-10-08
 ### New Features
 - Draw recall inside Claude Code with a Claude Mods by @babarot in https://github.com/babarot/claude-recall/pull/65
