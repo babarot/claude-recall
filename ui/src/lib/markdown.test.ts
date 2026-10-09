@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+// DOMPurify 3.4 drops <pre> under happy-dom, so sanitized output is checked
+// against jsdom, which matches what browsers produce.
 import { describe, it, expect } from "vitest";
 import { renderMarkdown, wrapIndentedBlocks } from "./markdown";
 
