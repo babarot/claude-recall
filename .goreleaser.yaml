@@ -1,0 +1,76 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    # The web UI is embedded into the binary (build tag embedui)
+    - sh -c "cd ui && npm ci && npm run build"
+    - sh -c "rm -rf internal/webui/dist && cp -R ui/dist internal/webui/dist"
+    # The Claude Code plugin ships as a release asset of its own. It is made
+    # outside dist, which --clean empties
+    - sh -c "mkdir -p .release && tar -czf .release/claude-recall-plugin.tar.gz -C plugin ."
+
+builds:
+  - id: recall
+    main: ./cmd/recall
+    binary: recall
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    tags:
+      - embedui
+    flags:
+      - -trimpath
+    # The version itself is a constant tagpr keeps current
+    ldflags:
+      - -s -w
+      - -X github.com/babarot/claude-recall/internal/version.Source=release
+
+archives:
+  # Raw binaries, under the names install.sh and recall update download
+  - id: binary
+    formats: ["binary"]
+    name_template: >-
+      {{ .ProjectName }}-{{ .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}
+  # For the Nix package, which needs an archive. It carries the plugin too
+  - id: nix
+    formats: ["tar.gz"]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: plugin/**
+
+checksum:
+  name_template: checksums.txt
+  extra_files:
+    - glob: .release/claude-recall-plugin.tar.gz
+
+# tagpr writes the release notes
+changelog:
+  disable: true
+
+release:
+  prerelease: auto
+  draft: false
+  extra_files:
+    - glob: .release/claude-recall-plugin.tar.gz
+
+nix:
+  - ids: [nix]
+    repository:
+      owner: babarot
+      name: nur-packages
+      token: "{{ .Env.NUR_GITHUB_TOKEN }}"
+    homepage: https://github.com/babarot/claude-recall
+    description: Archive and search coding agent sessions
+    main_program: recall
+    install: |
+      mkdir -p $out/bin
+      cp -v ./recall $out/bin/recall
+      mkdir -p $out/share/claude-plugin/claude-recall
+      cp -vr ./plugin/. $out/share/claude-plugin/claude-recall/
