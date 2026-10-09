@@ -1,7 +1,7 @@
 {
   "name": "claude-recall",
   "description": "Search past coding agent sessions over MCP and with /recall, show them inside the session, and archive each session when it ends",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "author": {
     "name": "babarot"
   },
