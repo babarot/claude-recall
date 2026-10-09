@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.8.2](https://github.com/babarot/claude-recall/compare/v1.8.1...v1.8.2) - 2026-10-09
+### Bug fixes
+- Fix the Dependabot alerts in the web UI dependencies by @babarot in https://github.com/babarot/claude-recall/pull/82
+### Others
+- Sync shared files from github-config by @babarot in https://github.com/babarot/claude-recall/pull/87
+
 ## [1.8.1](https://github.com/babarot/claude-recall/compare/1.8.0...1.8.1) - 2026-10-09
 ### Improvements
 - Release with GoReleaser by @babarot in https://github.com/babarot/claude-recall/pull/80
