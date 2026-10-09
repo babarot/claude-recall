@@ -1,16 +1,26 @@
 name: Test
 
+# On main, Release runs this before it releases
 on:
-  push:
-    branches: [main]
   pull_request:
+    # What tagpr's pull request changes, released only once this passes on
+    # main; its runs wait for an approval anyway, made with GITHUB_TOKEN
+    paths-ignore:
+      - CHANGELOG.md
+      - internal/version/version.go
+      - plugin/.claude-plugin/plugin.json
+  workflow_call:
 
 jobs:
   go:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -20,8 +30,12 @@ jobs:
   ui:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
