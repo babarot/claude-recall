@@ -2,7 +2,7 @@
 # vim: ft=ini
 [tagpr]
 	releaseBranch = main
-	vPrefix = false
+	vPrefix = true
 	versionFile = internal/version/version.go,plugin/.claude-plugin/plugin.json
 	changelog = true
 	majorLabels = release/major,kind/breaking-change
