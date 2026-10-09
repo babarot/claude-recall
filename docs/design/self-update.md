@@ -25,14 +25,14 @@ Out of scope: Windows (no release builds), signatures beyond SHA256, updating th
 | Install | Binary | Path | `version.Version` |
 |---|---|---|---|
 | curl | release asset | `~/.local/bin/recall` (or `RECALL_INSTALL_DIR`) | the release |
-| Nix | the same release asset, fetched by the derivation `nix-derivation.sh` writes | `/nix/store/...` | the release |
+| Nix | the same binary, in the release's `claude-recall_<os>_<arch>.tar.gz` that the derivation GoReleaser writes fetches | `/nix/store/...` | the release |
 | `make install` | built locally | `~/.local/bin/recall` | the last release, whatever the checkout |
 | `go install` | built locally, no web UI | `$GOBIN` | the last release |
 | Homebrew | none yet; babarot/homebrew-tap has no formula | | |
 
 - `version.Version` is a constant tagpr rewrites. Nothing tells a release build from a local one, and curl and `make install` share a path
 - Tags have no `v` prefix (`1.7.2`)
-- The release workflow creates the release (tagpr) before the `build` job uploads assets, a few minutes later. Meanwhile `releases/latest` names a release with no binaries
+- The release workflow creates the release (tagpr) before the `goreleaser` job uploads assets, a few minutes later. Meanwhile `releases/latest` names a release with no binaries
 - `recall ui` runs detached and stays up. `recall mcp` runs once per Claude Code session. Neither notices the binary changing
 - `/api/status` reports `status`, `pid`, `port`, `sseClients` and `watcher`
 - `install.sh` writes the download straight over the old binary (`curl -o`)

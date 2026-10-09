@@ -34,11 +34,11 @@ jobs:
     outputs:
       tag: ${{ steps.run-tagpr.outputs.tag }}
 
-  build:
+  goreleaser:
     if: needs.tagpr.outputs.tag != ''
     needs: tagpr
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
@@ -54,78 +54,21 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # GoReleaser builds the web UI before it builds the binaries
       - name: Setup Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: 22
 
-      - name: Build the web UI
-        run: |
-          cd ui && npm ci && npm run build && cd ..
-          rm -rf internal/webui/dist && cp -R ui/dist internal/webui/dist
+      - name: Install Nix
+        # GoReleaser needs nix-hash to publish to babarot/nur-packages
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
 
-      - name: Compile binaries
-        env:
-          CGO_ENABLED: "0"
-        run: |
-          mkdir -p dist
-          for target in darwin/arm64/arm64 darwin/amd64/x86_64 linux/arm64/arm64 linux/amd64/x86_64; do
-            IFS=/ read -r goos goarch name <<<"$target"
-            GOOS=$goos GOARCH=$goarch go build -tags embedui -trimpath \
-              -ldflags "-s -w -X github.com/babarot/claude-recall/internal/version.Source=release" \
-              -o "dist/claude-recall-$goos-$name" ./cmd/recall
-          done
-
-      - name: Package the Claude Code plugin
-        run: tar -czf dist/claude-recall-plugin.tar.gz -C plugin .
-
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum * > checksums.txt
-          cat checksums.txt
-
-      - name: Upload to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ needs.tagpr.outputs.tag }}" dist/* --clobber
-
-  publish-nix:
-    if: needs.tagpr.outputs.tag != ''
-    needs: [tagpr, build]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
         with:
-          persist-credentials: false
-
-      - name: Publish Nix package to babarot/nur-packages
+          version: '~> v2'
+          args: release --clean
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NUR_GITHUB_TOKEN: ${{ secrets.NUR_GITHUB_TOKEN }}
-          TAG: ${{ needs.tagpr.outputs.tag }}
-        run: |
-          gh release download "$TAG" -p checksums.txt -D "$RUNNER_TEMP"
-          nur="$RUNNER_TEMP/nur-packages"
-          git clone --depth 1 "https://x-access-token:${NUR_GITHUB_TOKEN}@github.com/babarot/nur-packages.git" "$nur"
-
-          file="$nur/pkgs/claude-recall/default.nix"
-          prev=$(sed -n 's/^  version = "\(.*\)";$/\1/p' "$file" 2>/dev/null || true)
-          mkdir -p "$(dirname "$file")"
-          .github/scripts/nix-derivation.sh "$TAG" "$RUNNER_TEMP/checksums.txt" > "$file"
-
-          cd "$nur"
-          git add pkgs/claude-recall
-          if git diff --cached --quiet; then
-            echo "nothing to publish"
-            exit 0
-          fi
-          git -c user.name="github-actions[bot]" \
-              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-              commit -m "claude-recall: ${prev:+$prev -> }$TAG"
-          git push
