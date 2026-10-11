@@ -18,8 +18,11 @@ import (
 var (
 	// aloneRetry is how often a process that is not watching looks again.
 	aloneRetry = 5 * time.Second
-	// aloneBeat is how often the watching process touches its lock file.
-	aloneBeat = 10 * time.Second
+	// aloneBeat is how often the watching process touches its lock file and
+	// looks for another watching around it. Timers stand still while the
+	// machine sleeps, so it is short enough to come within a dark wake of a
+	// few seconds, and the one that yields does so before the next sleep.
+	aloneBeat = time.Second
 	// aloneStale is how long a lock file can go untouched before its holder
 	// is taken to be stopped, as a `claude` suspended with Ctrl-Z stops its
 	// `recall mcp` with it, and another process starts watching.
@@ -42,22 +45,25 @@ func LockPath(dbPath string, dirs []string) string {
 // those passing the same lock path; the others wait and take over when it
 // exits. The holder touches the lock file while it runs, and a holder
 // stopped for longer than aloneStale is watched around through the next
-// lock file of the same name with a number appended. When no lock can be
-// taken at all, run is called anyway, as watching in every process is
-// better than in none.
+// lock file of the same name with a number appended. A holder that finds
+// itself watched around, as one does after the machine sleeps, cancels run
+// and waits with the others. When no lock can be taken at all, run is
+// called anyway, as watching in every process is better than in none.
 func RunAlone(ctx context.Context, lockPath string, run func(context.Context), log io.Writer) {
 	tick := time.NewTicker(aloneRetry)
 	defer tick.Stop()
 	for {
-		l, path, err := takeSlot(lockPath)
+		l, i, err := takeSlot(lockPath)
 		if err != nil {
 			fmt.Fprintf(log, "[watcher] %v; watching without the lock.\n", err)
 			run(ctx)
 			return
 		}
 		if l != nil {
-			hold(ctx, l, path, run)
-			return
+			if !hold(ctx, l, lockPath, i, run) {
+				return
+			}
+			fmt.Fprintln(log, "[watcher] another process watches; waiting.")
 		}
 		select {
 		case <-ctx.Done():
@@ -89,30 +95,31 @@ var errNoSlot = errors.New("every watch lock is held by a stopped process")
 // returns no lock and no error when one is. A lock is tried before its
 // file is looked at: a holder that crashed left its file touched a moment
 // ago, but the lock went with it.
-func takeSlot(base string) (*flock.Lock, string, error) {
+func takeSlot(base string) (*flock.Lock, int, error) {
 	for i := range aloneSlots {
 		path := slotPath(base, i)
 		l, err := flock.TryLock(path)
 		if err != nil {
-			return nil, "", err
+			return nil, 0, err
 		}
 		if l == nil {
 			if fresh(path) {
-				return nil, "", nil
+				return nil, 0, nil
 			}
 			continue // stopped
 		}
 		if watchingAfter(base, i) {
 			l.Unlock()
-			return nil, "", nil
+			return nil, 0, nil
 		}
-		return l, path, nil
+		return l, i, nil
 	}
-	return nil, "", errNoSlot
+	return nil, 0, errNoSlot
 }
 
 // watchingAfter reports whether a holder of a slot after i is watching, as
-// one is when the holder of i exited after the other watched around it.
+// one is when the holder of i exited, or stopped and went on, after the
+// other watched around it.
 func watchingAfter(base string, i int) bool {
 	for j := i + 1; j < aloneSlots; j++ {
 		path := slotPath(base, j)
@@ -134,31 +141,40 @@ func watchingAfter(base string, i int) bool {
 	return false
 }
 
-// hold runs run while touching the lock file at path, then releases the
-// lock.
-func hold(ctx context.Context, l *flock.Lock, path string, run func(context.Context)) {
+// hold runs run while touching the lock file of slot i, then releases the
+// lock. A holder that only seemed stopped, as every process does while the
+// machine sleeps, finds on waking that another watched around it; run is
+// then canceled, so one process watches again, and hold reports true.
+func hold(ctx context.Context, l *flock.Lock, base string, i int, run func(context.Context)) (yielded bool) {
+	path := slotPath(base, i)
 	touch := func() {
 		now := time.Now()
 		os.Chtimes(path, now, now)
 	}
 	touch()
 
-	beatCtx, stop := context.WithCancel(ctx)
+	runCtx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		t := time.NewTicker(aloneBeat)
 		defer t.Stop()
 		for {
 			select {
-			case <-beatCtx.Done():
+			case <-runCtx.Done():
 				return
 			case <-t.C:
+				if watchingAfter(base, i) {
+					yielded = true
+					cancel()
+					return
+				}
 				touch()
 			}
 		}
 	})
-	run(ctx)
-	stop()
+	run(runCtx)
+	cancel()
 	wg.Wait()
 	l.Unlock()
+	return yielded && ctx.Err() == nil
 }

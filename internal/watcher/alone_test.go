@@ -22,22 +22,33 @@ func shortAlone(t *testing.T, beat time.Duration) {
 }
 
 // runner starts RunAlone in the background and reports when its run is
-// called. flock(2) locks belong to the open file, so two runners in one
-// test contend as two processes would.
+// first called, and when each call starts and ends. flock(2) locks belong
+// to the open file, so two runners in one test contend as two processes
+// would.
 type runner struct {
 	cancel  context.CancelFunc
 	started chan struct{}
+	starts  chan struct{}
+	ends    chan struct{}
 	wg      sync.WaitGroup
 }
 
 func startRunner(t *testing.T, lock string) *runner {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &runner{cancel: cancel, started: make(chan struct{})}
+	r := &runner{
+		cancel:  cancel,
+		started: make(chan struct{}),
+		starts:  make(chan struct{}, 8),
+		ends:    make(chan struct{}, 8),
+	}
+	var once sync.Once
 	r.wg.Go(func() {
 		RunAlone(ctx, lock, func(ctx context.Context) {
-			close(r.started)
+			once.Do(func() { close(r.started) })
+			r.starts <- struct{}{}
 			<-ctx.Done()
+			r.ends <- struct{}{}
 		}, io.Discard)
 	})
 	t.Cleanup(func() { r.stop() })
@@ -110,6 +121,59 @@ func TestRunAloneAroundStoppedHolder(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("no runner ran around the stopped holder")
+	}
+}
+
+// within reports whether ch receives within d.
+func within(ch <-chan struct{}, d time.Duration) bool {
+	select {
+	case <-ch:
+		return true
+	case <-time.After(d):
+		return false
+	}
+}
+
+func TestRunAloneYieldsWhenWatchedAround(t *testing.T) {
+	shortAlone(t, 20*time.Millisecond)
+	lock := filepath.Join(t.TempDir(), "vault.db.watch.lock")
+
+	a := startRunner(t, lock)
+	if !within(a.starts, time.Second) {
+		t.Fatal("the first runner never ran")
+	}
+	// Another process watched around a while a slept with the machine;
+	// both are awake again.
+	other := holdSlot(t, slotPath(lock, 1), time.Now().Add(time.Hour))
+	if !within(a.ends, time.Second) {
+		t.Fatal("the runner kept watching after another watched around it")
+	}
+	if within(a.starts, aloneStale) {
+		t.Fatal("the runner watched again while the other was watching")
+	}
+	// It waits with the others, and takes over when the other exits.
+	other.Unlock()
+	if !within(a.starts, aloneStale/2) {
+		t.Fatal("the runner did not take over when the other exited")
+	}
+}
+
+func TestRunAloneLastWatcherStays(t *testing.T) {
+	shortAlone(t, 20*time.Millisecond)
+	lock := filepath.Join(t.TempDir(), "vault.db.watch.lock")
+
+	holdSlot(t, lock, time.Now().Add(-2*aloneStale))
+	b := startRunner(t, lock)
+	if !within(b.starts, time.Second) {
+		t.Fatal("no runner watched around the stopped holder")
+	}
+	// Slot 0's holder is awake again; the runner in slot 1 keeps watching.
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(lock, later, later); err != nil {
+		t.Fatal(err)
+	}
+	if within(b.ends, 4*aloneBeat) {
+		t.Fatal("the last runner to watch around stopped watching")
 	}
 }
 
