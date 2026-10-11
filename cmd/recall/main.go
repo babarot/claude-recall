@@ -335,12 +335,19 @@ func openRead(o *options) (*db.DB, error) {
 
 func openWrite(o *options) (*db.DB, error) { return db.Open(o.db, db.Options{}) }
 
+// catchingUp lets one catchUp run at a time: a watcher that yields to
+// another and takes over again starts one while the last may still be
+// importing.
+var catchingUp sync.Mutex
+
 // catchUp imports what changed while no server ran. It runs beside the
 // server, which answers right away: a first import after an upgrade can
 // take a while, and Claude Code gives an MCP server 30 seconds to start. A
 // failed import is reported and the server keeps running; the watcher
 // imports the session again when it changes.
 func catchUp(d *db.DB, trees []string, w io.Writer) {
+	catchingUp.Lock()
+	defer catchingUp.Unlock()
 	if err := importer.Run(d, importer.Options{ProjectsDirs: trees}, w); err != nil {
 		fmt.Fprintln(os.Stderr, "recall: import:", err)
 	}
