@@ -640,10 +640,20 @@ func serveUI(o *options, stdout io.Writer) error {
 	defer stop()
 	s := web.New(d, o.trees...)
 	s.Shutdown = stop
+	// A session recalled in a new claude gets this recall's MCP server on
+	// the same database, as from the TUI.
+	s.Self = []string{"recall", "mcp", "--db", o.db}
+	if exe, err := os.Executable(); err == nil {
+		s.Self[0] = exe
+	}
+	catchUpThen := func() {
+		catchUp(d, o.trees, stdout)
+		s.Changed()
+	}
 	if s.Watcher != nil {
-		s.Watcher.Started = func() { go catchUp(d, o.trees, stdout) }
+		s.Watcher.Started = func() { go catchUpThen() }
 	} else {
-		go catchUp(d, o.trees, stdout)
+		go catchUpThen()
 	}
 	return s.Serve(ctx, ln)
 }
