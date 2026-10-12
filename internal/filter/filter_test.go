@@ -34,7 +34,8 @@ func TestBodyWords(t *testing.T) {
 
 func TestMatch(t *testing.T) {
 	f := Fields{Title: "Fix the Parser", Folder: "babarot/claude-recall", Worktree: "silver-valley",
-		Branch: "feat/web", ID: "AbCd1234-5678", Search: "fix the parser babarot/claude-recall silver-valley feat/web abcd1234-5678"}
+		Branch: "feat/web", ID: "AbCd1234-5678"}
+	f.Search = SearchText(f.Title, "~/src/github.com/babarot/claude-recall", f.Worktree, f.Branch, f.ID)
 	said := map[string]bool{"retry": true}
 	cases := map[string]bool{
 		"":                      true,
@@ -53,6 +54,8 @@ func TestMatch(t *testing.T) {
 		"in:crec":               true,  // folders match fuzzily
 		"in:dotfiles":           false,
 		"in:crec title:nothing": false,
+		"src":                   true,  // a plain word looks in where it ran
+		"in:src":                false, // folder: looks in the folder it is grouped under
 	}
 	for q, want := range cases {
 		if got := Match(Parse(q), f, func(w string) bool { return said[w] }); got != want {

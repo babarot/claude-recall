@@ -90,12 +90,21 @@ func (q Query) InFolder(name string) bool {
 	return false
 }
 
-// Fields are what a session is matched on.
+// Fields are what a session is matched on. Folder is the folder the
+// session is grouped under (the repository's name), which folder: matches.
 type Fields struct {
 	Title, Folder, Worktree, Branch, ID string
-	// Search is the lower-cased text a plain word is looked for in: the
-	// title, folder, worktree, branch and ID.
+	// Search is the text a plain word is looked for in, as SearchText
+	// writes it.
 	Search string
+}
+
+// SearchText is the text a plain word is looked for in, lower-cased: the
+// session's title, where it ran (its folder shortened, the main checkout
+// for a worktree), its worktree, branch and ID. It is kept in Fields.Search
+// so it is written once per session, not per match.
+func SearchText(title, folder, worktree, branch, id string) string {
+	return strings.ToLower(strings.Join([]string{title, folder, worktree, branch, id}, " "))
 }
 
 // Match reports whether a session passes the query, the folder scope

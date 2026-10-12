@@ -872,6 +872,19 @@ func TestDoneScrollsToFiles(t *testing.T) {
 	}
 }
 
+// The files edited in a herdr worktree are under its repository and its
+// name, joined with the worktree mark.
+func TestDoneNamesWorktreeFiles(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	d := m.details[m.current().s.ID]
+	d.Files = []db.Count{{Name: "/Users/me/.herdr/worktrees/blog/worktree-calm-sea/posts/a.md", N: 3}}
+	d.FileCount = 1
+	m.built.forget() // the detail changed in place, which recall never does
+	if s := screen(m); !strings.Contains(s, "blog "+worktreeM+"calm-sea") || !strings.Contains(s, "posts/a.md") {
+		t.Fatalf("the worktree's files should be under blog %scalm-sea:\n%s", worktreeM, s)
+	}
+}
+
 func TestConversationMarksTheGap(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	s := screen(m)
