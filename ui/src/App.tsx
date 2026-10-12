@@ -83,8 +83,11 @@ export function App() {
     const q = query.peek();
     const snippet = found.peek()?.snippets?.[id];
     void conv.open(id).then(async () => {
+      // The conversation search takes one word: the one the list's
+      // snippet was cut around, else the first.
       const words = bodyWords(q);
-      if (words.length) await conv.findInConversation(words[0]);
+      const word = words.find((w) => snippet?.text.toLowerCase().includes(w)) ?? words[0];
+      if (word) await conv.findInConversation(word);
       if (snippet) void goTo(snippet.cursor);
     });
   }), []);
