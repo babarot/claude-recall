@@ -108,18 +108,27 @@ type Server struct {
 	Watcher *watcher.Watcher
 	// Shutdown is called by POST /api/shutdown.
 	Shutdown func()
+	// Self is the command line of recall's MCP server, for the command
+	// that recalls a session in a new claude; Home shortens paths to ~.
+	Self []string
+	Home string
 
-	port int
+	trees []string
+	port  int
+	v2    *v2
 }
 
 // New prepares a server. Given transcript trees, the primary first, a
 // watcher keeps the archive current and pushes updates to SSE clients.
 func New(d *db.DB, projectsDirs ...string) *Server {
-	s := &Server{DB: d, Broadcaster: NewBroadcaster()}
+	s := &Server{DB: d, Broadcaster: NewBroadcaster(), trees: projectsDirs, v2: newV2()}
 	if len(projectsDirs) > 0 {
-		s.Watcher = &watcher.Watcher{DB: d, ProjectsDirs: projectsDirs, OnImport: func(r *importer.Result) {
+		// OnChange, not OnImport: the recall mcp of a Claude Code session,
+		// or the SessionEnd hook, often imports a change first.
+		s.Watcher = &watcher.Watcher{DB: d, ProjectsDirs: projectsDirs, OnChange: func(r *importer.Result) {
+			s.Changed()
 			s.Broadcaster.Broadcast(SessionUpdated{Type: "session_updated", SessionID: r.SessionID, Project: r.Project,
-				Status: string(r.Status), AddedMessages: r.TotalMessages, TotalMessages: r.TotalMessages})
+				Status: string(r.Status), AddedMessages: r.AddedMessages, TotalMessages: r.TotalMessages})
 		}}
 	}
 	return s
@@ -137,6 +146,9 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	if s.Watcher != nil {
 		wg.Go(func() { s.Watcher.Run(ctx) })
 	}
+	// The list's first read computes what it keeps for every session,
+	// which takes seconds on a large archive; do it before a page asks.
+	wg.Go(s.warm)
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
 
@@ -207,6 +219,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, statusResponse{Status: "running", PID: os.Getpid(), Port: s.port, SSEClients: s.Broadcaster.Count(), Watcher: st, Version: version.Version})
 	case path == "/api/stream":
 		s.stream(w, r)
+	case strings.HasPrefix(path, "/api/v2/"):
+		if err := s.v2API(w, r, path); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			internalError(w)
+		}
 	case strings.HasPrefix(path, "/api/"):
 		if err := s.api(w, r, path); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)

@@ -83,13 +83,61 @@ func TestWatcherImportsNewAndChangedTranscripts(t *testing.T) {
 	f.WriteString(userLine("s1", "u2", "more"))
 	f.Close()
 	got = rec.wait(t, 2)
-	if got[1].Status != importer.Resynced || got[1].TotalMessages != 2 {
+	if got[1].Status != importer.Resynced || got[1].TotalMessages != 2 || got[1].AddedMessages != 1 {
 		t.Fatalf("%+v", got[1])
 	}
 
 	st := w.Status()
 	if st.LastEventAt == "" || st.LastImportAt == "" || st.LastError != "" || st.DebounceMs != 50 {
 		t.Fatalf("status %+v", st)
+	}
+}
+
+// A change another process imported first, as the recall mcp of a Claude
+// Code session or the SessionEnd hook does, is still told through OnChange,
+// though the watcher's own import finds it unchanged and OnImport is not
+// called.
+func TestWatcherTellsOfChangesImportedElsewhere(t *testing.T) {
+	projects := t.TempDir()
+	path := filepath.Join(t.TempDir(), "vault.db")
+	d, err := db.Open(path, db.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	other, err := db.Open(path, db.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+
+	imported, changed := &recorder{}, &recorder{}
+	w := &Watcher{DB: d, ProjectsDirs: []string{projects}, Debounce: 300 * time.Millisecond,
+		OnImport: imported.add, OnChange: changed.add, Log: io.Discard}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { w.Run(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+	for !w.Status().Running {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	dir := filepath.Join(projects, "-p")
+	os.MkdirAll(dir, 0o755)
+	transcript := filepath.Join(dir, "s1.jsonl")
+	os.WriteFile(transcript, []byte(userLine("s1", "u1", "hello")), 0o644)
+	// The other process imports it within the watcher's debounce.
+	if r, err := importer.ImportFile(other, transcript, nil, []string{projects}); err != nil || r == nil || r.Status != importer.New {
+		t.Fatalf("other import: %+v %v", r, err)
+	}
+	got := changed.wait(t, 1)
+	if got[0].SessionID != "s1" || got[0].Status != importer.Unchanged || got[0].TotalMessages != 1 || got[0].AddedMessages != 0 {
+		t.Fatalf("OnChange %+v", got[0])
+	}
+	imported.mu.Lock()
+	defer imported.mu.Unlock()
+	if len(imported.seen) != 0 {
+		t.Fatalf("OnImport for an import found unchanged: %+v", imported.seen)
 	}
 }
 

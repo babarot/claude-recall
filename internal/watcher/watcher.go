@@ -54,6 +54,10 @@ type Watcher struct {
 	Debounce     time.Duration
 	// OnImport is called after a new or changed session was imported.
 	OnImport func(*importer.Result)
+	// OnChange is called for every changed transcript once it is imported,
+	// also when it was imported already, by another process that got to it
+	// first, and the import finds it unchanged.
+	OnChange func(*importer.Result)
 	// Started, when set, is called once Run has taken the files present as
 	// imported, or has given up for want of a tree. The catch-up import
 	// starts there: started earlier, it could import a file that then
@@ -227,5 +231,8 @@ func (w *Watcher) importFile(path string) {
 	w.update(func(s *Status) { s.LastImportAt, s.LastError, s.LastErrorAt = now(), "", "" })
 	if r.Status != importer.Unchanged && w.OnImport != nil {
 		w.OnImport(r)
+	}
+	if w.OnChange != nil {
+		w.OnChange(r)
 	}
 }

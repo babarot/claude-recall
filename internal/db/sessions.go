@@ -18,6 +18,8 @@ type Session struct {
 	FileSize     int64
 	StartedAt    time.Time
 	EndedAt      time.Time
+	// ClaudeVersion is the Claude Code release that wrote the session.
+	ClaudeVersion string
 }
 
 func (d *DB) hasColumn(table, column string) (bool, error) {
@@ -58,7 +60,8 @@ func (d *DB) Sessions() ([]Session, error) {
 	rows, err := d.sql.Query(`
       SELECT session_id, project, COALESCE(project_path, ''), COALESCE(git_branch, ''),
              COALESCE(first_prompt, ''), ` + titleExpr + `, COALESCE(message_count, 0),
-             COALESCE(file_size, 0), COALESCE(started_at, ''), COALESCE(ended_at, '')
+             COALESCE(file_size, 0), COALESCE(started_at, ''), COALESCE(ended_at, ''),
+             COALESCE(claude_version, '')
       FROM sessions
       ORDER BY ended_at DESC`)
 	if err != nil {
@@ -71,7 +74,7 @@ func (d *DB) Sessions() ([]Session, error) {
 		var s Session
 		var started, ended string
 		if err := rows.Scan(&s.ID, &s.Project, &s.ProjectPath, &s.GitBranch, &s.FirstPrompt,
-			&s.Title, &s.MessageCount, &s.FileSize, &started, &ended); err != nil {
+			&s.Title, &s.MessageCount, &s.FileSize, &started, &ended, &s.ClaudeVersion); err != nil {
 			return nil, fmt.Errorf("sessions: %w", err)
 		}
 		s.StartedAt, s.EndedAt = parseTime(started), parseTime(ended)

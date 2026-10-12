@@ -62,6 +62,8 @@ Each import mirrors the session's current JSONL: its rows are replaced in one tr
 
 While the UI runs, it receives `session_updated` events over server-sent events. No Claude Code hook is needed.
 
+The UI server's watcher sends one for every transcript it sees change, once the change is in the archive, whoever imported it: often the `recall mcp` of a Claude Code session or the `SessionEnd` hook gets to it first, and the watcher's own import finds it unchanged. What the server keeps between requests, such as the sessions each searched word is in, is dropped on these, and when another process commits to the archive (`PRAGMA data_version`).
+
 - No search or filter: every event is applied. A known session moves to the top with its new message count; a new session is prepended if it now ranks first.
 - Project filter: events for sessions outside the project are ignored.
 - Committed search: the result set is frozen until the search box is cleared. Typing without committing does not freeze it.
