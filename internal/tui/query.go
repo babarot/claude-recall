@@ -7,134 +7,43 @@ import (
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/babarot/claude-recall/internal/filter"
 )
 
-// The filter is words to find in a session's title, folder, branch, ID or
-// conversation, and key:value terms that look in one field only: folder:
-// (in: for short), text: (conversation), title:, branch:, worktree: and id:.
-// A new one gets a field in query, a line in query.fields and a case in
-// match; one whose values are few enough to list also gets a line in
+// The filter is internal/filter's, matched here against the list's rows.
+// A key whose values are few enough to list also gets a line in
 // completers.
 
 const (
-	folderPrefix   = "folder:"
-	inPrefix       = "in:" // folder: for short
-	textPrefix     = "text:"
-	titlePrefix    = "title:"
-	branchPrefix   = "branch:"
-	worktreePrefix = "worktree:"
-	idPrefix       = "id:"
-	maxSuggest     = 8
+	maxSuggest = 8
 	// The suggestion box opens under the filter line, this far in.
 	suggestX, suggestTop = 3, 2
 	maxSuggestW          = 48
 )
 
-// query is the parsed filter, lower-cased.
-type query struct {
-	words []string
-	// in are folder: (or in:) name fragments; a session matches when its folder
-	// contains any of them. They override the folder the list is narrowed
-	// to.
-	in []string
-	// text are words to find only in the conversation.
-	text []string
-	// title, branch and worktree are parts of those fields, id the start of
-	// the session ID. Several of one key match any of them.
-	title, branch, worktree, id []string
+// fields are what the filter matches r on.
+func (r *row) fields() filter.Fields {
+	return filter.Fields{Title: r.title, Folder: r.groupName, Worktree: r.worktree, Branch: r.s.GitBranch, ID: r.s.ID, Search: r.search}
 }
 
-// fields maps each key to where its values go.
-func (q *query) fields() map[string]*[]string {
-	return map[string]*[]string{
-		folderPrefix: &q.in, inPrefix: &q.in, textPrefix: &q.text, titlePrefix: &q.title,
-		branchPrefix: &q.branch, worktreePrefix: &q.worktree, idPrefix: &q.id,
-	}
-}
-
-func parseQuery(s string) query {
-	var q query
-	fields := q.fields()
-	for w := range strings.FieldsSeq(strings.ToLower(s)) {
-		if key, v, ok := strings.Cut(w, ":"); ok {
-			if dst, known := fields[key+":"]; known {
-				if v != "" {
-					*dst = append(*dst, v)
-				}
-				continue
-			}
-		}
-		q.words = append(q.words, w)
-	}
-	return q
-}
-
-// anyOf reports whether test holds for one of vs, or vs is empty.
-func anyOf(vs []string, test func(v string) bool) bool {
-	if len(vs) == 0 {
-		return true
-	}
-	for _, v := range vs {
-		if test(v) {
-			return true
-		}
-	}
-	return false
-}
-
-// match reports whether r passes the query, the folder scope aside. A
-// plain word may be in the session's fields or its conversation; a text:
-// word only in the conversation. Words still being looked up in the
-// conversation match only the fields until they are found.
-func (m Model) match(q query, r *row) bool {
-	if len(q.in) > 0 && !q.inFolder(r.groupName) {
-		return false
-	}
-	in := func(field string) func(string) bool {
-		field = strings.ToLower(field)
-		return func(v string) bool { return strings.Contains(field, v) }
-	}
-	if !anyOf(q.title, in(r.title)) || !anyOf(q.branch, in(r.s.GitBranch)) || !anyOf(q.worktree, in(r.worktree)) ||
-		!anyOf(q.id, func(v string) bool { return strings.HasPrefix(strings.ToLower(r.s.ID), v) }) {
-		return false
-	}
-	for _, w := range q.words {
-		if !strings.Contains(r.search, w) && !m.said(w, r.s.ID) {
-			return false
-		}
-	}
-	for _, w := range q.text {
-		if !m.said(w, r.s.ID) {
-			return false
-		}
-	}
-	return true
+// match reports whether r passes the query, the folder scope aside. Words
+// still being looked up in the conversation match only the fields until
+// they are found.
+func (m Model) match(q filter.Query, r *row) bool {
+	return filter.Match(q, r.fields(), func(w string) bool { return m.said(w, r.s.ID) })
 }
 
 // inFolders lists the folders a folder: query matches, most recent first.
-func (m Model) inFolders(q query) []folderInfo {
+func (m Model) inFolders(q filter.Query) []folderInfo {
 	var out []folderInfo
 	for _, f := range m.folders {
-		if q.inFolder(f.name) {
+		if q.InFolder(f.name) {
 			out = append(out, f)
 		}
 	}
 	return out
 }
-
-// inFolder reports whether a folder name fuzzy-matches any folder: fragment,
-// as the folder list's search does.
-func (q query) inFolder(name string) bool {
-	for _, v := range q.in {
-		if _, _, ok := fuzzyMatch(v, name); ok {
-			return true
-		}
-	}
-	return false
-}
-
-// keyOrder lists the keys for the key hint.
-var keyOrder = []string{folderPrefix, inPrefix, textPrefix, titlePrefix, branchPrefix, worktreePrefix, idPrefix}
 
 // minKeyHint is how much of a key's name brings up its hint: two letters
 // tell every key apart (te for text:, ti for title:).
@@ -151,7 +60,7 @@ func (m Model) keyHint() string {
 	if len([]rune(word)) < minKeyHint || strings.Contains(word, ":") {
 		return ""
 	}
-	for _, k := range keyOrder {
+	for _, k := range filter.Keys {
 		if strings.HasPrefix(k, word) {
 			return k[len(word):]
 		}
@@ -181,10 +90,10 @@ func (m *Model) acceptKeyHint() bool {
 // by the part typed, most recently used first.
 func (m Model) completers() map[string]func(frag string) []sideEntry {
 	return map[string]func(string) []sideEntry{
-		folderPrefix:   m.rankFolders,
-		inPrefix:       m.rankFolders,
-		branchPrefix:   func(f string) []sideEntry { return containing(m.branches, f) },
-		worktreePrefix: func(f string) []sideEntry { return containing(m.worktrees, f) },
+		filter.FolderKey:   m.rankFolders,
+		filter.InKey:       m.rankFolders,
+		filter.BranchKey:   func(f string) []sideEntry { return containing(m.branches, f) },
+		filter.WorktreeKey: func(f string) []sideEntry { return containing(m.worktrees, f) },
 	}
 }
 

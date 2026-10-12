@@ -14,27 +14,8 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/filter"
 )
-
-func TestParseQuery(t *testing.T) {
-	cases := []struct {
-		in        string
-		words, at []string
-	}{
-		{"login bug", []string{"login", "bug"}, nil},
-		{"in:Dotfiles nix", []string{"nix"}, []string{"dotfiles"}},
-		{"in:a in:b", nil, []string{"a", "b"}},
-		{"in: http://x", []string{"http://x"}, nil}, // an empty in: is nothing, other keys are words
-		{"folder:Dotfiles nix", []string{"nix"}, []string{"dotfiles"}},
-		{"folder:a in:b", nil, []string{"a", "b"}}, // in: is folder: for short
-	}
-	for _, c := range cases {
-		q := parseQuery(c.in)
-		if !reflect.DeepEqual(q.words, c.words) || !reflect.DeepEqual(q.in, c.at) {
-			t.Errorf("parseQuery(%q) = %q %q", c.in, q.words, q.in)
-		}
-	}
-}
 
 // typeFilter opens the filter and types s.
 func typeFilter(t *testing.T, m Model, s string) Model {
@@ -75,12 +56,12 @@ func TestInSuggestsAndCompletes(t *testing.T) {
 		t.Fatalf("in: should list folders to complete:\n%s", s)
 	}
 	m = press(t, m, "tab")
-	first := inPrefix + m.folders[0].name
+	first := filter.InKey + m.folders[0].name
 	if m.filter.Value() != first {
 		t.Fatalf("tab gave %q, want %q", m.filter.Value(), first)
 	}
 	m = press(t, m, "tab")
-	if m.filter.Value() != inPrefix+m.folders[1].name {
+	if m.filter.Value() != filter.InKey+m.folders[1].name {
 		t.Fatalf("second tab gave %q", m.filter.Value())
 	}
 	m = update(t, m, tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
@@ -95,7 +76,7 @@ func TestInSuggestsAndCompletes(t *testing.T) {
 	if list, _ := m.suggestions(); len(list) != len(m.folders) {
 		t.Fatalf("folder: suggests %+v", list)
 	}
-	if m = press(t, m, "tab"); m.filter.Value() != folderPrefix+m.folders[0].name {
+	if m = press(t, m, "tab"); m.filter.Value() != filter.FolderKey+m.folders[0].name {
 		t.Fatalf("tab after folder: gave %q", m.filter.Value())
 	}
 	// A plain word shows no suggestions; tab leaves it alone.

@@ -1,11 +1,11 @@
-package tui
+package filter
 
 import (
 	"strings"
 	"unicode"
 )
 
-// fuzzyMatch reports whether the runes of pattern appear in s in order,
+// Fuzzy reports whether the runes of pattern appear in s in order,
 // ignoring case, and scores the match: consecutive runes and runes at the
 // start of a word (after / - _ . or a space) count more, gaps count
 // against it. hits are the rune indexes in s that matched.
@@ -14,7 +14,7 @@ import (
 // that still fits before that end, so "app" in "a/b/app" matches the word
 // rather than the stray a, moved back to a word start if one has the
 // first rune ("bdot" in "babarot/dotfiles" starts at the first b).
-func fuzzyMatch(pattern, s string) (score int, hits []int, ok bool) {
+func Fuzzy(pattern, s string) (score int, hits []int, ok bool) {
 	p := []rune(strings.ToLower(pattern))
 	r := []rune(strings.ToLower(s))
 	if len(p) == 0 {

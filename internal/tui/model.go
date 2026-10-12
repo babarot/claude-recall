@@ -17,6 +17,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/filter"
 	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/theme"
 	selfupdate "github.com/babarot/claude-recall/internal/update"
@@ -432,7 +433,7 @@ func (m *Model) refresh() {
 	if r := m.current(); r != nil {
 		keep = r.s.ID
 	}
-	q := parseQuery(m.filter.Value())
+	q := filter.Parse(m.filter.Value())
 	m.visible = m.visible[:0]
 	for i := range m.rows {
 		// Claude's answer, or folder:, picks the sessions itself, over the
@@ -441,7 +442,7 @@ func (m *Model) refresh() {
 			if _, ok := m.asked[m.rows[i].s.ID]; !ok {
 				continue
 			}
-		} else if m.scope != "" && len(q.in) == 0 && m.rows[i].group != m.scope {
+		} else if m.scope != "" && len(q.In) == 0 && m.rows[i].group != m.scope {
 			continue
 		}
 		if m.match(q, &m.rows[i]) {

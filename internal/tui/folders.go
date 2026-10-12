@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
+	"github.com/babarot/claude-recall/internal/filter"
 	"github.com/babarot/claude-recall/internal/worktree"
 )
 
@@ -194,7 +195,7 @@ func (m Model) rankFolders(q string) []sideEntry {
 	}
 	var found []scored
 	for i, f := range m.folders {
-		if score, hits, ok := fuzzyMatch(q, f.name); ok {
+		if score, hits, ok := filter.Fuzzy(q, f.name); ok {
 			found = append(found, scored{sideEntry{f.key, f.name, f.count, hits}, score, i})
 		}
 	}
