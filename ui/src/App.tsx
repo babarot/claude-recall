@@ -75,7 +75,7 @@ export function App() {
             <Brain size={14} class="text-accent" />
           </div>
           <span class="text-sm font-semibold text-text tracking-tight group-hover:text-accent transition-colors">
-            Agent Recall
+            Claude Recall
           </span>
         </button>
         <nav class="flex gap-1 items-center">
