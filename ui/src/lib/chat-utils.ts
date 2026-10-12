@@ -6,16 +6,27 @@ export interface Message {
   toolName?: string;
   toolInput?: string;
   timestamp?: string;
+  /** Where the message is in its session; see the server's db.Cursor. */
+  cursor?: string;
+  /** The whole lengths of a content or tool input the server clipped. */
+  contentLength?: number;
+  toolInputLength?: number;
+}
+
+/** Where a message is, for the kinds that are folded or paired. */
+interface At {
+  cursor?: string;
+  timestamp?: string;
 }
 
 export type DisplayMessage =
-  | { type: "chat"; uuid: string; role: string; content: string; timestamp?: string }
-  | { type: "thinking"; content: string }
-  | { type: "tool_use"; toolName: string; toolInput: string }
-  | { type: "tool_result"; content: string }
+  | { type: "chat"; uuid: string; role: string; content: string; timestamp?: string; cursor?: string; contentLength?: number }
+  | ({ type: "thinking"; content: string } & At)
+  | ({ type: "tool_use"; toolName: string; toolInput: string; toolInputLength?: number } & At)
+  | ({ type: "tool_result"; content: string; contentLength?: number } & At)
   | { type: "bash"; command: string; stdout: string; stderr: string }
   | { type: "command"; name: string; args: string; stdout: string }
-  | { type: "meta"; label: string; content: string };
+  | ({ type: "meta"; label: string; content: string } & At);
 
 export function extractTag(content: string, tag: string): string | null {
   const re = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`);
@@ -137,28 +148,30 @@ export function groupMessages(messages: Message[]): DisplayMessage[] {
 
     // Block type handling
     if (msg.blockType === "thinking") {
-      result.push({ type: "thinking", content });
+      result.push({ type: "thinking", content, cursor: msg.cursor, timestamp: msg.timestamp });
       i++;
       continue;
     }
     if (msg.blockType === "tool_use") {
-      result.push({ type: "tool_use", toolName: msg.toolName ?? content, toolInput: msg.toolInput ?? "" });
+      result.push({ type: "tool_use", toolName: msg.toolName ?? content, toolInput: msg.toolInput ?? "",
+        toolInputLength: msg.toolInputLength, cursor: msg.cursor, timestamp: msg.timestamp });
       i++;
       continue;
     }
     if (msg.blockType === "tool_result") {
-      result.push({ type: "tool_result", content });
+      result.push({ type: "tool_result", content, contentLength: msg.contentLength, cursor: msg.cursor, timestamp: msg.timestamp });
       i++;
       continue;
     }
     if (msg.blockType === "meta") {
-      result.push({ type: "meta", label: summarizeMeta(content), content });
+      result.push({ type: "meta", label: summarizeMeta(content), content, cursor: msg.cursor, timestamp: msg.timestamp });
       i++;
       continue;
     }
 
     // Regular text message
-    result.push({ type: "chat", uuid: msg.uuid, role: msg.role, content, timestamp: msg.timestamp });
+    result.push({ type: "chat", uuid: msg.uuid, role: msg.role, content, timestamp: msg.timestamp,
+      cursor: msg.cursor, contentLength: msg.contentLength });
     i++;
   }
 

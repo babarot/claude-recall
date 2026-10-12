@@ -139,4 +139,19 @@ describe("subscribeSSE", () => {
     // The EventSource stays open — the bus is process-wide.
     expect(MockEventSource.instances[0].closed).toBe(false);
   });
+
+  it("closes while the page is hidden, and tells of the reconnect when it is shown", () => {
+    const seen: string[] = [];
+    subscribeSSE((e) => seen.push(e.type));
+    MockEventSource.instances[0].onopen?.(new Event("open"));
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(MockEventSource.instances[0].closed).toBe(true);
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(MockEventSource.instances).toHaveLength(2);
+    MockEventSource.instances[1].onopen?.(new Event("open"));
+    expect(seen).toEqual(["reconnected"]);
+    hidden.mockRestore();
+  });
 });

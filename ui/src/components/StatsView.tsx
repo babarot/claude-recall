@@ -1,69 +1,56 @@
-import { useEffect } from "preact/hooks";
-import { stats as statsSignal, init } from "../store/sessions-store";
+import { useEffect, useState } from "preact/hooks";
 
-export function StatsView() {
-  // Stats lives in the shared store so it survives navigation and
-  // retries fetch on remount if the first attempt failed.
-  useEffect(() => {
-    init();
-  }, []);
-
-  const data = statsSignal.value;
-
-  if (!data) {
-    return <div class="flex items-center justify-center h-full text-text-secondary">Loading...</div>;
-  }
-
-  return (
-    <div class="h-full overflow-y-auto p-6">
-      <div class="max-w-4xl mx-auto space-y-8">
-        {/* Overview */}
-        <div class="grid grid-cols-2 gap-4">
-          <StatCard label="Total Sessions" value={data.totalSessions} />
-          <StatCard label="Total Messages" value={data.totalMessages} />
-        </div>
-
-        {/* By Project */}
-        <section>
-          <h2 class="text-base font-semibold text-text mb-3">By Project</h2>
-          <div class="space-y-1">
-            {data.byProject?.map((p) => (
-              <div key={p.project} class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-bg-secondary">
-                <span class="text-sm text-text truncate mr-4">{p.project}</span>
-                <div class="flex gap-6 text-xs text-text-muted shrink-0">
-                  <span>{p.sessions} sessions</span>
-                  <span>{p.messages} messages</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* By Month */}
-        <section>
-          <h2 class="text-base font-semibold text-text mb-3">By Month</h2>
-          <div class="space-y-1">
-            {data.byMonth?.map((m) => (
-              <div key={m.month} class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-bg-secondary">
-                <span class="text-sm text-text font-mono">{m.month}</span>
-                <div class="flex gap-6 text-xs text-text-muted shrink-0">
-                  <span>{m.sessions} sessions</span>
-                  <span>{m.messages} messages</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-    </div>
-  );
+interface Stats {
+  totalSessions: number;
+  totalMessages: number;
+  byProject?: { project: string; sessions: number; messages: number }[];
+  byMonth?: { month: string; sessions: number; messages: number }[];
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+/** Counts of sessions and messages, by folder and by month, from /api/stats. */
+export function StatsView({ onBack }: { onBack: () => void }) {
+  const [data, setData] = useState<Stats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/stats").then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(setData, (e) => setError(String(e.message ?? e)));
+  }, []);
+  const maxMonth = Math.max(1, ...(data?.byMonth ?? []).map((m) => m.sessions));
+  const maxProject = Math.max(1, ...(data?.byProject ?? []).map((p) => p.sessions));
   return (
-    <div class="bg-bg-secondary border border-border rounded-lg p-5">
-      <div class="text-2xl font-bold text-text">{value.toLocaleString()}</div>
-      <div class="text-sm text-text-secondary mt-1">{label}</div>
+    <div class="stats-page">
+      <div class="stats-head">
+        <button class="btn" onClick={onBack}>← セッション</button>
+        <h1>Stats</h1>
+      </div>
+      {error && <div class="list-empty">読み込めませんでした：{error}</div>}
+      {!data && !error && <div class="list-empty">読み込んでいます…</div>}
+      {data && (
+        <div class="done-grid">
+          <div class="card"><h3>セッション</h3><div class="big">{data.totalSessions.toLocaleString()}</div></div>
+          <div class="card"><h3>メッセージ</h3><div class="big">{data.totalMessages.toLocaleString()}</div></div>
+          <div class="card" style="grid-column:1/-1">
+            <h3>月ごとのセッション</h3>
+            {(data.byMonth ?? []).map((m) => (
+              <div class="bar-row" key={m.month}>
+                <span class="k mono">{m.month}</span>
+                <div><div class="bar" style={{ width: `${(m.sessions / maxMonth) * 100}%` }} /></div>
+                <span class="v">{m.sessions}</span>
+              </div>
+            ))}
+          </div>
+          <div class="card" style="grid-column:1/-1">
+            <h3>フォルダごとのセッション</h3>
+            {(data.byProject ?? []).map((p) => (
+              <div class="bar-row wide" key={p.project}>
+                <span class="k" title={p.project}>{p.project}</span>
+                <div><div class="bar cmdb" style={{ width: `${(p.sessions / maxProject) * 100}%` }} /></div>
+                <span class="v">{p.sessions}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

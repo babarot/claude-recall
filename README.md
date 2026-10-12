@@ -82,7 +82,7 @@ recall ui            # http://localhost:6276, in the background
 recall ui stop
 ```
 
-A session browser, a chat viewer and search. While it runs, new and changed sessions are imported within about half a second, the session list moves them to the top, and the chat view of a running session follows new messages. The server listens on 127.0.0.1 only.
+The sessions as the TUI shows them, by folder, with the TUI's filter, and a reader for long conversations: tool calls folded, an outline of what you wrote, search in the conversation, and `Y` to copy the command that goes back to a session. While it runs, new and changed sessions are imported within about half a second and come in live, the open conversation too. The server listens on 127.0.0.1 only. See [docs/web.md](docs/web.md) for the keys and the rest.
 
 ### In Claude Code
 
