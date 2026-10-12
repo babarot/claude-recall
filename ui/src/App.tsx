@@ -22,6 +22,8 @@ function readURL(): { id: string | null; q: string; stats: boolean } {
 }
 
 function writeURL(): void {
+  // The stats page keeps its own URL; the selection changes under it.
+  if (location.pathname === "/stats") return;
   const id = selected.peek();
   const q = query.peek();
   const path = (id ? `/session/${encodeURIComponent(id)}` : "/") + (q ? `?q=${encodeURIComponent(q)}` : "");
