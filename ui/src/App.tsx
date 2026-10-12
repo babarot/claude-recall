@@ -59,6 +59,8 @@ export function App() {
         selected.value = p.id;
         reading.value = true;
       } else {
+        // A wide screen then shows the list's first session again.
+        selected.value = null;
         reading.value = false;
       }
       if (p.q !== query.peek()) setQuery(p.q, 0);
@@ -118,7 +120,7 @@ export function App() {
   useEffect(() => effect(() => {
     const list = visible.value;
     if (narrow() || list.length === 0) return;
-    if (!list.some((s) => s.id === selected.peek())) selected.value = list[0].id;
+    if (!list.some((s) => s.id === selected.value)) selected.value = list[0].id;
   }), []);
 
   useEffect(() => {
