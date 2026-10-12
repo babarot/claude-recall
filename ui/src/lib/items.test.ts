@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildItems, looksFailed, tally, toolLabel } from "./items";
+import { buildItems, looksFailed, relativeTo, tally, toolLabel } from "./items";
 import type { Message } from "./chat-utils";
 
 let n = 0;
@@ -60,5 +60,14 @@ describe("toolLabel", () => {
     expect(toolLabel("mcp__claude-in-chrome__navigate")).toBe("navigate");
     expect(toolLabel("mcp__plugin_claude-recall_claude-recall__recall_search")).toBe("recall_search");
     expect(toolLabel("Bash")).toBe("Bash");
+  });
+});
+
+describe("relativeTo", () => {
+  it("shortens paths under the session's folder", () => {
+    expect(relativeTo("/home/me/app/internal/a.go", "/home/me/app")).toBe("internal/a.go");
+    expect(relativeTo("cd /home/me/app/web && npm test", "/home/me/app/")).toBe("cd web && npm test");
+    expect(relativeTo("/home/me/apple/x.go", "/home/me/app")).toBe("/home/me/apple/x.go");
+    expect(relativeTo("/etc/hosts", undefined)).toBe("/etc/hosts");
   });
 });

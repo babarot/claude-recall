@@ -174,10 +174,16 @@ function Done() {
             <dt>ブランチ</dt><dd>{s.branch || "-"}</dd>
             <dt>フォルダ</dt><dd class="mono">{s.path}{s.gone ? "（もうない）" : ""}</dd>
             {h?.claudeVersion && <><dt>Claude Code</dt><dd>{h.claudeVersion}</dd></>}
-            {h && <><dt>戻るには</dt><dd class="mono">{h.resume.command.length > 200 ? h.resume.command.slice(0, 200) + "…" : h.resume.command}</dd></>}
+            {h && <><dt>戻るには</dt><dd class="mono" title={h.resume.command}>{shownCommand(h.resume.command, h.fullPath, s.path)}</dd></>}
           </dl>
         </div>
       </div>
     </div>
   );
+}
+
+/** The command as the details show it: the folder as ~, cut when long. */
+function shownCommand(cmd: string, fullPath: string, path: string): string {
+  const short = fullPath && path ? cmd.split(fullPath).join(path) : cmd;
+  return short.length > 200 ? short.slice(0, 200) + "…" : short;
 }

@@ -48,7 +48,7 @@ input { font: inherit; color: inherit; }
 ::selection { background: var(--surface-hi); }
 * { scrollbar-width: thin; scrollbar-color: var(--surface-hi) transparent; }
 
-#app { height: 100vh; display: grid; grid-template-rows: 48px 1fr 28px; }
+#app { height: 100vh; display: grid; grid-template-rows: 48px 1fr 28px; grid-template-columns: minmax(0, 1fr); }
 #app > .stats-page { grid-row: 1 / 4; }
 
 /* Header */

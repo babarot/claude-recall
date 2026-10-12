@@ -2,11 +2,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/ho
 import { signal } from "@preact/signals";
 import { density, isLive } from "../store/app";
 import {
-  compareCursors, findQuery, has, hitIndex, hits, outline, readAround, readOn, readWhole, spans, stickToEnd, total, unseen,
+  compareCursors, findQuery, has, header, hitIndex, hits, outline, readAround, readOn, readWhole, spans, stickToEnd, total, unseen,
   whole,
 } from "../store/conversation";
 import type { Span } from "../store/conversation";
-import { buildItems, fromAPI, looksFailed, tally, toolLabel } from "../lib/items";
+import { buildItems, fromAPI, looksFailed, relativeTo, tally, toolLabel } from "../lib/items";
 import type { Call, Item } from "../lib/items";
 import { getToolInputPreview, renderImages, stripAnsi } from "../lib/chat-utils";
 import { renderMarkdown } from "../lib/markdown";
@@ -245,7 +245,7 @@ function CallView({ c }: { c: Call }) {
   const result = c.result?.cursor ? whole.value[c.result.cursor]?.content ?? c.result.content : c.result?.content ?? "";
   const clipped = (!!c.use?.toolInputLength && !whole.value[c.use.cursor!]) || (!!c.result?.contentLength && !whole.value[c.result.cursor!]);
   const failed = c.result ? looksFailed(c.result.content) : false;
-  const preview = getToolInputPreview(c.use?.toolInput ?? "") || (c.use?.toolInput ?? "").slice(0, 120);
+  const preview = relativeTo(getToolInputPreview(c.use?.toolInput ?? "") || (c.use?.toolInput ?? "").slice(0, 120), header.value?.fullPath);
   const lines = result.split("\n").length;
   return (
     <div class={`call ${open ? "open" : ""}`}>

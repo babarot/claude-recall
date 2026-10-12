@@ -93,3 +93,13 @@ export function toolLabel(name: string): string {
   const m = name.match(/^mcp__.+?__(.+)$/);
   return m ? m[1] : name;
 }
+
+/**
+ * Shortens the paths in text that are under dir, the session's folder, to
+ * where they are in it: tool inputs name files by their absolute paths.
+ */
+export function relativeTo(text: string, dir: string | undefined): string {
+  if (!dir) return text;
+  const d = dir.endsWith("/") ? dir : dir + "/";
+  return text.split(d).join("");
+}
