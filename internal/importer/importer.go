@@ -35,6 +35,10 @@ type Result struct {
 	SessionID     string
 	Project       string
 	TotalMessages int
+	// AddedMessages is how many more messages the session has than before
+	// this import: all of them for a new session, none when it is unchanged
+	// or has fewer.
+	AddedMessages int
 }
 
 // afterRead, when set by a test, is called once ImportFile has read the
@@ -166,11 +170,11 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	if err := d.ReplaceSession(row, msgs, imgs, check); err != nil {
 		return nil, err
 	}
-	status := New
+	status, added := New, len(msgs)
 	if existing != nil {
-		status = Resynced
+		status, added = Resynced, max(0, len(msgs)-existing.MessageCount)
 	}
-	return &Result{Status: status, SessionID: sessionID, Project: project, TotalMessages: len(msgs)}, nil
+	return &Result{Status: status, SessionID: sessionID, Project: project, TotalMessages: len(msgs), AddedMessages: added}, nil
 }
 
 // decodeText reads bytes the way Deno.readTextFileSync does: a leading BOM
