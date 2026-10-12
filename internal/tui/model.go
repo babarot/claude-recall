@@ -20,6 +20,7 @@ import (
 	"github.com/babarot/claude-recall/internal/filter"
 	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/theme"
+	"github.com/babarot/claude-recall/internal/tidy"
 	selfupdate "github.com/babarot/claude-recall/internal/update"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/worktree"
@@ -369,7 +370,7 @@ func (m *Model) loadDetail() tea.Cmd {
 		if err != nil {
 			return detailLoaded{id: id}
 		}
-		return detailLoaded{id: id, d: d, programs: commandCounts(d.Commands)}
+		return detailLoaded{id: id, d: d, programs: tidy.CommandCounts(d.Commands)}
 	}
 }
 
@@ -390,7 +391,7 @@ func (m *Model) storeDetail(id string, d *db.Detail, programs []db.Count) {
 		return
 	}
 	if programs == nil {
-		programs = commandCounts(d.Commands)
+		programs = tidy.CommandCounts(d.Commands)
 	}
 	m.programs[id] = programs
 }
@@ -764,9 +765,9 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 			var text string
 			switch {
 			case r.transcriptDir != "":
-				text = "Its transcript is in another tree: " + tildePath(r.transcriptDir, m.home)
+				text = "Its transcript is in another tree: " + worktree.TildePath(r.transcriptDir, m.home)
 			case r.gone:
-				text = "Folder no longer exists: " + tildePath(r.s.ProjectPath, m.home)
+				text = "Folder no longer exists: " + worktree.TildePath(r.s.ProjectPath, m.home)
 			default:
 				text = "Claude Code has deleted its transcript"
 			}

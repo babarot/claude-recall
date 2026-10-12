@@ -7,6 +7,8 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/babarot/claude-recall/internal/worktree"
 )
 
 // c recalls the selected session in a new claude, for a session claude -r
@@ -127,7 +129,7 @@ func (m Model) withRecall(screen string) string {
 	body = append(body, m.recall.input.View(), "")
 	where := "  claude with recall's MCP server"
 	if m.startDir != "" {
-		where += ", in " + tildePath(m.startDir, m.home)
+		where += ", in " + worktree.TildePath(m.startDir, m.home)
 	}
 	body = append(body, m.st.dim.Render(where))
 	return m.boxOver(screen, w, "Recall in a new claude", "enter start · esc close", body)

@@ -16,6 +16,7 @@ import (
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/theme"
+	"github.com/babarot/claude-recall/internal/tidy"
 )
 
 var now = time.Date(2026, 10, 2, 19, 0, 0, 0, time.Local)
@@ -877,7 +878,7 @@ func manyFiles(m Model) {
 	for i := range 8 {
 		d.Commands = append(d.Commands, fmt.Sprintf("make step%d", i))
 	}
-	m.programs[m.current().s.ID] = commandCounts(d.Commands)
+	m.programs[m.current().s.ID] = tidy.CommandCounts(d.Commands)
 	m.built.forget() // the detail changed in place, which recall never does
 }
 

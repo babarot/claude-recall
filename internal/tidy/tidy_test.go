@@ -1,13 +1,9 @@
-package tui
+package tidy
 
 import (
-	"slices"
-	"strings"
 	"testing"
 
-	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
-	"github.com/charmbracelet/x/ansi"
 )
 
 func TestGroupFiles(t *testing.T) {
@@ -20,51 +16,25 @@ func TestGroupFiles(t *testing.T) {
 		{Name: "/Users/me/.herdr/worktrees/blog/worktree-calm-sea/posts/a.md", N: 3},
 		{Name: "/Users/me/.config/foo/bar.toml", N: 1},
 	}
-	groups, temps := groupFiles(files, "/Users/me/src/github.com/me/app", home)
+	groups, temps := GroupFiles(files, "/Users/me/src/github.com/me/app", home)
 	if temps != 1 {
 		t.Errorf("temps %d", temps)
 	}
 	got := map[string][]db.Count{}
 	for _, g := range groups {
-		got[g.name] = g.files
+		got[g.Place+" "+g.Worktree] = g.Files
 	}
-	if groups[0].name != "" || got[""][0].Name != "main.go" {
+	if groups[0].Place != "" || got[" "][0].Name != "main.go" {
 		t.Errorf("own folder first, relative: %+v", groups)
 	}
-	if len(got["lib"]) != 2 || got["lib"][0].Name != "a/b/c.go" {
-		t.Errorf("other repo: %+v", got["lib"])
+	if len(got["lib "]) != 2 || got["lib "][0].Name != "a/b/c.go" {
+		t.Errorf("other repo: %+v", got["lib "])
 	}
-	if got["blog ⌥calm-sea"][0].Name != "posts/a.md" {
+	if got["blog calm-sea"][0].Name != "posts/a.md" {
 		t.Errorf("herdr worktree: %+v", got)
 	}
-	if got["~/.config/foo"][0].Name != "bar.toml" {
+	if got["~/.config/foo "][0].Name != "bar.toml" {
 		t.Errorf("elsewhere: %+v", got)
-	}
-}
-
-func TestMiddleEllipsis(t *testing.T) {
-	const deep = "internal/very/deep/path/to/the/file.go"
-	for _, c := range []struct {
-		in   string
-		n    int
-		want string
-	}{
-		{"internal/tui/view.go", 24, "internal/tui/view.go"},
-		{deep, 24, "internal/…/the/file.go"},
-		// More room keeps more directories at the end, then at the start.
-		{deep, 30, "internal/…/path/to/the/file.go"},
-		{deep, 36, "internal/…/deep/path/to/the/file.go"},
-		{"~/src/github.com/me/app/internal", 30, "~/…/github.com/me/app/internal"},
-		{"~/src/github.com/me/app/internal", 26, "~/src/…/me/app/internal"},
-		// Less room drops to the file name, then cuts it.
-		{deep, 18, "internal/…/file.go"},
-		{deep, 12, "…/file.go"},
-		{deep, 5, "…e.go"},
-		{"/Users/me/src/app", 12, "/…/src/app"},
-	} {
-		if got := middleEllipsis(c.in, c.n); got != c.want {
-			t.Errorf("middleEllipsis(%q, %d) = %q, want %q", c.in, c.n, got, c.want)
-		}
 	}
 }
 
@@ -100,7 +70,7 @@ func TestProgramOf(t *testing.T) {
 }
 
 func TestCommandCounts(t *testing.T) {
-	got := commandCounts([]string{
+	got := CommandCounts([]string{
 		"cd /x && go test ./...", "go test ./internal/...", "go vet ./...",
 		"git -C /repo status", "git commit -m x", "/usr/bin/python3 a.py", "python3 b.py", "",
 	})
@@ -112,23 +82,5 @@ func TestCommandCounts(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("%d: got %+v want %+v", i, got[i], want[i])
 		}
-	}
-}
-
-// Tools and commands share a scale: their bars start in the same column,
-// and a command's bar is as long against Bash's as its count is.
-func TestBarsShareScale(t *testing.T) {
-	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
-	tools := []db.Count{{Name: "Bash", N: 400}, {Name: "AskUserQuestion", N: 13}}
-	commands := []db.Count{{Name: "python3", N: 100}}
-	sc := newBarScale(append(slices.Clone(tools), commands...), 60)
-	lines := append(m.bars(tools, sc), m.bars(commands, sc)...)
-	start := func(l string) int { return strings.Index(ansi.Strip(l), "▇") }
-	width := func(l string) int { return strings.Count(ansi.Strip(l), "▇") }
-	if start(lines[0]) != start(lines[2]) {
-		t.Fatalf("bars start apart:\n%s\n%s", ansi.Strip(lines[0]), ansi.Strip(lines[2]))
-	}
-	if width(lines[0]) != barMaxW || width(lines[2]) != barMaxW/4 {
-		t.Fatalf("bar widths %d and %d", width(lines[0]), width(lines[2]))
 	}
 }

@@ -52,19 +52,6 @@ func newRow(s db.Session, home string, wt *worktree.Resolver) row {
 	return r
 }
 
-// tildePath shortens $HOME to ~ for display.
-func tildePath(path, home string) string {
-	if home != "" {
-		if path == home {
-			return "~"
-		}
-		if rest, ok := strings.CutPrefix(path, home+"/"); ok {
-			return "~/" + rest
-		}
-	}
-	return path
-}
-
 // displayTitle picks what the list shows for a session.
 func displayTitle(s db.Session) string { return title.Display(s.Title, s.FirstPrompt) }
 
@@ -118,4 +105,38 @@ func formatSize(n int64) string {
 	default:
 		return fmt.Sprintf("%dB", n)
 	}
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// middleEllipsis shortens a path to n cells by dropping middle directories.
+// It keeps as many directories at the end as fit, then as many at the start,
+// and at least the file name.
+func middleEllipsis(p string, n int) string {
+	if len([]rune(p)) <= n {
+		return p
+	}
+	parts := strings.Split(p, "/")
+	if len(parts) >= 3 {
+		for tail := len(parts) - 2; tail >= 1; tail-- {
+			end := "/…/" + strings.Join(parts[len(parts)-tail:], "/")
+			for head := len(parts) - tail - 1; head >= 1; head-- {
+				short := strings.Join(parts[:head], "/") + end
+				if len([]rune(short)) <= n {
+					return short
+				}
+			}
+		}
+		short := "…/" + parts[len(parts)-1]
+		if len([]rune(short)) <= n {
+			return short
+		}
+	}
+	r := []rune(p)
+	return "…" + string(r[len(r)-n+1:])
 }
