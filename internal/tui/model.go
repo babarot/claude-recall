@@ -19,6 +19,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/filter"
 	"github.com/babarot/claude-recall/internal/parser"
+	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/theme"
 	"github.com/babarot/claude-recall/internal/tidy"
 	selfupdate "github.com/babarot/claude-recall/internal/update"
@@ -273,15 +274,7 @@ func (m Model) TranscriptsIn(dirs ...string) Model {
 	for i := range m.rows {
 		r := &m.rows[i]
 		f, ok := found[r.s.ID]
-		r.transcriptDir = ""
-		switch {
-		case ok && f.Dir != dirs[0]:
-			r.transcriptDir = f.Dir
-		case ok:
-			// claude -r reads it from the project's own directory.
-			ok = f.Project == r.s.Project
-		}
-		r.noTranscript = !ok
+		r.transcriptDir, r.noTranscript = resume.Where(f, ok, dirs, r.s.Project)
 	}
 	return m
 }
@@ -516,20 +509,6 @@ func copyCmd(text string) tea.Cmd {
 		}
 	}
 	return tea.Batch(cmds...)
-}
-
-func resumeCommand(r *row) string {
-	return "cd " + shellQuote(r.s.ProjectPath) + " && claude -r " + r.s.ID
-}
-
-func shellQuote(s string) string {
-	if s != "" && strings.IndexFunc(s, func(c rune) bool {
-		return !(c == '/' || c == '.' || c == '-' || c == '_' || c == '~' ||
-			c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9')
-	}) < 0 {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -787,7 +766,7 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 			// claude -r would fail: copy what c runs instead.
 			return tea.Batch(copyCmd(m.recallCommand(r.s.ID)), m.showToast(toastOK, "Copied a command that recalls it in a new claude")), true
 		}
-		cmd := resumeCommand(r)
+		cmd := resume.Command(r.s.ProjectPath, r.s.ID)
 		return tea.Batch(copyCmd(cmd), m.showToast(toastOK, "Copied "+cmd)), true
 	}
 	return nil, false

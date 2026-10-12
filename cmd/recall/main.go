@@ -33,6 +33,7 @@ import (
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/mcp"
 	"github.com/babarot/claude-recall/internal/repos"
+	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/title"
 	"github.com/babarot/claude-recall/internal/tui"
 	"github.com/babarot/claude-recall/internal/update"
@@ -979,14 +980,14 @@ func runTUI(o *options, c *cobra.Command) error {
 		return recallSession(self, *m.Recall)
 	case m.Result != nil:
 		d.Close()
-		return resume(*m.Result)
+		return resumeSession(*m.Result)
 	}
 	return nil
 }
 
-// resume replaces this process with claude -r, run from the session's folder
-// so Claude Code finds the transcript.
-func resume(r tui.Resume) error {
+// resumeSession replaces this process with claude -r, run from the
+// session's folder so Claude Code finds the transcript.
+func resumeSession(r tui.Resume) error {
 	claude, err := exec.LookPath("claude")
 	if err != nil {
 		return errors.New("claude is not on PATH")
@@ -1005,7 +1006,7 @@ func recallSession(self []string, r tui.Recall) error {
 	if err != nil {
 		return errors.New("claude is not on PATH")
 	}
-	return syscall.Exec(claude, append([]string{"claude"}, tui.RecallArgs(self, r)...), os.Environ())
+	return syscall.Exec(claude, append([]string{"claude"}, resume.RecallArgs(self, r.SessionID, r.Topic)...), os.Environ())
 }
 
 func deref(p *string) string {
