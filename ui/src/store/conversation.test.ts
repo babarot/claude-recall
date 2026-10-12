@@ -100,6 +100,21 @@ describe("follow", () => {
   });
 });
 
+describe("follow, after much came in", () => {
+  beforeEach(() => conv.__resetForTests());
+
+  it("reads the start and the end again rather than stop short of the end", async () => {
+    all = Array.from({ length: 5 }, (_, i) => msg(i));
+    await conv.open("s");
+    for (let i = 5; i < 5 + conv.FOLLOW + 10; i++) all.push(msg(i));
+    await conv.follow("s", () => true);
+    await vi.waitFor(() => {
+      const spans = conv.spans.value;
+      expect(spans[spans.length - 1].msgs.at(-1)?.cursor).toBe(all[all.length - 1].cursor);
+    });
+  });
+});
+
 describe("joinSpans", () => {
   it("joins spans that overlap and keeps apart ones that do not", () => {
     const s = (from: number, to: number, atStart = false, atEnd = false) =>

@@ -51,6 +51,19 @@ export function App() {
     void loadSessions();
     api.status().then((s) => setVersion(s.version)).catch(() => {});
     const tick = setInterval(() => { now.value = new Date(); }, 30000);
+    // Back and forward: the URL says what to show.
+    const onPop = () => {
+      const p = readURL();
+      setStats(p.stats);
+      if (p.id) {
+        selected.value = p.id;
+        reading.value = true;
+      } else {
+        reading.value = false;
+      }
+      if (p.q !== query.peek()) setQuery(p.q, 0);
+    };
+    window.addEventListener("popstate", onPop);
     const unsub = subscribeSSE((e) => {
       if (e.type === "reconnected") {
         // Back from hidden, or the server restarted: read what was missed.
@@ -63,7 +76,11 @@ export function App() {
       void refreshSession(id);
       if (id === selected.value) void conv.follow(id, atBottom);
     });
-    return () => { clearInterval(tick); unsub(); };
+    return () => {
+      clearInterval(tick);
+      unsub();
+      window.removeEventListener("popstate", onPop);
+    };
   }, []);
 
   // The theme on <html>.

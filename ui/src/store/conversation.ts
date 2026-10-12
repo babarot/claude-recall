@@ -8,6 +8,8 @@ import type { Detail, Hit, Message, Prompt, SessionDetail } from "../api";
 // whole.
 
 export const PAGE = 300;
+/** How many new messages a live update reads at most. */
+export const FOLLOW = PAGE * 2;
 
 export interface Span {
   msgs: Message[];
@@ -180,10 +182,13 @@ async function followOnce(id: string, atBottom: () => boolean): Promise<void> {
   const end = list[list.length - 1];
   const at = end?.msgs[end.msgs.length - 1];
   if (!end?.atEnd || !at) return void open(id);
-  const r = await api.after(id, at.cursor, PAGE * 2, { uuid: at.uuid, known: endCount });
+  const r = await api.after(id, at.cursor, FOLLOW, { uuid: at.uuid, known: endCount });
   if (openID !== id) return;
   if (r.stale) return void open(id);
   if (r.messages.length === 0) return;
+  // More came in than one read holds, as while the tab was hidden: read the
+  // start and the end again, and leave what lies between to read on.
+  if (r.messages.length >= FOLLOW) return void open(id);
   const bottom = atBottom();
   endCount += r.messages.length;
   total.value = r.total;
