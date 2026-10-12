@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
+	"github.com/babarot/claude-recall/internal/tidy"
 )
 
 func TestSpaceSpreadsTheConversation(t *testing.T) {
@@ -224,7 +225,7 @@ func TestDetailCountsCommandsWhereItIsRead(t *testing.T) {
 		t.Fatalf("got %+v", msg)
 	}
 	m = update(t, m, msg)
-	if got, want := m.programs[id], commandCounts(m.details[id].Commands); !slices.Equal(got, want) {
+	if got, want := m.programs[id], tidy.CommandCounts(m.details[id].Commands); !slices.Equal(got, want) {
 		t.Fatalf("programs %v, want %v", got, want)
 	}
 	if !regexp.MustCompile(`git status +▇+ +1`).MatchString(screen(m)) {

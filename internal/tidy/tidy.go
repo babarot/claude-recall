@@ -1,4 +1,7 @@
-package tui
+// Package tidy turns what a session's tools did into something to read at
+// a glance, for the TUI's detail pane and the web UI: the edited files by
+// where they are, and the commands by the program they run.
+package tidy
 
 import (
 	"cmp"
@@ -8,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/worktree"
 )
 
 // Edited files and commands come straight from tool inputs: absolute paths,
@@ -21,26 +25,30 @@ var (
 	subcommandWord = regexp.MustCompile(`^[a-z][a-z0-9_:-]*$`)
 )
 
-// fileGroup is the edited files under one place: the session's own folder,
-// another repository, a herdr worktree, or elsewhere.
-type fileGroup struct {
-	name  string // "" for the session's own folder
-	files []db.Count
+// FileGroup is the edited files under one place: the session's own
+// folder, another repository, a herdr worktree, or elsewhere.
+type FileGroup struct {
+	// Place is the repository or directory, "" for the session's own
+	// folder; Worktree is the herdr worktree of the repository Place, if
+	// the files are in one.
+	Place, Worktree string
+	Files           []db.Count
 }
 
-// groupFiles sorts edited files into groups, largest first, with names
+// GroupFiles sorts edited files into groups, largest first, with names
 // relative to their group, and counts the temporary files apart.
-func groupFiles(files []db.Count, folder, home string) (groups []fileGroup, temps int) {
-	byName := map[string]*fileGroup{}
-	var order []string
-	add := func(group, rel string, n int) {
-		g, ok := byName[group]
+func GroupFiles(files []db.Count, folder, home string) (groups []FileGroup, temps int) {
+	byName := map[[2]string]*FileGroup{}
+	var order [][2]string
+	add := func(place, worktree, rel string, n int) {
+		key := [2]string{place, worktree}
+		g, ok := byName[key]
 		if !ok {
-			g = &fileGroup{name: group}
-			byName[group] = g
-			order = append(order, group)
+			g = &FileGroup{Place: place, Worktree: worktree}
+			byName[key] = g
+			order = append(order, key)
 		}
-		g.files = append(g.files, db.Count{Name: rel, N: n})
+		g.Files = append(g.Files, db.Count{Name: rel, N: n})
 	}
 	for _, f := range files {
 		p := f.Name
@@ -48,65 +56,31 @@ func groupFiles(files []db.Count, folder, home string) (groups []fileGroup, temp
 		case tempPath.MatchString(p):
 			temps++
 		case folder != "" && strings.HasPrefix(p, folder+"/"):
-			add("", strings.TrimPrefix(p, folder+"/"), f.N)
+			add("", "", strings.TrimPrefix(p, folder+"/"), f.N)
 		default:
 			if m := herdrFile.FindStringSubmatch(p); m != nil {
-				add(m[1]+" "+worktreeM+m[2], m[3], f.N)
+				add(m[1], m[2], m[3], f.N)
 				continue
 			}
 			if rest, ok := strings.CutPrefix(p, home+"/src/github.com/"); ok {
 				if parts := strings.SplitN(rest, "/", 3); len(parts) == 3 {
-					add(parts[1], parts[2], f.N)
+					add(parts[1], "", parts[2], f.N)
 					continue
 				}
 			}
-			add(filepath.Dir(tildePath(p, home)), filepath.Base(p), f.N)
+			add(filepath.Dir(worktree.TildePath(p, home)), "", filepath.Base(p), f.N)
 		}
 	}
-	for _, name := range order {
-		groups = append(groups, *byName[name])
+	for _, key := range order {
+		groups = append(groups, *byName[key])
 	}
-	slices.SortStableFunc(groups, func(a, b fileGroup) int {
-		if a.name == "" || b.name == "" { // the session's own folder first
-			return cmp.Compare(boolInt(a.name != ""), boolInt(b.name != ""))
+	slices.SortStableFunc(groups, func(a, b FileGroup) int {
+		if a.Place == "" || b.Place == "" { // the session's own folder first
+			return cmp.Compare(boolInt(a.Place != ""), boolInt(b.Place != ""))
 		}
-		return cmp.Compare(len(b.files), len(a.files))
+		return cmp.Compare(len(b.Files), len(a.Files))
 	})
 	return groups, temps
-}
-
-func boolInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
-}
-
-// middleEllipsis shortens a path to n cells by dropping middle directories.
-// It keeps as many directories at the end as fit, then as many at the start,
-// and at least the file name.
-func middleEllipsis(p string, n int) string {
-	if len([]rune(p)) <= n {
-		return p
-	}
-	parts := strings.Split(p, "/")
-	if len(parts) >= 3 {
-		for tail := len(parts) - 2; tail >= 1; tail-- {
-			end := "/…/" + strings.Join(parts[len(parts)-tail:], "/")
-			for head := len(parts) - tail - 1; head >= 1; head-- {
-				short := strings.Join(parts[:head], "/") + end
-				if len([]rune(short)) <= n {
-					return short
-				}
-			}
-		}
-		short := "…/" + parts[len(parts)-1]
-		if len([]rune(short)) <= n {
-			return short
-		}
-	}
-	r := []rune(p)
-	return "…" + string(r[len(r)-n+1:])
 }
 
 // simpleCommands splits a shell script into its simple commands, each as
@@ -308,8 +282,8 @@ func programOf(cmd string) string {
 	return ""
 }
 
-// commandCounts counts commands by program, most used first.
-func commandCounts(cmds []string) []db.Count {
+// CommandCounts counts commands by program, most used first.
+func CommandCounts(cmds []string) []db.Count {
 	n := map[string]int{}
 	for _, c := range cmds {
 		if p := programOf(c); p != "" {
@@ -322,4 +296,11 @@ func commandCounts(cmds []string) []db.Count {
 	}
 	slices.SortFunc(out, func(a, b db.Count) int { return cmp.Or(cmp.Compare(b.N, a.N), cmp.Compare(a.Name, b.Name)) })
 	return out
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

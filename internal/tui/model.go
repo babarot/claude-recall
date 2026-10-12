@@ -17,8 +17,11 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/filter"
 	"github.com/babarot/claude-recall/internal/parser"
+	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/theme"
+	"github.com/babarot/claude-recall/internal/tidy"
 	selfupdate "github.com/babarot/claude-recall/internal/update"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/worktree"
@@ -271,15 +274,7 @@ func (m Model) TranscriptsIn(dirs ...string) Model {
 	for i := range m.rows {
 		r := &m.rows[i]
 		f, ok := found[r.s.ID]
-		r.transcriptDir = ""
-		switch {
-		case ok && f.Dir != dirs[0]:
-			r.transcriptDir = f.Dir
-		case ok:
-			// claude -r reads it from the project's own directory.
-			ok = f.Project == r.s.Project
-		}
-		r.noTranscript = !ok
+		r.transcriptDir, r.noTranscript = resume.Where(f, ok, dirs, r.s.Project)
 	}
 	return m
 }
@@ -368,7 +363,7 @@ func (m *Model) loadDetail() tea.Cmd {
 		if err != nil {
 			return detailLoaded{id: id}
 		}
-		return detailLoaded{id: id, d: d, programs: commandCounts(d.Commands)}
+		return detailLoaded{id: id, d: d, programs: tidy.CommandCounts(d.Commands)}
 	}
 }
 
@@ -389,7 +384,7 @@ func (m *Model) storeDetail(id string, d *db.Detail, programs []db.Count) {
 		return
 	}
 	if programs == nil {
-		programs = commandCounts(d.Commands)
+		programs = tidy.CommandCounts(d.Commands)
 	}
 	m.programs[id] = programs
 }
@@ -432,7 +427,7 @@ func (m *Model) refresh() {
 	if r := m.current(); r != nil {
 		keep = r.s.ID
 	}
-	q := parseQuery(m.filter.Value())
+	q := filter.Parse(m.filter.Value())
 	m.visible = m.visible[:0]
 	for i := range m.rows {
 		// Claude's answer, or folder:, picks the sessions itself, over the
@@ -441,7 +436,7 @@ func (m *Model) refresh() {
 			if _, ok := m.asked[m.rows[i].s.ID]; !ok {
 				continue
 			}
-		} else if m.scope != "" && len(q.in) == 0 && m.rows[i].group != m.scope {
+		} else if m.scope != "" && len(q.In) == 0 && m.rows[i].group != m.scope {
 			continue
 		}
 		if m.match(q, &m.rows[i]) {
@@ -514,20 +509,6 @@ func copyCmd(text string) tea.Cmd {
 		}
 	}
 	return tea.Batch(cmds...)
-}
-
-func resumeCommand(r *row) string {
-	return "cd " + shellQuote(r.s.ProjectPath) + " && claude -r " + r.s.ID
-}
-
-func shellQuote(s string) string {
-	if s != "" && strings.IndexFunc(s, func(c rune) bool {
-		return !(c == '/' || c == '.' || c == '-' || c == '_' || c == '~' ||
-			c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9')
-	}) < 0 {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -763,9 +744,9 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 			var text string
 			switch {
 			case r.transcriptDir != "":
-				text = "Its transcript is in another tree: " + tildePath(r.transcriptDir, m.home)
+				text = "Its transcript is in another tree: " + worktree.TildePath(r.transcriptDir, m.home)
 			case r.gone:
-				text = "Folder no longer exists: " + tildePath(r.s.ProjectPath, m.home)
+				text = "Folder no longer exists: " + worktree.TildePath(r.s.ProjectPath, m.home)
 			default:
 				text = "Claude Code has deleted its transcript"
 			}
@@ -785,7 +766,7 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 			// claude -r would fail: copy what c runs instead.
 			return tea.Batch(copyCmd(m.recallCommand(r.s.ID)), m.showToast(toastOK, "Copied a command that recalls it in a new claude")), true
 		}
-		cmd := resumeCommand(r)
+		cmd := resume.Command(r.s.ProjectPath, r.s.ID)
 		return tea.Batch(copyCmd(cmd), m.showToast(toastOK, "Copied "+cmd)), true
 	}
 	return nil, false

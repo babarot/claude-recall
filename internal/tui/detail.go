@@ -11,7 +11,9 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/tidy"
 	"github.com/babarot/claude-recall/internal/title"
+	"github.com/babarot/claude-recall/internal/worktree"
 )
 
 // The detail pane is three frames: Conversation (how the session began and
@@ -464,7 +466,7 @@ func (m Model) doneContent(r *row, d *db.Detail, inner int) frameLines {
 		c.scroll = append(c.scroll, m.st.muted.Render(fmt.Sprintf("+%d more", extra)))
 	}
 
-	groups, temps := groupFiles(d.Files, r.s.ProjectPath, m.home)
+	groups, temps := tidy.GroupFiles(d.Files, r.s.ProjectPath, m.home)
 	places := ""
 	if len(groups)+boolInt(temps > 0) > 1 {
 		places = fmt.Sprintf(" in %d places", len(groups)+boolInt(temps > 0))
@@ -475,12 +477,15 @@ func (m Model) doneContent(r *row, d *db.Detail, inner int) frameLines {
 	}
 	nameW := max(10, inner-8) // indent, a space and "×N"
 	for _, g := range groups {
-		name := g.name
-		if name == "" {
+		name := g.Place
+		switch {
+		case name == "":
 			name = "this folder"
+		case g.Worktree != "":
+			name += " " + worktreeM + g.Worktree
 		}
 		c.scroll = append(c.scroll, "  "+m.st.muted.Render(name))
-		for _, f := range g.files {
+		for _, f := range g.Files {
 			rel := middleEllipsis(f.Name, nameW)
 			count := ""
 			if f.N > 1 {
@@ -573,7 +578,7 @@ func (m Model) detailsLines(r *row, d *db.Detail) []string {
 	}
 	switch {
 	case r.transcriptDir != "":
-		size += m.st.muted.Render("  transcript in " + tildePath(r.transcriptDir, m.home))
+		size += m.st.muted.Render("  transcript in " + worktree.TildePath(r.transcriptDir, m.home))
 	case r.noTranscript:
 		size += m.st.muted.Render("  transcript deleted")
 	}
@@ -592,10 +597,10 @@ func (m Model) detailsLines(r *row, d *db.Detail) []string {
 	}
 	lines = append(lines, "", m.section("Where"), kv("ID", m.st.id.Render(r.s.ID)), kv("Folder", folder))
 	if r.mainRoot != "" {
-		lines = append(lines, kv("", m.st.muted.Render("worktree of "+tildePath(r.mainRoot, m.home))))
+		lines = append(lines, kv("", m.st.muted.Render("worktree of "+worktree.TildePath(r.mainRoot, m.home))))
 	}
 	lines = append(lines, kv("Branch", m.st.dim.Render(r.s.GitBranch)))
-	path := tildePath(r.s.ProjectPath, m.home)
+	path := worktree.TildePath(r.s.ProjectPath, m.home)
 	path += m.goneNote(r)
 	return append(lines, kv("Path", m.st.muted.Render(path)))
 }
@@ -677,20 +682,20 @@ func (m Model) detailsGrid(r *row, d *db.Detail, inner int) ([]string, bool) {
 	if r.worktree != "" {
 		badge = worktreeM + " " + r.worktree
 	}
-	folder := tildePath(folderPath, m.home)
+	folder := worktree.TildePath(folderPath, m.home)
 	ownLine := r.mainRoot != ""
 	if !strings.HasSuffix(folder, "/"+r.folder) && folder != r.folder {
 		folder, ownLine = r.folder, true
 	}
 	lines = append(lines, kv(8, "Folder", m.folderPath(folder, r, badge, inner-8)))
 	if ownLine {
-		path := tildePath(r.s.ProjectPath, m.home)
+		path := worktree.TildePath(r.s.ProjectPath, m.home)
 		path += m.goneNote(r)
 		lines = append(lines, kv(8, "Path", m.st.muted.Render(middleEllipsis(path, inner-8))))
 	}
 	// A transcript in another tree gets the full width its path needs.
 	if r.transcriptDir != "" {
-		lines = append(lines, kv(8, "JSONL", m.st.muted.Render(middleEllipsis("in "+tildePath(r.transcriptDir, m.home), inner-8))))
+		lines = append(lines, kv(8, "JSONL", m.st.muted.Render(middleEllipsis("in "+worktree.TildePath(r.transcriptDir, m.home), inner-8))))
 	}
 	return lines, true
 }

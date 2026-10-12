@@ -134,6 +134,19 @@ func ShortPath(path, home string) string {
 	return path
 }
 
+// TildePath shortens $HOME to ~ for display.
+func TildePath(path, home string) string {
+	if home != "" {
+		if path == home {
+			return "~"
+		}
+		if rest, ok := strings.CutPrefix(path, home+"/"); ok {
+			return "~/" + rest
+		}
+	}
+	return path
+}
+
 // RealPath resolves symlinks in an existing path, so one folder reached two
 // ways is one key; other paths stay as they are.
 func RealPath(p string) string {

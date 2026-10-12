@@ -12,6 +12,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/filter"
 )
 
 const (
@@ -168,7 +169,7 @@ func (m Model) renderHeader() string {
 	sort := "sort: " + sorts[m.sortIdx].name
 	// Where the list is narrowed to: folder: folders, else the folder scope.
 	where := ""
-	if q := parseQuery(m.filter.Value()); len(q.in) > 0 {
+	if q := filter.Parse(m.filter.Value()); len(q.In) > 0 {
 		in := m.inFolders(q)
 		where = fmt.Sprintf("%d folders", len(in))
 		if len(in) == 1 {
@@ -201,7 +202,7 @@ func (m Model) renderTable() []string {
 	cols := layoutColumns(lw)
 	plain := lipgloss.NewStyle()
 
-	scoped := m.scope != "" && len(parseQuery(m.filter.Value()).in) == 0
+	scoped := m.scope != "" && len(filter.Parse(m.filter.Value()).In) == 0
 	head := renderRow(cols, lw, "  ", func(p placed) string {
 		if scoped && p.col.header == folderHeader {
 			return m.st.colHdr.Render(worktreeHeader)

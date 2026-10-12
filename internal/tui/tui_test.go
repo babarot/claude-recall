@@ -16,6 +16,7 @@ import (
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/theme"
+	"github.com/babarot/claude-recall/internal/tidy"
 )
 
 var now = time.Date(2026, 10, 2, 19, 0, 0, 0, time.Local)
@@ -330,28 +331,6 @@ func TestRecall(t *testing.T) {
 	}
 }
 
-func TestRecallArgs(t *testing.T) {
-	self := []string{"/bin/recall", "mcp", "--db", "/tmp/vault.db"}
-	args := RecallArgs(self, Recall{SessionID: "abc-123"})
-	if len(args) != 5 || args[1] != "--mcp-config" || args[3] != "--allowedTools" {
-		t.Fatalf("args %q", args)
-	}
-	// The prompt comes before the flags that take every argument after them.
-	if !strings.Contains(args[0], "recall session abc-123") || !strings.Contains(args[0], "where it left off") {
-		t.Fatalf("prompt %q", args[0])
-	}
-	if want := `{"mcpServers":{"recall":{"args":["mcp","--db","/tmp/vault.db"],"command":"/bin/recall"}}}`; args[2] != want {
-		t.Fatalf("mcp config %s, want %s", args[2], want)
-	}
-	if args[4] != "mcp__recall__recall_search,mcp__recall__recall_list,mcp__recall__recall_export" {
-		t.Fatalf("allowed tools %q", args[4])
-	}
-	topic := RecallArgs(self, Recall{SessionID: "abc-123", Topic: "the retry policy"})[0]
-	if !strings.Contains(topic, "recall session abc-123") || !strings.Contains(topic, "about: the retry policy") {
-		t.Fatalf("prompt %q", topic)
-	}
-}
-
 func TestRecallEmptyTopicAndEsc(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
 	if r := press(t, m, "down", "c", "enter"); r.Recall == nil || *r.Recall != (Recall{SessionID: "aaaaaaaa-1111"}) {
@@ -448,15 +427,6 @@ func TestFormatEnded(t *testing.T) {
 	}
 	if got := formatEnded(time.Date(2025, 12, 31, 0, 0, 0, 0, time.Local), now); got != "2025/12/31" {
 		t.Errorf("last year: %s", got)
-	}
-}
-
-func TestShellQuote(t *testing.T) {
-	if got := shellQuote("/Users/me/src/repo"); got != "/Users/me/src/repo" {
-		t.Errorf("plain path quoted: %s", got)
-	}
-	if got := shellQuote("/tmp/my dir/it's"); got != `'/tmp/my dir/it'\''s'` {
-		t.Errorf("got %s", got)
 	}
 }
 
@@ -877,7 +847,7 @@ func manyFiles(m Model) {
 	for i := range 8 {
 		d.Commands = append(d.Commands, fmt.Sprintf("make step%d", i))
 	}
-	m.programs[m.current().s.ID] = commandCounts(d.Commands)
+	m.programs[m.current().s.ID] = tidy.CommandCounts(d.Commands)
 	m.built.forget() // the detail changed in place, which recall never does
 }
 

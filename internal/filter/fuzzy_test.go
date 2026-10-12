@@ -1,11 +1,11 @@
-package tui
+package filter
 
 import (
 	"reflect"
 	"testing"
 )
 
-func TestFuzzyMatch(t *testing.T) {
+func TestFuzzy(t *testing.T) {
 	cases := []struct {
 		pattern, s string
 		ok         bool
@@ -20,14 +20,14 @@ func TestFuzzyMatch(t *testing.T) {
 		{"", "anything", true, nil},
 	}
 	for _, c := range cases {
-		_, hits, ok := fuzzyMatch(c.pattern, c.s)
+		_, hits, ok := Fuzzy(c.pattern, c.s)
 		if ok != c.ok || !reflect.DeepEqual(hits, c.hits) {
-			t.Errorf("fuzzyMatch(%q, %q) = %v %v, want %v %v", c.pattern, c.s, hits, ok, c.hits, c.ok)
+			t.Errorf("Fuzzy(%q, %q) = %v %v, want %v %v", c.pattern, c.s, hits, ok, c.hits, c.ok)
 		}
 	}
 	// A run of word starts beats the same letters scattered.
-	a, _, _ := fuzzyMatch("st", "10xinc/stailer")
-	b, _, _ := fuzzyMatch("st", "10xinc/last-thing")
+	a, _, _ := Fuzzy("st", "10xinc/stailer")
+	b, _, _ := Fuzzy("st", "10xinc/last-thing")
 	if a <= b {
 		t.Errorf("st: stailer %d should beat last-thing %d", a, b)
 	}

@@ -1,12 +1,14 @@
 package tui
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/babarot/claude-recall/internal/resume"
+	"github.com/babarot/claude-recall/internal/worktree"
 )
 
 // c recalls the selected session in a new claude, for a session claude -r
@@ -24,30 +26,6 @@ type Recall struct {
 	Topic     string
 }
 
-// RecallArgs are claude's arguments for recalling a session: recall's MCP
-// server, run as the command line self, beside the user's own, its
-// read-only tools allowed, and a first prompt asking to recall the session,
-// as one would in a session.
-func RecallArgs(self []string, r Recall) []string {
-	mcp, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{
-		"recall": map[string]any{"command": self[0], "args": self[1:]},
-	}})
-	prompt := "Use the recall tools to recall session " + r.SessionID +
-		" (recall_export), then pick up where it left off: say briefly what was being done and how far it got, and wait for my instructions."
-	if r.Topic != "" {
-		prompt = "Use the recall tools to recall session " + r.SessionID +
-			" (recall_export, or recall_search for the parts you need) about: " + r.Topic +
-			"\nSay briefly what it says about that, and wait for my instructions."
-	}
-	// The prompt goes first: --mcp-config and --allowedTools take every
-	// argument after them.
-	return []string{
-		prompt,
-		"--mcp-config", string(mcp),
-		"--allowedTools", "mcp__recall__recall_search,mcp__recall__recall_list,mcp__recall__recall_export",
-	}
-}
-
 // RecallWith sets the command line of recall's MCP server, which a session
 // recalled in a new claude gets.
 func (m Model) RecallWith(self []string) Model {
@@ -57,13 +35,7 @@ func (m Model) RecallWith(self []string) Model {
 
 // recallCommand is the shell command that recalls session id in a new
 // claude, as c does, for a session claude -r cannot resume.
-func (m Model) recallCommand(id string) string {
-	parts := []string{"claude"}
-	for _, a := range RecallArgs(m.recallSelf, Recall{SessionID: id}) {
-		parts = append(parts, shellQuote(a))
-	}
-	return strings.Join(parts, " ")
-}
+func (m Model) recallCommand(id string) string { return resume.RecallCommand(m.recallSelf, id) }
 
 type recallState struct {
 	open  bool
@@ -127,7 +99,7 @@ func (m Model) withRecall(screen string) string {
 	body = append(body, m.recall.input.View(), "")
 	where := "  claude with recall's MCP server"
 	if m.startDir != "" {
-		where += ", in " + tildePath(m.startDir, m.home)
+		where += ", in " + worktree.TildePath(m.startDir, m.home)
 	}
 	body = append(body, m.st.dim.Render(where))
 	return m.boxOver(screen, w, "Recall in a new claude", "enter start · esc close", body)

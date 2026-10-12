@@ -4,6 +4,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/babarot/claude-recall/internal/filter"
 )
 
 // The filter also looks in what was said: a plain word matches a session
@@ -12,12 +14,7 @@ import (
 // a moment, so it runs in the background once typing pauses, and each
 // word's sessions are kept for the rest of the run.
 
-const (
-	textSearchDelay = 200 * time.Millisecond
-	// minBodyWord is the shortest plain word looked up in the conversation;
-	// a single letter is in nearly every session.
-	minBodyWord = 2
-)
+const textSearchDelay = 200 * time.Millisecond
 
 // textSearch holds the conversation lookups: the sessions each word was
 // found in, the words being looked up, and the filter last scheduled.
@@ -35,17 +32,6 @@ type textSearchDone struct {
 	word string
 	ids  []string
 	err  error
-}
-
-// bodyWords are the words of q to look up in the conversation.
-func bodyWords(q query) []string {
-	var out []string
-	for _, w := range q.words {
-		if len([]rune(w)) >= minBodyWord {
-			out = append(out, w)
-		}
-	}
-	return append(out, q.text...)
 }
 
 // scheduleTextSearch starts the delay before looking up the filter's new
@@ -68,7 +54,7 @@ func (m *Model) startTextSearch(t textSearchTick) tea.Cmd {
 		return nil // typed on since
 	}
 	var cmds []tea.Cmd
-	for _, w := range bodyWords(parseQuery(m.filter.Value())) {
+	for _, w := range filter.Parse(m.filter.Value()).BodyWords() {
 		if _, ok := m.text.found[w]; ok || m.text.pending[w] {
 			continue
 		}
@@ -104,7 +90,7 @@ func (m Model) said(word, id string) bool { return m.text.found[word][id] }
 
 // searching reports whether a word of the filter is still being looked up.
 func (m Model) searching() bool {
-	for _, w := range bodyWords(parseQuery(m.filter.Value())) {
+	for _, w := range filter.Parse(m.filter.Value()).BodyWords() {
 		if _, ok := m.text.found[w]; !ok {
 			return true
 		}
