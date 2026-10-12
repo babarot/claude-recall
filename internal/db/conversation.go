@@ -172,7 +172,10 @@ type Mention struct {
 }
 
 // Mentions returns, for every session whose conversation text contains
-// text as SessionsWithText finds it, the first message that does.
+// text, the first message that does. It finds the sessions
+// SessionsWithText finds, which the TUI's filter uses: user blocks that are
+// only tags are searched too, unlike in FindInConversation, which is the
+// search in one conversation.
 func (d *DB) Mentions(text string) (map[string]Mention, error) {
 	rows, err := d.sql.Query(`SELECT session_id, turn_index, block_index, role, content, MIN(turn_index * 65536 + block_index)
         FROM messages WHERE block_type = 'text' AND content LIKE ? ESCAPE '\'

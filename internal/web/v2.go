@@ -32,8 +32,8 @@ const (
 
 // v2 holds what the API keeps between requests. What is kept per session
 // (whether it was only a look back through recall, its activity) is
-// stamped with the session's end and message count, and computed again
-// when they change. The sessions each searched word is in are dropped when
+// stamped with the session's end, message count and transcript size, and
+// computed again when they change, as they do when it is imported again. The sessions each searched word is in are dropped when
 // the archive changes: through the watcher (changed), or by another
 // connection's commit, which changes the data version.
 type v2 struct {
@@ -144,7 +144,7 @@ func (s *Server) rows(id string) ([]row, error) {
 	out := make([]row, len(all))
 	for i, ses := range all {
 		repo := x.Of(ses.ProjectPath)
-		stamp := ses.EndedAt.String() + "/" + strconv.Itoa(ses.MessageCount)
+		stamp := ses.EndedAt.String() + "/" + strconv.Itoa(ses.MessageCount) + "/" + strconv.FormatInt(ses.FileSize, 10)
 		if s.v2.stamps[ses.ID] != stamp {
 			stale = append(stale, ses.ID)
 			s.v2.stamps[ses.ID] = stamp
