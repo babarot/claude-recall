@@ -17,7 +17,7 @@ var contentTypes = []struct{ ext, typ string }{
 	{".ico", "image/x-icon"},
 }
 
-// ContentType is the type scripts/embed_ui.ts assigned to a path.
+// ContentType is the type an asset of the built UI is served with.
 func ContentType(path string) string {
 	for _, c := range contentTypes {
 		if strings.HasSuffix(path, c.ext) {
