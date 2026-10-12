@@ -1,5 +1,14 @@
 # Changelog
 
+## [v1.9.0](https://github.com/babarot/claude-recall/compare/v1.8.2...v1.9.0) - 2026-10-12
+### New Features
+- Add /api/v2 for the web UI to come by @babarot in https://github.com/babarot/claude-recall/pull/91
+- Rebuild the web UI to show sessions as the TUI does by @babarot in https://github.com/babarot/claude-recall/pull/93
+### Bug fixes
+- Fit the web UI on a phone and shorten paths in tool calls by @babarot in https://github.com/babarot/claude-recall/pull/94
+### Refactorings
+- Move code the web UI will share out of the TUI by @babarot in https://github.com/babarot/claude-recall/pull/90
+
 ## [v1.8.2](https://github.com/babarot/claude-recall/compare/v1.8.1...v1.8.2) - 2026-10-11
 ### Bug fixes
 - Fix the Dependabot alerts in the web UI dependencies by @babarot in https://github.com/babarot/claude-recall/pull/82
