@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.12.0](https://github.com/babarot/claude-recall/compare/v1.11.0...v1.12.0) - 2026-10-13
+### New Features
+- Store whether a tool result was an error by @babarot in https://github.com/babarot/claude-recall/pull/104
+- Make the checkouts of one git remote one folder by @babarot in https://github.com/babarot/claude-recall/pull/108
+### Bug fixes
+- List only repositories under the web UI's repositories by @babarot in https://github.com/babarot/claude-recall/pull/111
+### Improvements
+- Pair tool results with their calls by id in the web UI by @babarot in https://github.com/babarot/claude-recall/pull/105
+- Mark how each tool call went in the web UI by @babarot in https://github.com/babarot/claude-recall/pull/109
+### Refactorings
+- Wait for the conversation to redraw in its test by @babarot in https://github.com/babarot/claude-recall/pull/110
+
 ## [v1.11.0](https://github.com/babarot/claude-recall/compare/v1.10.0...v1.11.0) - 2026-10-13
 ### New Features
 - Record the git remote of the directory a session ran in by @babarot in https://github.com/babarot/claude-recall/pull/101
