@@ -253,6 +253,50 @@ func TestParseToolResult(t *testing.T) {
 	}
 }
 
+func TestParseToolIDs(t *testing.T) {
+	r := parseLines(jsonl(
+		assistantMsg([]any{
+			map[string]any{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": map[string]any{"command": "ls"}},
+			map[string]any{"type": "tool_use", "name": "Read", "input": map[string]any{}},
+		}, "a1", "2026-01-01T00:00:00Z"),
+		line(map[string]any{"type": "user", "uuid": "u1", "sessionId": "s", "timestamp": "t",
+			"message": map[string]any{"role": "user", "content": []any{
+				map[string]any{"type": "tool_result", "tool_use_id": "toolu_1", "content": "ok", "is_error": false},
+				map[string]any{"type": "tool_result", "tool_use_id": "toolu_2", "content": "Exit code 1", "is_error": true},
+				map[string]any{"type": "tool_result", "content": "old"},
+			}}}),
+	), 0)
+	if len(r.messages) != 5 {
+		t.Fatalf("%+v", r.messages)
+	}
+	str := func(p *string) string {
+		if p == nil {
+			return "<nil>"
+		}
+		return *p
+	}
+	b := func(p *bool) string {
+		if p == nil {
+			return "<nil>"
+		}
+		if *p {
+			return "true"
+		}
+		return "false"
+	}
+	got := ""
+	for _, m := range r.messages {
+		got += m.BlockType + ":" + str(m.ToolUseID) + ":" + b(m.IsError) + " "
+	}
+	want := "tool_use:toolu_1:<nil> tool_use:<nil>:<nil> tool_result:toolu_1:false tool_result:toolu_2:true tool_result:<nil>:<nil> "
+	if got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
+	}
+	if r.messages[2].Content != "ok" || *r.messages[0].ToolInput != `{"command":"ls"}` {
+		t.Errorf("the content stays as it was: %q %q", r.messages[2].Content, *r.messages[0].ToolInput)
+	}
+}
+
 func TestParseTitle(t *testing.T) {
 	ai := func(s string) string {
 		return line(map[string]any{"type": "ai-title", "aiTitle": s, "sessionId": "sess-001"})

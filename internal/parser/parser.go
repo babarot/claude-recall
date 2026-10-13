@@ -24,6 +24,11 @@ type Message struct {
 	ToolInput  *string
 	Timestamp  string
 	TurnIndex  int
+	// ToolUseID is a tool_use's id, or the id of the call a tool_result
+	// answers; IsError whether a tool_result was an error. Both are nil
+	// when the transcript does not say.
+	ToolUseID *string
+	IsError   *bool
 }
 
 // Image is a base64 image block from a message.
@@ -97,7 +102,11 @@ type block struct {
 	Name     *string         `json:"name"`
 	Input    json.RawMessage `json:"input"`
 	Content  json.RawMessage `json:"content"`
-	Source   *struct {
+	// A tool_use's id; a tool_result's tool_use_id and is_error.
+	ID        string `json:"id"`
+	ToolUseID string `json:"tool_use_id"`
+	IsError   *bool  `json:"is_error"`
+	Source    *struct {
 		Type      string `json:"type"`
 		MediaType string `json:"media_type"`
 		Data      string `json:"data"`
@@ -271,12 +280,19 @@ func parseLines(content string, startTurn int) parsedLines {
 					}
 				}
 				msg.BlockType, msg.Content, msg.ToolName, msg.ToolInput = "tool_use", name, ptr(name), ptr(input)
+				if b.ID != "" {
+					msg.ToolUseID = ptr(b.ID)
+				}
 			case "tool_result":
 				text := toolResultText(b.Content)
 				if jscompat.Len(text) > toolResultLimit {
 					text = jscompat.Slice(text, toolResultLimit) + "\n... (truncated)"
 				}
 				msg.BlockType, msg.Content = "tool_result", text
+				if b.ToolUseID != "" {
+					msg.ToolUseID = ptr(b.ToolUseID)
+				}
+				msg.IsError = b.IsError
 			case "image":
 				if b.Source != nil && b.Source.Type == "base64" {
 					out.images = append(out.images, Image{MessageUUID: p.UUID, ImageIndex: imgIdx,

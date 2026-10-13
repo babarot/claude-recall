@@ -202,7 +202,12 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN title`)
+	for _, c := range []string{`sessions DROP COLUMN title`, `sessions DROP COLUMN tool_ids`,
+		`messages DROP COLUMN tool_use_id`, `messages DROP COLUMN is_error`} {
+		if _, err := old.sql.Exec(`ALTER TABLE ` + c); err != nil {
+			t.Fatal(err)
+		}
+	}
 	old.sql.Exec(`PRAGMA user_version = 0`)
 	seedSession(t, old, "s1", "p", "/p")
 	old.Close()
@@ -214,7 +219,7 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	defer d.Close()
 	var version int
 	d.sql.QueryRow(`PRAGMA user_version`).Scan(&version)
-	if version != 1 {
+	if version != len(migrations) {
 		t.Fatalf("user_version %d", version)
 	}
 	fi, err := d.GetFileInfo("s1")
@@ -225,6 +230,41 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	d.Close()
 	if d, err = Open(path, Options{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// An archive at user_version 1, as every one before tool ids is, gains the
+// tool columns and keeps its rows, which read as imported before them.
+func TestMigrationAddsToolIDsToAnArchiveWithTitles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "vault.db")
+	old, err := Open(path, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []string{`sessions DROP COLUMN tool_ids`, `messages DROP COLUMN tool_use_id`, `messages DROP COLUMN is_error`} {
+		if _, err := old.sql.Exec(`ALTER TABLE ` + c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old.sql.Exec(`PRAGMA user_version = 1`)
+	seedSession(t, old, "s1", "p", "/p")
+	seedMessage(t, old, "s1", "m1", "user", "hello", "2026-01-01T00:00:00Z", 0)
+	old.Close()
+
+	d, err := Open(path, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	var version, n int
+	d.sql.QueryRow(`PRAGMA user_version`).Scan(&version)
+	d.sql.QueryRow(`SELECT COUNT(*) FROM messages WHERE session_id = 's1' AND tool_use_id IS NULL AND is_error IS NULL`).Scan(&n)
+	if version != len(migrations) || n != 1 {
+		t.Fatalf("user_version %d, rows kept %d", version, n)
+	}
+	fi, err := d.GetFileInfo("s1")
+	if err != nil || fi == nil || fi.HasToolIDs {
+		t.Fatalf("existing sessions read as imported before tool ids: %+v %v", fi, err)
 	}
 }
 

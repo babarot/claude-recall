@@ -175,6 +175,37 @@ func TestImportFillsTitleOfOlderRows(t *testing.T) {
 	}
 }
 
+func TestImportFillsToolIDsOfOlderRows(t *testing.T) {
+	use, _ := json.Marshal(map[string]any{"type": "assistant", "uuid": "a1", "sessionId": "sess-001", "timestamp": "2026-01-01T00:00:01Z",
+		"message": map[string]any{"role": "assistant", "content": []any{map[string]any{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": map[string]any{"command": "ls"}}}}})
+	res, _ := json.Marshal(map[string]any{"type": "user", "uuid": "u2", "sessionId": "sess-001", "timestamp": "2026-01-01T00:00:02Z",
+		"message": map[string]any{"role": "user", "content": []any{map[string]any{"type": "tool_result", "tool_use_id": "toolu_1", "content": "boom", "is_error": true}}}})
+	e := newEnv(t, userLine("hello", "u1", "2026-01-01T00:00:00Z"), string(use), string(res))
+	e.importFile()
+	// Simulate rows written before tool ids were stored.
+	if _, err := e.db.Exec(`UPDATE sessions SET tool_ids = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`UPDATE messages SET tool_use_id = NULL, is_error = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.importFile(); r.Status != Resynced {
+		t.Fatalf("an unchanged file imported before tool ids must be imported again: %+v", r)
+	}
+	if r := e.importFile(); r.Status != Unchanged {
+		t.Fatalf("second import: %+v", r)
+	}
+	// db has no query for the columns yet; an UPDATE that changes nothing
+	// counts the rows that have them.
+	r, err := e.db.Exec(`UPDATE messages SET content = content WHERE tool_use_id = 'toolu_1' AND (block_type = 'tool_use' OR is_error = 1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := r.RowsAffected(); c != 2 {
+		t.Fatalf("the call and its failed result should carry toolu_1: %d rows", c)
+	}
+}
+
 // Every Claude Code session runs its own `recall mcp`, and each imports
 // everything on startup. Imports from separate connections must wait for
 // each other instead of failing with SQLITE_BUSY.

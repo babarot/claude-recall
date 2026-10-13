@@ -102,9 +102,9 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	if err != nil {
 		return nil, err
 	}
-	// A session without a stored title predates titles: import it again
-	// once to fill the title in.
-	if existing != nil && existing.HasTitle && existing.FileMtime != nil && *existing.FileMtime == mtime &&
+	// A session without a stored title, or without tool ids, predates
+	// them: import it again once to fill them in.
+	if existing != nil && existing.HasTitle && existing.HasToolIDs && existing.FileMtime != nil && *existing.FileMtime == mtime &&
 		existing.FileSize != nil && *existing.FileSize == size {
 		return &Result{Status: Unchanged, SessionID: sessionID, Project: project, TotalMessages: existing.MessageCount}, nil
 	}
@@ -139,7 +139,8 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	msgs := make([]db.MessageRow, len(parsed.Messages))
 	for i, m := range parsed.Messages {
 		msgs[i] = db.MessageRow{UUID: m.UUID, Role: m.Role, BlockType: m.BlockType, BlockIndex: m.BlockIndex,
-			Content: m.Content, ToolName: m.ToolName, ToolInput: m.ToolInput, Timestamp: m.Timestamp, TurnIndex: m.TurnIndex}
+			Content: m.Content, ToolName: m.ToolName, ToolInput: m.ToolInput, Timestamp: m.Timestamp, TurnIndex: m.TurnIndex,
+			ToolUseID: m.ToolUseID, IsError: m.IsError}
 	}
 	var imgs []db.ImageRow
 	for _, img := range parsed.Images {

@@ -94,6 +94,15 @@ var migrations = []string{
 	// NULL means the session was imported before titles were; the importer
 	// imports it again. An empty string means it has no title.
 	`ALTER TABLE sessions ADD COLUMN title TEXT`,
+	// 2, 3: which call a tool block belongs to (a tool_use's id, the
+	// tool_use_id a tool_result answers) and whether a tool_result was an
+	// error (1 or 0, NULL when the transcript did not say).
+	`ALTER TABLE messages ADD COLUMN tool_use_id TEXT`,
+	`ALTER TABLE messages ADD COLUMN is_error INTEGER`,
+	// 4: 1 for a session imported with the two columns above. NULL means it
+	// was imported before them; the importer imports it again, as it does a
+	// session with no title column value.
+	`ALTER TABLE sessions ADD COLUMN tool_ids INTEGER`,
 }
 
 func (d *DB) migrate() error {
