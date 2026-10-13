@@ -10,6 +10,7 @@
 ## Compatibility
 
 - MCP tool names, inputs and results, and the HTTP API the web UI reads, are interfaces other tools depend on. Add fields rather than change or remove them
+- The `history` package is the Go API other modules import, under v1 semver. Add to it rather than change or remove what it exports, keep it read-only, and keep its imports to the standard library, `modernc.org/sqlite` and the `internal/` packages that need nothing more
 - `internal/jscompat` keeps stored text identical to what the earlier TypeScript importer wrote (JavaScript trim, UTF-16 lengths, JSON.stringify). Keep using it in the parser so re-imports do not rewrite existing rows
 
 ## TUI

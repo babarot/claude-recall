@@ -3,6 +3,7 @@ changelog/skip:
     - changed-files:
       - all-globs-to-all-files:
         - '!cmd/**'
+        - '!history/**'
         - '!internal/**'
         - '!ui/**'
         - '!plugin/**'
