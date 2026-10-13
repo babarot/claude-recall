@@ -7,6 +7,8 @@ export interface Session {
   groupKey: string;
   groupName: string;
   worktree: string;
+  /** The folder is a repository, not a directory outside git; see the server's api.V2Session. */
+  repository?: boolean;
   gone: boolean;
   branch: string;
   path: string;

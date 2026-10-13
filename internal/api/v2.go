@@ -24,6 +24,11 @@ type V2Session struct {
 	GroupKey  string `json:"groupKey"`
 	GroupName string `json:"groupName"`
 	Worktree  string `json:"worktree"`
+	// Repository is whether the folder is a repository, not a directory
+	// outside git: one in a git checkout, every checkout of a remote, or a
+	// removed worktree. For a directory gone since, which can no longer be
+	// told, it is whether its name reads as owner/repo rather than a path.
+	Repository bool `json:"repository"`
 	// Gone is set when the session's folder is no longer on disk.
 	Gone       bool    `json:"gone"`
 	Branch     string  `json:"branch"`

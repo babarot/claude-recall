@@ -103,7 +103,7 @@ func TestV2Sessions(t *testing.T) {
 	}
 	a := list[0]
 	if a.Title != "Fix the login bug where the session cookie expires early" || a.Branch != "feature/login" ||
-		a.Folder != "/work/api" || a.GroupName != "/work/api" || !a.Gone || a.Messages != 3 || len(a.Activity) != listBuckets ||
+		a.Folder != "/work/api" || a.GroupName != "/work/api" || !a.Gone || a.Repository || a.Messages != 3 || len(a.Activity) != listBuckets ||
 		a.StartedAt == nil || *a.StartedAt != "2026-04-02T09:00:00.000Z" {
 		t.Errorf("entry %+v", a)
 	}
@@ -127,7 +127,7 @@ func TestV2SessionsGroupByRemote(t *testing.T) {
 	d.Close()
 	list := decode[[]api.V2Session](t, s, "/api/v2/sessions")
 	for _, x := range list {
-		if x.GroupKey != "remote:github.com/acme/app" || x.GroupName != "acme/app" || !strings.HasPrefix(x.Folder, "/work/") {
+		if x.GroupKey != "remote:github.com/acme/app" || x.GroupName != "acme/app" || !strings.HasPrefix(x.Folder, "/work/") || !x.Repository {
 			t.Errorf("entry %+v", x)
 		}
 	}

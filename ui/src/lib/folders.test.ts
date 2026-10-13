@@ -18,4 +18,13 @@ describe("buildFolders", () => {
     expect(folders.map((f) => [f.name, f.count, f.other])).toEqual([["me/app", 3, false], ["/private/tmp", 1, true]]);
     expect(folders[0].worktrees).toEqual([{ name: "calm-sea", count: 1, gone: false }, { name: "old", count: 1, gone: true }]);
   });
+
+  it("files a folder under the repositories as the server tells, whatever its name reads as", () => {
+    const folders = buildFolders([
+      { ...s("a", "/src/github.com/me", "me", "2026-01-02T00:00:00Z"), repository: false },
+      { ...s("b", "remote:git.example.com/team/tool", "git.example.com/team/tool", "2026-01-01T00:00:00Z"), repository: true },
+      { ...s("c", "/work/app", "~/work/app", "2026-01-03T00:00:00Z"), repository: true },
+    ]);
+    expect(folders.map((f) => [f.name, f.other])).toEqual([["~/work/app", false], ["me", true], ["git.example.com/team/tool", false]]);
+  });
 });
