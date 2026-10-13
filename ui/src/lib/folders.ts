@@ -15,7 +15,7 @@ export interface Folder {
   name: string;
   count: number;
   worktrees: Worktree[];
-  /** A directory outside git, as far as its name tells: not owner/repo. */
+  /** A directory outside git, as the server tells, not a repository. */
   other: boolean;
 }
 
@@ -28,7 +28,8 @@ export function buildFolders(rows: Session[]): Folder[] {
   for (const s of rows) {
     let g = byKey.get(s.groupKey);
     if (!g) {
-      const other = s.groupName.startsWith("~") || s.groupName.startsWith("/");
+      // A server from before it told reads by the name: a path, not owner/repo.
+      const other = s.repository === undefined ? s.groupName.startsWith("~") || s.groupName.startsWith("/") : !s.repository;
       g = { f: { key: s.groupKey, name: s.groupName, count: 0, worktrees: [], other }, last: 0, wts: new Map() };
       byKey.set(s.groupKey, g);
     }

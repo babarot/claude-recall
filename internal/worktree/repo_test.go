@@ -1,6 +1,7 @@
 package worktree
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -62,5 +63,28 @@ func TestRepo(t *testing.T) {
 	}
 	if len(SettleKeys([]string{gone.Key})) != 0 {
 		t.Error("a placeholder with no checkout of its name stays as it is")
+	}
+}
+
+func TestRepoGit(t *testing.T) {
+	base, _ := filepath.EvalSymlinks(t.TempDir())
+	checkout := filepath.Join(base, "src", "me", "app")
+	plain := filepath.Join(base, "src", "me")
+	if err := os.MkdirAll(filepath.Join(checkout, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r := NewResolver()
+	for _, tt := range []struct {
+		name, dir string
+		want      bool
+	}{
+		{"checkout", checkout, true},
+		{"directory holding checkouts", plain, false},
+		{"removed herdr worktree", filepath.Join(base, ".herdr", "worktrees", "app", "worktree-x"), true},
+		{"removed directory", filepath.Join(base, "gone"), false},
+	} {
+		if got := r.Repo(tt.dir, base).Git; got != tt.want {
+			t.Errorf("%s: Git = %v, want %v", tt.name, got, tt.want)
+		}
 	}
 }

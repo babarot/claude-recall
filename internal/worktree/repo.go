@@ -23,6 +23,10 @@ var (
 // CLI and the MCP server all show it.
 type Repo struct {
 	Exists bool // the directory is still on disk
+	// Git is whether the directory is in a git checkout, or was a worktree
+	// since removed. False for a directory outside git, and for one gone
+	// that was not a worktree, which can no longer be told.
+	Git bool
 	// MainRoot is the main checkout of a linked worktree, empty otherwise.
 	MainRoot string
 	// Folder is where the session ran, shortened: the main checkout for a
@@ -47,12 +51,14 @@ func (r *Resolver) Repo(dir, home string) Repo {
 	out := Repo{Exists: info.Exists, Key: RealPath(dir)}
 	switch {
 	case info.IsWorktree():
+		out.Git = true
 		out.MainRoot = info.MainRoot
 		out.Folder = ShortPath(info.MainRoot, home)
 		out.Worktree = Name(info.Root)
 		out.Key = RealPath(info.MainRoot)
 	case !info.Exists:
 		if repo, name, key, ok := RemovedWorktree(dir, home); ok {
+			out.Git = true
 			out.Folder, out.Worktree, out.Key = repo, name, key
 			break
 		}
@@ -60,6 +66,7 @@ func (r *Resolver) Repo(dir, home string) Repo {
 	default:
 		out.Folder = ShortPath(dir, home)
 		if info.Root != "" {
+			out.Git = true
 			out.Key = info.Root
 		}
 	}

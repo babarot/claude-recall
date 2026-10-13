@@ -153,8 +153,9 @@ func (s *Server) rows(id string) ([]row, error) {
 	for i, ses := range all {
 		repo := x.Of(ses.ProjectPath)
 		group := worktree.Group{Key: repo.Key, Name: repo.Name}
+		isRepo := repo.Git || (!repo.Exists && !strings.HasPrefix(repo.Name, "~") && !strings.HasPrefix(repo.Name, "/"))
 		if g, ok := byRemote[repo.Key]; ok {
-			group = g
+			group, isRepo = g, true
 		}
 		stamp := ses.EndedAt.String() + "/" + strconv.Itoa(ses.MessageCount) + "/" + strconv.FormatInt(ses.FileSize, 10)
 		if s.v2.stamps[ses.ID] != stamp {
@@ -162,7 +163,7 @@ func (s *Server) rows(id string) ([]row, error) {
 			s.v2.stamps[ses.ID] = stamp
 		}
 		out[i] = row{s: ses, repo: repo, out: api.V2Session{ID: ses.ID, Title: title.Display(ses.Title, ses.FirstPrompt),
-			Folder: repo.Folder, GroupKey: group.Key, GroupName: group.Name, Worktree: repo.Worktree, Gone: !repo.Exists,
+			Folder: repo.Folder, GroupKey: group.Key, GroupName: group.Name, Repository: isRepo, Worktree: repo.Worktree, Gone: !repo.Exists,
 			Branch: ses.GitBranch, Path: worktree.TildePath(ses.ProjectPath, home), Messages: ses.MessageCount,
 			Size: ses.FileSize, StartedAt: isoTime(ses.StartedAt), EndedAt: isoTime(ses.EndedAt)}}
 	}
