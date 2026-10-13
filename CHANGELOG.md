@@ -3,6 +3,7 @@
 ## [v1.10.0](https://github.com/babarot/claude-recall/compare/v1.9.0...v1.10.0) - 2026-10-13
 ### New Features
 - Draw the web UI in the TUI's color scheme by @babarot in https://github.com/babarot/claude-recall/pull/95
+- Add history, a read-only package for other modules to read sessions by @babarot in https://github.com/babarot/claude-recall/pull/98
 
 ## [v1.9.0](https://github.com/babarot/claude-recall/compare/v1.8.2...v1.9.0) - 2026-10-12
 ### New Features
