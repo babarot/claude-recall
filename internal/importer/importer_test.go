@@ -2,6 +2,7 @@ package importer
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -388,5 +389,45 @@ func TestImportRereadsChangedFile(t *testing.T) {
 	}
 	if got := e.messageCount(); got != 2 {
 		t.Errorf("message count = %d; want 2", got)
+	}
+}
+
+func TestImportStoresToolUseIDsOfOlderRows(t *testing.T) {
+	use, _ := json.Marshal(map[string]any{
+		"type": "assistant", "uuid": "a1", "sessionId": "sess-001", "timestamp": "2026-01-01T00:00:01Z",
+		"message": map[string]any{"role": "assistant", "content": []any{
+			map[string]any{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": map[string]any{"command": "ls"}}}},
+	})
+	result, _ := json.Marshal(map[string]any{
+		"type": "user", "uuid": "u2", "sessionId": "sess-001", "timestamp": "2026-01-01T00:00:02Z",
+		"message": map[string]any{"role": "user", "content": []any{
+			map[string]any{"type": "tool_result", "tool_use_id": "toolu_1", "content": "file.go"}}},
+	})
+	e := newEnv(t, userLine("hello", "u1", "2026-01-01T00:00:00Z"), string(use), string(result))
+	e.importFile()
+	// Simulate rows written by the importer before it kept ids.
+	if _, err := e.db.Exec(`UPDATE messages SET tool_use_id = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`UPDATE sessions SET import_version = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.importFile(); r.Status != Resynced {
+		t.Fatalf("an unchanged file stored by an older importer must be imported again: %+v", r)
+	}
+	if r := e.importFile(); r.Status != Unchanged {
+		t.Fatalf("second import: %+v", r)
+	}
+	n := 0
+	for b, err := range e.db.BlocksIn(context.Background(), "sess-001", time.Time{}, time.Now()) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.ToolUseID == "toolu_1" {
+			n++
+		}
+	}
+	if n != 2 {
+		t.Fatalf("%d blocks with the id, want the tool_use and its result", n)
 	}
 }

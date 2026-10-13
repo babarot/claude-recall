@@ -58,6 +58,13 @@ var (
 	errSuperseded = errors.New("transcript is no longer the copy to import")
 )
 
+// importVersion is the version of what importOnce stores from a
+// transcript. A session stored at a lower one is imported again once, so
+// raise it when the importer starts storing something it did not:
+//
+//	1: the tool_use_id of tool_use and tool_result blocks
+const importVersion = 1
+
 // ImportFile imports <projects>/<project>/<session>.jsonl, a transcript of
 // the trees dirs. It returns nil, nil when the file cannot be read or holds
 // no session, so callers can try again later.
@@ -103,9 +110,11 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	if err != nil {
 		return nil, err
 	}
-	// A session without a stored title predates titles: import it again
-	// once to fill the title in.
-	if existing != nil && existing.HasTitle && existing.FileMtime != nil && *existing.FileMtime == mtime &&
+	// A session without a stored title predates titles, and one stored by
+	// an older importer lacks what it did not store: import it again once
+	// to fill them in.
+	if existing != nil && existing.HasTitle && existing.ImportVersion >= importVersion &&
+		existing.FileMtime != nil && *existing.FileMtime == mtime &&
 		existing.FileSize != nil && *existing.FileSize == size {
 		return &Result{Status: Unchanged, SessionID: sessionID, Project: project, TotalMessages: existing.MessageCount}, nil
 	}
@@ -136,6 +145,7 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 		FileMtime:     &mtime,
 		FileSize:      &size,
 		Title:         parsed.Meta.Title,
+		ImportVersion: importVersion,
 	}
 	if remote, ok := worktree.Remote(parsed.Meta.ProjectPath); ok {
 		row.Remote = &remote
@@ -143,7 +153,8 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	msgs := make([]db.MessageRow, len(parsed.Messages))
 	for i, m := range parsed.Messages {
 		msgs[i] = db.MessageRow{UUID: m.UUID, Role: m.Role, BlockType: m.BlockType, BlockIndex: m.BlockIndex,
-			Content: m.Content, ToolName: m.ToolName, ToolInput: m.ToolInput, Timestamp: m.Timestamp, TurnIndex: m.TurnIndex}
+			Content: m.Content, ToolName: m.ToolName, ToolInput: m.ToolInput, ToolUseID: m.ToolUseID, Timestamp: m.Timestamp,
+			TurnIndex: m.TurnIndex}
 	}
 	var imgs []db.ImageRow
 	for _, img := range parsed.Images {

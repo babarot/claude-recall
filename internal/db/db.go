@@ -100,6 +100,13 @@ var migrations = []string{
 	// the importer fills it in once the directory can be read. An empty
 	// string means the directory has no origin.
 	`ALTER TABLE sessions ADD COLUMN remote TEXT`,
+	// 3: the id that ties a tool_result to its tool_use, and the version of
+	// what the importer stores from a transcript (importer.importVersion).
+	// A session stored by an older importer, NULL here, is imported again
+	// once while its transcript is on disk; one whose transcript is gone
+	// keeps NULL ids.
+	`ALTER TABLE messages ADD COLUMN tool_use_id TEXT;
+	 ALTER TABLE sessions ADD COLUMN import_version INTEGER`,
 }
 
 func (d *DB) migrate() error {

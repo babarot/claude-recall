@@ -202,6 +202,8 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	old.sql.Exec(`ALTER TABLE messages DROP COLUMN tool_use_id`)
+	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN import_version`)
 	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN remote`)
 	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN title`)
 	old.sql.Exec(`PRAGMA user_version = 0`)
@@ -225,6 +227,9 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	var remote *string
 	if err := d.sql.QueryRow(`SELECT remote FROM sessions WHERE session_id = 's1'`).Scan(&remote); err != nil || remote != nil {
 		t.Fatalf("existing rows must keep a NULL remote: %v %v", remote, err)
+	}
+	if fi.ImportVersion != 0 {
+		t.Fatalf("existing rows must keep no import version: %+v", fi)
 	}
 	// Opening again must not run the migration twice.
 	d.Close()

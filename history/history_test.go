@@ -129,6 +129,9 @@ func TestMessages(t *testing.T) {
 	if use.Role != "assistant" || use.ToolName != "Bash" || !bytes.Contains([]byte(use.ToolInput), []byte("go test ./auth/...")) {
 		t.Errorf("tool_use = %+v", use)
 	}
+	if use.ToolUseID != "t1" {
+		t.Errorf("tool_use ToolUseID = %q, want t1", use.ToolUseID)
+	}
 	if !use.Timestamp.Equal(at("2026-04-02T09:00:10Z")) {
 		t.Errorf("tool_use Timestamp = %v", use.Timestamp)
 	}
@@ -235,15 +238,17 @@ func TestSessionRemote(t *testing.T) {
 }
 
 // A database recall has not migrated yet, opened read-only, reads with
-// no remote.
-func TestSessionsBeforeRemoteMigration(t *testing.T) {
+// no remote and no tool_use ids.
+func TestReadBeforeMigrations(t *testing.T) {
 	path := fixture.Archive(t)
 	d, err := db.Open(path, db.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := d.Exec(`ALTER TABLE sessions DROP COLUMN remote`); err != nil {
-		t.Fatal(err)
+	for _, q := range []string{`ALTER TABLE sessions DROP COLUMN remote`, `ALTER TABLE messages DROP COLUMN tool_use_id`} {
+		if _, err := d.Exec(q); err != nil {
+			t.Fatal(err)
+		}
 	}
 	d.Close()
 	h, err := history.Open(path)
@@ -254,5 +259,15 @@ func TestSessionsBeforeRemoteMigration(t *testing.T) {
 	ss, err := h.Sessions(context.Background(), at("2026-01-01T00:00:00Z"), at("2027-01-01T00:00:00Z"))
 	if err != nil || len(ss) != 2 || ss[0].Remote != "" {
 		t.Errorf("Sessions = %+v, %v", ss, err)
+	}
+	n := 0
+	for m, err := range h.Messages(context.Background(), "", at("2026-01-01T00:00:00Z"), at("2027-01-01T00:00:00Z")) {
+		if err != nil || m.ToolUseID != "" {
+			t.Fatalf("Messages: %+v, %v", m, err)
+		}
+		n++
+	}
+	if n != 7 {
+		t.Errorf("Messages yielded %d, want 7", n)
 	}
 }

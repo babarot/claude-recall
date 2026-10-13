@@ -14,14 +14,18 @@ type FileInfo struct {
 	FileSize     *int64
 	// HasTitle is false for a session imported before titles were stored.
 	HasTitle bool
+	// ImportVersion is the importer's version that stored the session, 0
+	// before versions were stored.
+	ImportVersion int
 }
 
 // GetFileInfo returns the stored file metadata of a session, or nil when the
 // session is not archived.
 func (d *DB) GetFileInfo(sessionID string) (*FileInfo, error) {
 	var fi FileInfo
-	err := d.sql.QueryRow(`SELECT message_count, file_mtime, file_size, title IS NOT NULL FROM sessions WHERE session_id = ?`, sessionID).
-		Scan(&fi.MessageCount, &fi.FileMtime, &fi.FileSize, &fi.HasTitle)
+	err := d.sql.QueryRow(`SELECT message_count, file_mtime, file_size, title IS NOT NULL, COALESCE(import_version, 0)
+      FROM sessions WHERE session_id = ?`, sessionID).
+		Scan(&fi.MessageCount, &fi.FileMtime, &fi.FileSize, &fi.HasTitle, &fi.ImportVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -50,6 +54,8 @@ type SessionRow struct {
 	// none, or nil when it cannot be known now; ReplaceSession then keeps
 	// what was stored.
 	Remote *string
+	// ImportVersion is the importer's version storing the session.
+	ImportVersion int
 }
 
 // MessageRow is a row of the messages table.
@@ -61,6 +67,7 @@ type MessageRow struct {
 	Content    string
 	ToolName   *string
 	ToolInput  *string
+	ToolUseID  *string
 	Timestamp  string
 	TurnIndex  int
 }
@@ -115,22 +122,22 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, ch
 		}
 	}
 
-	if _, err = tx.Exec(`INSERT INTO sessions (session_id, project, project_path, git_branch, first_prompt, summary, message_count, started_at, ended_at, claude_version, file_mtime, file_size, title, remote)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	if _, err = tx.Exec(`INSERT INTO sessions (session_id, project, project_path, git_branch, first_prompt, summary, message_count, started_at, ended_at, claude_version, file_mtime, file_size, title, remote, import_version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.SessionID, s.Project, s.ProjectPath, s.GitBranch, s.FirstPrompt, s.Summary, s.MessageCount,
-		s.StartedAt, s.EndedAt, s.ClaudeVersion, s.FileMtime, s.FileSize, s.Title, remote); err != nil {
+		s.StartedAt, s.EndedAt, s.ClaudeVersion, s.FileMtime, s.FileSize, s.Title, remote, s.ImportVersion); err != nil {
 		return fmt.Errorf("insert session: %w", err)
 	}
 
-	msgStmt, err := tx.Prepare(`INSERT OR IGNORE INTO messages (session_id, uuid, role, block_type, block_index, content, tool_name, tool_input, timestamp, turn_index)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	msgStmt, err := tx.Prepare(`INSERT OR IGNORE INTO messages (session_id, uuid, role, block_type, block_index, content, tool_name, tool_input, tool_use_id, timestamp, turn_index)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("insert messages: %w", err)
 	}
 	defer msgStmt.Close()
 	for _, m := range msgs {
 		if _, err = msgStmt.Exec(s.SessionID, m.UUID, m.Role, m.BlockType, m.BlockIndex, m.Content,
-			m.ToolName, m.ToolInput, m.Timestamp, m.TurnIndex); err != nil {
+			m.ToolName, m.ToolInput, m.ToolUseID, m.Timestamp, m.TurnIndex); err != nil {
 			return fmt.Errorf("insert message: %w", err)
 		}
 	}
