@@ -6,7 +6,7 @@ import {
   whole,
 } from "../store/conversation";
 import type { Span } from "../store/conversation";
-import { buildItems, fromAPI, looksFailed, relativeTo, tally, toolLabel } from "../lib/items";
+import { buildItems, failedResult, fromAPI, relativeTo, tally, toolLabel } from "../lib/items";
 import type { Call, Item } from "../lib/items";
 import { getToolInputPreview, renderImages, stripAnsi } from "../lib/chat-utils";
 import { renderMarkdown } from "../lib/markdown";
@@ -244,7 +244,7 @@ function CallView({ c }: { c: Call }) {
   const input = c.use?.cursor ? whole.value[c.use.cursor]?.toolInput ?? c.use.toolInput : c.use?.toolInput ?? "";
   const result = c.result?.cursor ? whole.value[c.result.cursor]?.content ?? c.result.content : c.result?.content ?? "";
   const clipped = (!!c.use?.toolInputLength && !whole.value[c.use.cursor!]) || (!!c.result?.contentLength && !whole.value[c.result.cursor!]);
-  const failed = c.result ? looksFailed(c.result.content) : false;
+  const failed = c.result ? failedResult(c.result) : false;
   const preview = relativeTo(getToolInputPreview(c.use?.toolInput ?? "") || (c.use?.toolInput ?? "").slice(0, 120), header.value?.fullPath);
   const lines = result.split("\n").length;
   return (

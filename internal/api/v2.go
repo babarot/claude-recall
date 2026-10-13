@@ -81,6 +81,11 @@ type V2Message struct {
 	ToolInput       *string `json:"toolInput"`
 	ToolInputLength int     `json:"toolInputLength,omitempty"`
 	Timestamp       *string `json:"timestamp"`
+	// ToolUseID ties a tool_result to its tool_use, and IsError says
+	// whether a tool_result was an error; absent when the archive does not
+	// know, for a session stored before it kept them.
+	ToolUseID *string `json:"toolUseId,omitempty"`
+	IsError   *bool   `json:"isError,omitempty"`
 }
 
 // V2Messages converts messages, clipping them at clip units when clip is
@@ -89,7 +94,7 @@ func V2Messages(msgs []db.ConvMessage, clip int) []V2Message {
 	out := make([]V2Message, len(msgs))
 	for i, m := range msgs {
 		v := V2Message{Cursor: m.Cursor.String(), UUID: m.UUID, Role: m.Role, Type: m.BlockType, Content: m.Content,
-			ToolName: m.ToolName, ToolInput: m.ToolInput, Timestamp: m.Timestamp}
+			ToolName: m.ToolName, ToolInput: m.ToolInput, Timestamp: m.Timestamp, ToolUseID: m.ToolUseID, IsError: m.IsError}
 		if clip > 0 {
 			if n := jscompat.Len(v.Content); n > clip {
 				v.Content, v.ContentLength = jscompat.Slice(v.Content, clip), n

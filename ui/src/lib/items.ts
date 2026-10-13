@@ -25,14 +25,15 @@ export function fromAPI(m: APIMessage): Message {
     uuid: m.uuid, role: m.role, blockType: m.type, content: m.content,
     toolName: m.toolName ?? undefined, toolInput: m.toolInput ?? undefined, timestamp: m.timestamp ?? undefined,
     cursor: m.cursor, contentLength: m.contentLength, toolInputLength: m.toolInputLength,
+    toolUseId: m.toolUseId, isError: m.isError,
   };
 }
 
 /**
- * Builds the items of messages. Tool results are paired with the calls
- * they answer in the order they came, since the archive does not keep
- * which call a result is for; Claude Code writes results in the order of
- * the calls.
+ * Builds the items of messages. A tool result is paired with the call
+ * whose id it carries. A session stored before the archive kept ids has
+ * none, and its results are paired with the calls in the order they came,
+ * the order Claude Code writes them in when calls do not run in parallel.
  */
 export function buildItems(messages: Message[]): Item[] {
   const out: Item[] = [];
@@ -52,7 +53,8 @@ export function buildItems(messages: Message[]): Item[] {
         run.calls.push(call);
         waiting.push(call);
       } else {
-        const call = waiting.shift();
+        const at = m.toolUseId ? waiting.findIndex((c) => c.use?.toolUseId === m.toolUseId) : 0;
+        const call = at >= 0 ? waiting.splice(at, 1)[0] : undefined;
         if (call) call.result = m;
         else run.calls.push({ result: m });
       }
@@ -73,15 +75,22 @@ export function tally(calls: Call[]): { counts: [string, number][]; failed: numb
   for (const c of calls) {
     const name = c.use?.toolName ?? "?";
     n.set(name, (n.get(name) ?? 0) + 1);
-    if (c.result && looksFailed(c.result.content)) failed++;
+    if (c.result && failedResult(c.result)) failed++;
   }
   return { counts: [...n.entries()].sort((a, b) => b[1] - a[1]), failed };
 }
 
 /**
- * Whether a result reads as a failure. The archive does not keep whether a
- * call failed, so this looks only at what Claude Code writes for one:
- * "Error: ...", "<tool_use_error>", or "Exit code N".
+ * Whether a result was a failure: as the transcript said, or, for a
+ * session stored before the archive kept it, as its text reads.
+ */
+export function failedResult(r: { content: string; isError?: boolean }): boolean {
+  return r.isError ?? looksFailed(r.content);
+}
+
+/**
+ * Whether a result reads as a failure, from what Claude Code writes for
+ * one: "Error: ...", "<tool_use_error>", or "Exit code N".
  */
 export function looksFailed(content: string): boolean {
   const s = content.trimStart();
