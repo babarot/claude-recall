@@ -86,7 +86,7 @@ claude "Use the recall tools to recall session <id> ..." \
 
 Started inside a repository (or one of its worktrees, or a subdirectory), `recall` lists only that repository's sessions, with a Worktree column in place of Folder; `.` shows every folder again. A folder with no sessions starts with all of them. `recall --all` starts with every folder for one run, and `--all=false` with the folder when `scope = "all"` is set.
 
-The folder list on the left narrows the list to any folder: a repository together with its worktrees, or a directory outside git.
+The folder list on the left narrows the list to any folder: a repository together with its worktrees, or a directory outside git. Checkouts with the same git remote (origin) are one folder named after it, `owner/repo` for GitHub, wherever they are on disk; the list still shows the directory each session ran in. The remote is recorded when a session is imported, so a folder whose sessions were all imported before recall recorded remotes, from a directory gone since, keeps its path.
 
 - `←` opens it and, pressed again, moves into it. `↑` `↓` there pick a folder.
 - `/` searches the folders by fuzzy match (`bdot` finds babarot/dotfiles); `Enter` keeps the search, `Esc` clears it.

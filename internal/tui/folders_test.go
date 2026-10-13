@@ -396,3 +396,43 @@ func TestSortFromFolderList(t *testing.T) {
 		t.Fatal("s should open the sort menu from the folder list")
 	}
 }
+
+// The checkouts of one git remote are one folder, named by it, wherever
+// they are; a folder whose sessions recorded no remote stays as it is.
+func TestFoldersGroupCheckoutsOfOneRemote(t *testing.T) {
+	f := newFolderFixture(t)
+	clone := filepath.Join(filepath.Dir(f.other), "tmp", "app-hotfix")
+	if err := os.MkdirAll(clone, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ss := f.sessions()
+	for i := range ss {
+		if ss[i].ProjectPath == f.repo {
+			ss[i].Remote = "github.com/me/app"
+		}
+	}
+	ss = append(ss, db.Session{ID: "clone-1", ProjectPath: clone, Title: "session clone-1", MessageCount: 1,
+		Remote: "github.com/me/app", StartedAt: now.Add(-8 * time.Hour), EndedAt: now.Add(-7 * time.Hour)})
+	m := New(ss, &fakePreview{}, config.Default().TUI)
+	m.now = func() time.Time { return now }
+	m = update(t, m, tea.WindowSizeMsg{Width: 140, Height: 40})
+	if len(m.folders) != 2 {
+		t.Fatalf("want me/app and the other folder, got %+v", m.folders)
+	}
+	app := m.folders[0]
+	// The checkout's subdirectory, worktree and removed herdr worktree
+	// recorded no remote, and go with the checkout.
+	if app.name != "me/app" || app.count != 5 || app.worktrees != 2 {
+		t.Errorf("remote folder %+v: want the checkout with its worktrees and the clone elsewhere", app)
+	}
+	// The list still says where each session ran.
+	for _, r := range m.rows {
+		if r.s.ID == "clone-1" && !strings.HasSuffix(r.folder, "tmp/app-hotfix") {
+			t.Errorf("the clone's row shows %q", r.folder)
+		}
+	}
+	// Started in the clone, the list narrows to the remote's folder.
+	if got := visibleIDs(m.StartIn(clone)); got != "repo-1,sub-1,wt-1,herdr-1,clone-1" {
+		t.Errorf("started in the clone, the list shows %s", got)
+	}
+}

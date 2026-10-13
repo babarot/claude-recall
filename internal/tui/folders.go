@@ -33,9 +33,11 @@ type folderInfo struct {
 	last      int // index in rows of its latest session, for ordering
 }
 
-// groupRows resolves herdr placeholders and lists the folders, the most
-// recently active first.
-func groupRows(rows []row) []folderInfo {
+// groupRows resolves herdr placeholders, makes the checkouts of one git
+// remote one folder, and lists the folders, the most recently active
+// first. It returns too the folder each directory's key went to by its
+// remote.
+func groupRows(rows []row) ([]folderInfo, map[string]worktree.Group) {
 	keys := make([]string, len(rows))
 	for i, r := range rows {
 		keys[i] = r.group
@@ -51,6 +53,16 @@ func groupRows(rows []row) []folderInfo {
 	}
 	for i := range rows {
 		rows[i].groupName = names[rows[i].group]
+	}
+	members := make([]worktree.Member, len(rows))
+	for i, r := range rows {
+		members[i] = worktree.Member{Key: r.group, Remote: r.s.Remote, Ended: r.s.EndedAt}
+	}
+	byRemote := worktree.RemoteGroups(members)
+	for i := range rows {
+		if g, ok := byRemote[rows[i].group]; ok {
+			rows[i].group, rows[i].groupName = g.Key, g.Name
+		}
 	}
 
 	at := map[string]int{}
@@ -78,7 +90,7 @@ func groupRows(rows []row) []folderInfo {
 	slices.SortFunc(out, func(a, b folderInfo) int {
 		return cmp.Or(rows[b.last].s.EndedAt.Compare(rows[a.last].s.EndedAt), cmp.Compare(a.name, b.name))
 	})
-	return out
+	return out, byRemote
 }
 
 // StartIn sets the folder the TUI was started in: the repository dir is in,
@@ -87,6 +99,9 @@ func groupRows(rows []row) []folderInfo {
 func (m Model) StartIn(dir string) Model {
 	m.startDir = dir
 	key := m.resolver.KeyOf(dir)
+	if g, ok := m.byRemote[key]; ok {
+		key = g.Key
+	}
 	if slices.ContainsFunc(m.folders, func(f folderInfo) bool { return f.key == key }) {
 		m.startFolder = key
 		if m.cfg.Scope == config.ScopeFolder {

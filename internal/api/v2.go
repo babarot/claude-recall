@@ -18,7 +18,8 @@ type V2Session struct {
 	Title string `json:"title"`
 	// Folder is where the session ran, shortened (the main checkout for a
 	// worktree); GroupKey and GroupName the folder the list narrows by: the
-	// repository with its worktrees, or the directory outside git.
+	// repository with its worktrees, every checkout of one git remote
+	// together, or the directory outside git.
 	Folder    string `json:"folder"`
 	GroupKey  string `json:"groupKey"`
 	GroupName string `json:"groupName"`

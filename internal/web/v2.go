@@ -114,7 +114,7 @@ type row struct {
 }
 
 func (r *row) fields() filter.Fields {
-	return filter.Fields{Title: r.out.Title, Folder: r.repo.Name, Worktree: r.repo.Worktree, Branch: r.s.GitBranch, ID: r.s.ID,
+	return filter.Fields{Title: r.out.Title, Folder: r.out.GroupName, Worktree: r.repo.Worktree, Branch: r.s.GitBranch, ID: r.s.ID,
 		Search: filter.SearchText(r.out.Title, r.repo.Folder, r.repo.Worktree, r.s.GitBranch, r.s.ID)}
 }
 
@@ -133,25 +133,36 @@ func (s *Server) rows(id string) ([]row, error) {
 	if err != nil {
 		return nil, err
 	}
-	if id != "" {
-		all = slices.DeleteFunc(all, func(x db.Session) bool { return x.ID != id })
-	}
 	x, err := s.index()
 	if err != nil {
 		return nil, err
+	}
+	// Which folder a checkout goes to by its remote depends on every
+	// session of it, so this reads them all even for one.
+	members := make([]worktree.Member, len(all))
+	for i, ses := range all {
+		members[i] = worktree.Member{Key: x.Of(ses.ProjectPath).Key, Remote: ses.Remote, Ended: ses.EndedAt}
+	}
+	byRemote := worktree.RemoteGroups(members)
+	if id != "" {
+		all = slices.DeleteFunc(all, func(x db.Session) bool { return x.ID != id })
 	}
 	home := s.home()
 	var stale []string
 	out := make([]row, len(all))
 	for i, ses := range all {
 		repo := x.Of(ses.ProjectPath)
+		group := worktree.Group{Key: repo.Key, Name: repo.Name}
+		if g, ok := byRemote[repo.Key]; ok {
+			group = g
+		}
 		stamp := ses.EndedAt.String() + "/" + strconv.Itoa(ses.MessageCount) + "/" + strconv.FormatInt(ses.FileSize, 10)
 		if s.v2.stamps[ses.ID] != stamp {
 			stale = append(stale, ses.ID)
 			s.v2.stamps[ses.ID] = stamp
 		}
 		out[i] = row{s: ses, repo: repo, out: api.V2Session{ID: ses.ID, Title: title.Display(ses.Title, ses.FirstPrompt),
-			Folder: repo.Folder, GroupKey: repo.Key, GroupName: repo.Name, Worktree: repo.Worktree, Gone: !repo.Exists,
+			Folder: repo.Folder, GroupKey: group.Key, GroupName: group.Name, Worktree: repo.Worktree, Gone: !repo.Exists,
 			Branch: ses.GitBranch, Path: worktree.TildePath(ses.ProjectPath, home), Messages: ses.MessageCount,
 			Size: ses.FileSize, StartedAt: isoTime(ses.StartedAt), EndedAt: isoTime(ses.EndedAt)}}
 	}

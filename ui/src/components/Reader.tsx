@@ -58,7 +58,7 @@ export function Reader({ focused }: { focused: boolean }) {
           </div>
         </div>
         <div class="r-meta">
-          <span class="repo">{s.groupName}</span>
+          <span class="repo" title={s.groupName}>{s.folder}</span>
           {s.worktree && <span class={`wt ${s.gone ? "gone" : ""}`}>{s.worktree}</span>}
           {s.branch && <span>⎇ {s.branch}</span>}
           <span title="開始 → 終了">{dateTime(s.startedAt)} → {hhmm(s.endedAt)}</span>
