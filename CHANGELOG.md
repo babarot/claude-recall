@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.10.0](https://github.com/babarot/claude-recall/compare/v1.9.0...v1.10.0) - 2026-10-13
+### New Features
+- Draw the web UI in the TUI's color scheme by @babarot in https://github.com/babarot/claude-recall/pull/95
+
 ## [v1.9.0](https://github.com/babarot/claude-recall/compare/v1.8.2...v1.9.0) - 2026-10-12
 ### New Features
 - Add /api/v2 for the web UI to come by @babarot in https://github.com/babarot/claude-recall/pull/91
