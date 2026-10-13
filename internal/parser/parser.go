@@ -25,6 +25,9 @@ type Message struct {
 	// ToolUseID ties a tool_result to its tool_use: the tool_use's id, or
 	// the tool_use_id of the result. nil for other blocks, or without one.
 	ToolUseID *string
+	// IsError is whether a tool_result was an error, as the transcript
+	// says; nil when it does not say, and for other blocks.
+	IsError   *bool
 	Timestamp string
 	TurnIndex int
 }
@@ -101,6 +104,7 @@ type block struct {
 	Input    json.RawMessage `json:"input"`
 	ID       string          `json:"id"`
 	UseID    string          `json:"tool_use_id"`
+	IsError  *bool           `json:"is_error"`
 	Content  json.RawMessage `json:"content"`
 	Source   *struct {
 		Type      string `json:"type"`
@@ -284,6 +288,7 @@ func parseLines(content string, startTurn int) parsedLines {
 				}
 				msg.BlockType, msg.Content = "tool_result", text
 				msg.ToolUseID = nonEmpty(b.UseID)
+				msg.IsError = b.IsError
 			case "image":
 				if b.Source != nil && b.Source.Type == "base64" {
 					out.images = append(out.images, Image{MessageUUID: p.UUID, ImageIndex: imgIdx,

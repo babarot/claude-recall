@@ -72,6 +72,7 @@ type Block struct {
 	ToolName  string
 	ToolInput string
 	ToolUseID string
+	IsError   bool // the transcript marked the tool_result an error
 }
 
 // BlocksIn yields the blocks whose timestamp is in [from, to), of the
@@ -85,8 +86,14 @@ func (d *DB) BlocksIn(ctx context.Context, sessionID string, from, to time.Time)
 			yield(Block{}, fmt.Errorf("blocks in: %w", err))
 			return
 		}
+		isError, err := d.optionalColumnOf("messages", "is_error", "is_error")
+		if err != nil {
+			yield(Block{}, fmt.Errorf("blocks in: %w", err))
+			return
+		}
 		q := `SELECT session_id, COALESCE(turn_index, 0), block_index, uuid, timestamp, role, block_type,
-                     content, COALESCE(tool_name, ''), COALESCE(tool_input, ''), COALESCE(` + useID + `, '')
+                     content, COALESCE(tool_name, ''), COALESCE(tool_input, ''), COALESCE(` + useID + `, ''),
+                     COALESCE(` + isError + `, 0) = 1
               FROM messages
               WHERE timestamp >= ? AND timestamp < ?`
 		args := []any{timestampBound(from), timestampBound(to)}
@@ -106,7 +113,7 @@ func (d *DB) BlocksIn(ctx context.Context, sessionID string, from, to time.Time)
 			var b Block
 			var ts string
 			if err := rows.Scan(&b.SessionID, &b.Turn, &b.Index, &b.UUID, &ts, &b.Role, &b.Kind,
-				&b.Content, &b.ToolName, &b.ToolInput, &b.ToolUseID); err != nil {
+				&b.Content, &b.ToolName, &b.ToolInput, &b.ToolUseID, &b.IsError); err != nil {
 				yield(Block{}, fmt.Errorf("blocks in: %w", err))
 				return
 			}

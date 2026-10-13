@@ -63,7 +63,8 @@ var (
 // raise it when the importer starts storing something it did not:
 //
 //	1: the tool_use_id of tool_use and tool_result blocks
-const importVersion = 1
+//	2: whether a tool_result was an error
+const importVersion = 2
 
 // ImportFile imports <projects>/<project>/<session>.jsonl, a transcript of
 // the trees dirs. It returns nil, nil when the file cannot be read or holds
@@ -153,7 +154,7 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	msgs := make([]db.MessageRow, len(parsed.Messages))
 	for i, m := range parsed.Messages {
 		msgs[i] = db.MessageRow{UUID: m.UUID, Role: m.Role, BlockType: m.BlockType, BlockIndex: m.BlockIndex,
-			Content: m.Content, ToolName: m.ToolName, ToolInput: m.ToolInput, ToolUseID: m.ToolUseID, Timestamp: m.Timestamp,
+			Content: m.Content, ToolName: m.ToolName, ToolInput: m.ToolInput, ToolUseID: m.ToolUseID, IsError: m.IsError, Timestamp: m.Timestamp,
 			TurnIndex: m.TurnIndex}
 	}
 	var imgs []db.ImageRow
