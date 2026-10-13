@@ -39,6 +39,9 @@ type SearchHit struct {
 	RecallOnly   bool    `json:"recallOnly"`
 	Repository   string  `json:"repository,omitempty"`
 	Worktree     string  `json:"worktree,omitempty"`
+	// Remote is the origin of the session's repository, such as
+	// github.com/owner/repo, when it is known.
+	Remote string `json:"remote,omitempty"`
 }
 
 // SearchHits converts search results. repoOf, when not nil, names the
@@ -53,7 +56,7 @@ func SearchHits(results []db.SearchResult, shortID bool, repoOf func(projectPath
 		out[i] = SearchHit{SessionID: id, Project: cli.DisplayProject(r.ProjectPath, r.Project), Branch: r.GitBranch,
 			Date: slice(r.StartedAt, 10), Role: r.Role, Content: r.Content, Title: r.Title, Messages: r.MessageCount,
 			FirstPrompt: slice(r.FirstPrompt, 200), DisplayTitle: title.Display(deref(r.Title), deref(r.FirstPrompt)),
-			RecallOnly: r.RecallOnly}
+			RecallOnly: r.RecallOnly, Remote: deref(r.Remote)}
 		if repoOf != nil && r.ProjectPath != nil {
 			out[i].Repository, out[i].Worktree = repoOf(*r.ProjectPath)
 		}
@@ -77,6 +80,9 @@ type ListedSession struct {
 	RecallOnly    bool    `json:"recallOnly"`
 	Repository    string  `json:"repository,omitempty"`
 	Worktree      string  `json:"worktree,omitempty"`
+	// Remote is the origin of the session's repository, such as
+	// github.com/owner/repo, when it is known.
+	Remote string `json:"remote,omitempty"`
 }
 
 // List converts sessions for recall_list. repoOf, when not nil, names the
@@ -87,7 +93,8 @@ func List(sessions []db.ListedSession, repoOf func(projectPath string) (repo, wo
 		out[i] = ListedSession{SessionID: jscompat.Slice(s.SessionID, 8), FullSessionID: s.SessionID, Title: s.Title,
 			Project: cli.DisplayProject(s.ProjectPath, s.Project), Branch: s.GitBranch,
 			FirstPrompt: slice(s.FirstPrompt, 200), Messages: s.MessageCount, Date: slice(s.StartedAt, 10),
-			DisplayTitle: title.Display(deref(s.Title), deref(s.FirstPrompt)), RecallOnly: s.RecallOnly}
+			DisplayTitle: title.Display(deref(s.Title), deref(s.FirstPrompt)), RecallOnly: s.RecallOnly,
+			Remote: deref(s.Remote)}
 		if repoOf != nil && s.ProjectPath != nil {
 			out[i].Repository, out[i].Worktree = repoOf(*s.ProjectPath)
 		}

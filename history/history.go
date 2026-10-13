@@ -72,6 +72,11 @@ type Session struct {
 	RepositoryKey string
 	// Worktree is the linked worktree's name, empty outside one.
 	Worktree string
+	// Remote is the origin of the repository, read from its git config
+	// when the session was imported, written as host/path:
+	// github.com/owner/repo whether the URL was https or ssh. Empty when
+	// the directory has no origin, or was gone before recall first read it.
+	Remote string
 	// Title is what recall calls the session: the title Claude Code wrote
 	// (a /rename or a generated one), or failing that the first prompt.
 	Title       string
@@ -101,6 +106,7 @@ func (h *History) Sessions(ctx context.Context, from, to time.Time) ([]Session, 
 			Repository:    repo.Name,
 			RepositoryKey: repo.Key,
 			Worktree:      repo.Worktree,
+			Remote:        s.Remote,
 			Title:         title.Display(s.Title, s.FirstPrompt),
 			FirstPrompt:   s.FirstPrompt,
 			GitBranch:     s.GitBranch,

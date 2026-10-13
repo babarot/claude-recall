@@ -44,7 +44,7 @@ The full-text index splits words at spaces and punctuation, so it cannot find a 
 
 `--repo` takes the repository the way the TUI groups sessions: a linked worktree belongs to its main checkout, a removed Claude Code worktree (`<repo>/.claude/worktrees/<name>`) to the `<repo>` its path names, and a removed herdr worktree (`~/.herdr/worktrees/<name>/...`), whose path names the repository but not its owner, to the one checkout in the archive with that directory name; with none or several, it stays a repository of its own. `<dir>` may be the checkout, a worktree, a directory inside either, or a worktree since removed.
 
-With `--format json`, each result also has its session's `title`, `messageCount`, `firstPrompt`, `displayTitle` (the title, or else the first prompt made readable, as the TUI shows it), `recallOnly` (the session called recall's MCP tools and no other tool, so it was only a look back), `repository` and, in a worktree, `worktree`.
+With `--format json`, each result also has its session's `title`, `messageCount`, `firstPrompt`, `displayTitle` (the title, or else the first prompt made readable, as the TUI shows it), `recallOnly` (the session called recall's MCP tools and no other tool, so it was only a look back), `repository`, in a worktree `worktree`, and `remote`, the origin of the repository recorded when the session was imported (`github.com/owner/repo` whether the URL is https or ssh), when there is one.
 
 ## List
 
@@ -57,7 +57,7 @@ recall list [options]
   --format text|json  Output format (default: text)
 ```
 
-With `--format json`, each session also has `displayTitle`, `recallOnly`, `repository` and, in a worktree, `worktree`, as `search` has.
+With `--format json`, each session also has `displayTitle`, `recallOnly`, `repository`, in a worktree `worktree`, and `remote`, as `search` has.
 
 ## Export
 

@@ -18,6 +18,7 @@ import (
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/parser"
+	"github.com/babarot/claude-recall/internal/worktree"
 )
 
 // Status says what an import did.
@@ -136,6 +137,9 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 		FileSize:      &size,
 		Title:         parsed.Meta.Title,
 	}
+	if remote, ok := worktree.Remote(parsed.Meta.ProjectPath); ok {
+		row.Remote = &remote
+	}
 	msgs := make([]db.MessageRow, len(parsed.Messages))
 	for i, m := range parsed.Messages {
 		msgs[i] = db.MessageRow{UUID: m.UUID, Role: m.Role, BlockType: m.BlockType, BlockIndex: m.BlockIndex,
@@ -175,6 +179,25 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 		status, added = Resynced, max(0, len(msgs)-existing.MessageCount)
 	}
 	return &Result{Status: status, SessionID: sessionID, Project: project, TotalMessages: len(msgs), AddedMessages: added}, nil
+}
+
+// FillRemotes stores the remote of the sessions imported before remotes
+// were, or while their directory was gone, from each directory still on
+// disk. A session whose transcript is gone is never imported again, so
+// this is how it gets one.
+func FillRemotes(d *db.DB) error {
+	paths, err := d.ProjectPathsWithoutRemote()
+	if err != nil {
+		return err
+	}
+	for _, p := range paths {
+		if remote, ok := worktree.Remote(p); ok {
+			if err := d.SetRemote(p, remote); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // decodeText reads bytes the way Deno.readTextFileSync does: a leading BOM
@@ -259,6 +282,13 @@ func Run(vault *db.DB, opts Options, w io.Writer) error {
 		}
 	}
 
+	if !opts.DryRun {
+		// Before anything returns: the sessions whose transcripts are gone
+		// are the ones that need it most.
+		if err := FillRemotes(vault); err != nil {
+			return err
+		}
+	}
 	if len(targets) == 0 {
 		fmt.Fprintln(w, "No sessions found to import.")
 		return nil

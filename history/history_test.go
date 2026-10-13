@@ -9,6 +9,7 @@ import (
 
 	"github.com/babarot/claude-recall/history"
 	"github.com/babarot/claude-recall/internal/config"
+	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/fixture"
 )
 
@@ -202,5 +203,56 @@ func TestOpenDoesNotWrite(t *testing.T) {
 	}
 	if _, err := history.Open(path + ".missing"); err == nil {
 		t.Error("Open made a database that did not exist")
+	}
+}
+
+func TestSessionRemote(t *testing.T) {
+	path := fixture.Archive(t)
+	d, err := db.Open(path, db.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Exec(`UPDATE sessions SET remote = 'github.com/babarot/claude-recall' WHERE session_id = ?`, fixture.AppSession); err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	h, err := history.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	ss, err := h.Sessions(context.Background(), at("2026-01-01T00:00:00Z"), at("2027-01-01T00:00:00Z"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, s := range ss {
+		got[s.ID] = s.Remote
+	}
+	if got[fixture.AppSession] != "github.com/babarot/claude-recall" || got[fixture.APISession] != "" {
+		t.Errorf("Remote = %v", got)
+	}
+}
+
+// A database recall has not migrated yet, opened read-only, reads with
+// no remote.
+func TestSessionsBeforeRemoteMigration(t *testing.T) {
+	path := fixture.Archive(t)
+	d, err := db.Open(path, db.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Exec(`ALTER TABLE sessions DROP COLUMN remote`); err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	h, err := history.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	ss, err := h.Sessions(context.Background(), at("2026-01-01T00:00:00Z"), at("2027-01-01T00:00:00Z"))
+	if err != nil || len(ss) != 2 || ss[0].Remote != "" {
+		t.Errorf("Sessions = %+v, %v", ss, err)
 	}
 }

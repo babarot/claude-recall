@@ -20,6 +20,10 @@ type Session struct {
 	EndedAt      time.Time
 	// ClaudeVersion is the Claude Code release that wrote the session.
 	ClaudeVersion string
+	// Remote is the origin of the session's repository (see
+	// worktree.NormalizeRemote); empty when it is not known or there is
+	// none.
+	Remote string
 }
 
 func (d *DB) hasColumn(table, column string) (bool, error) {
@@ -38,6 +42,16 @@ func (d *DB) hasColumn(table, column string) (bool, error) {
 		}
 	}
 	return false, rows.Err()
+}
+
+// optionalColumn is expr when sessions has column, and NULL on an archive
+// opened read-only before the migration that added it.
+func (d *DB) optionalColumn(expr, column string) (string, error) {
+	ok, err := d.hasColumn("sessions", column)
+	if err != nil || !ok {
+		return "NULL", err
+	}
+	return expr, nil
 }
 
 func parseTime(s string) time.Time {

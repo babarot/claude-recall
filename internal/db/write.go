@@ -46,6 +46,10 @@ type SessionRow struct {
 	FileMtime     *float64
 	FileSize      *int64
 	Title         string // "" when the session has no title
+	// Remote is the origin of the session's repository, "" when it has
+	// none, or nil when it cannot be known now; ReplaceSession then keeps
+	// what was stored.
+	Remote *string
 }
 
 // MessageRow is a row of the messages table.
@@ -91,6 +95,16 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, ch
 		}
 	}
 
+	remote := s.Remote
+	if remote == nil {
+		// The directory may be gone since the session was first imported;
+		// what was read from it then still holds.
+		if err = tx.QueryRow(`SELECT remote FROM sessions WHERE session_id = ?`, s.SessionID).Scan(&remote); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("replace session: %w", err)
+		}
+		err = nil
+	}
+
 	for _, q := range []string{
 		`DELETE FROM images WHERE session_id = ?`,
 		`DELETE FROM messages WHERE session_id = ?`,
@@ -101,10 +115,10 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, ch
 		}
 	}
 
-	if _, err = tx.Exec(`INSERT INTO sessions (session_id, project, project_path, git_branch, first_prompt, summary, message_count, started_at, ended_at, claude_version, file_mtime, file_size, title)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	if _, err = tx.Exec(`INSERT INTO sessions (session_id, project, project_path, git_branch, first_prompt, summary, message_count, started_at, ended_at, claude_version, file_mtime, file_size, title, remote)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.SessionID, s.Project, s.ProjectPath, s.GitBranch, s.FirstPrompt, s.Summary, s.MessageCount,
-		s.StartedAt, s.EndedAt, s.ClaudeVersion, s.FileMtime, s.FileSize, s.Title); err != nil {
+		s.StartedAt, s.EndedAt, s.ClaudeVersion, s.FileMtime, s.FileSize, s.Title, remote); err != nil {
 		return fmt.Errorf("insert session: %w", err)
 	}
 
@@ -135,6 +149,35 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, ch
 
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("replace session: %w", err)
+	}
+	return nil
+}
+
+// ProjectPathsWithoutRemote returns the directories of the sessions whose
+// remote is not known yet.
+func (d *DB) ProjectPathsWithoutRemote() ([]string, error) {
+	rows, err := d.sql.Query(`SELECT DISTINCT project_path FROM sessions
+      WHERE remote IS NULL AND project_path IS NOT NULL AND project_path != ''`)
+	if err != nil {
+		return nil, fmt.Errorf("paths without remote: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, fmt.Errorf("paths without remote: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// SetRemote stores remote for the sessions run in projectPath whose remote
+// is not known yet, leaving the known ones as they are.
+func (d *DB) SetRemote(projectPath, remote string) error {
+	if _, err := d.sql.Exec(`UPDATE sessions SET remote = ? WHERE project_path = ? AND remote IS NULL`, remote, projectPath); err != nil {
+		return fmt.Errorf("set remote: %w", err)
 	}
 	return nil
 }
