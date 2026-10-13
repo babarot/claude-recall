@@ -25,6 +25,10 @@ type Options struct {
 	// ReadOnly opens the file with mode=ro and skips applying the schema, so
 	// the archive is never modified.
 	ReadOnly bool
+	// Conns is how many connections a read-only database may hold at once,
+	// so a query can run while another's rows are still being read. One
+	// when zero; a writable database always has one.
+	Conns int
 }
 
 // Open opens the archive at path. A writable database gets WAL mode and the
@@ -58,7 +62,11 @@ func Open(path string, opts Options) (*DB, error) {
 	}
 	// One connection keeps pragmas and the schema on the same handle and
 	// serializes access; every query is short.
-	sqlDB.SetMaxOpenConns(1)
+	conns := 1
+	if opts.ReadOnly && opts.Conns > 1 {
+		conns = opts.Conns
+	}
+	sqlDB.SetMaxOpenConns(conns)
 
 	if err := sqlDB.Ping(); err != nil {
 		sqlDB.Close()
