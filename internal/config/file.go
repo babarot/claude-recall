@@ -262,7 +262,8 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # detail_height = 16
 # Color scheme: "auto" (default) picks catppuccin-mocha on a dark terminal and
 # catppuccin-latte on a light one. Also: tokyo-night, dracula, nord,
-# gruvbox-dark, and ansi (the terminal's own 16 colors).
+# gruvbox-dark, and ansi (the terminal's own 16 colors). The web UI is drawn
+# in it too; with auto or ansi it follows the browser, mocha or latte.
 # theme = "auto"
 # Which sessions to start with: "folder" (default) for the repository recall is
 # started in, when it has sessions, or "all".

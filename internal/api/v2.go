@@ -275,3 +275,15 @@ func asciiLower(c rune) rune {
 func oneLine(s string) string {
 	return strings.Join(strings.FieldsFunc(s, unicode.IsSpace), " ")
 }
+
+// V2Theme is /api/v2/theme: the color scheme the web UI is drawn in, the
+// TUI's ([tui] theme). Fixed is set for a scheme of its own, whose Colors
+// (CSS custom properties without the --) the page takes, and Dark tells
+// which it is; for auto, and for ansi, which a page cannot draw, the page
+// keeps its own catppuccin-mocha and latte, and its dark and light switch.
+type V2Theme struct {
+	Name   string            `json:"name"`
+	Fixed  bool              `json:"fixed"`
+	Dark   bool              `json:"dark,omitempty"`
+	Colors map[string]string `json:"colors,omitempty"`
+}

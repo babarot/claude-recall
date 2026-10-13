@@ -15,6 +15,7 @@ import (
 	"github.com/babarot/claude-recall/internal/filter"
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/resume"
+	"github.com/babarot/claude-recall/internal/theme"
 	"github.com/babarot/claude-recall/internal/tidy"
 	"github.com/babarot/claude-recall/internal/title"
 	"github.com/babarot/claude-recall/internal/worktree"
@@ -197,6 +198,17 @@ func (s *Server) v2API(w http.ResponseWriter, r *http.Request, path string) erro
 		return s.v2Sessions(w, q.Get("id"))
 	case rest == "find":
 		return s.v2Find(w, q.Get("q"), q.Get("text") == "1")
+	case rest == "theme":
+		name := s.Theme
+		if !theme.Valid(name) {
+			name = theme.Auto
+		}
+		out := api.V2Theme{Name: name}
+		if colors, dark, ok := theme.WebColors(name); ok {
+			out.Fixed, out.Dark, out.Colors = true, dark, colors
+		}
+		writeJSON(w, out)
+		return nil
 	case strings.HasPrefix(rest, "sessions/"):
 		parts := strings.Split(strings.TrimPrefix(rest, "sessions/"), "/")
 		id := parts[0]
