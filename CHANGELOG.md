@@ -1,5 +1,10 @@
 # Changelog
 
+## [v1.11.0](https://github.com/babarot/claude-recall/compare/v1.10.0...v1.11.0) - 2026-10-13
+### New Features
+- Record the git remote of the directory a session ran in by @babarot in https://github.com/babarot/claude-recall/pull/101
+- Store the tool_use_id that ties a tool_result to its call by @babarot in https://github.com/babarot/claude-recall/pull/102
+
 ## [v1.10.0](https://github.com/babarot/claude-recall/compare/v1.9.0...v1.10.0) - 2026-10-13
 ### New Features
 - Draw the web UI in the TUI's color scheme by @babarot in https://github.com/babarot/claude-recall/pull/95
