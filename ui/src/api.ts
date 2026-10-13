@@ -42,6 +42,10 @@ export interface Message {
   toolInput: string | null;
   toolInputLength?: number;
   timestamp: string | null;
+  /** Ties a tool_result to its tool_use; absent when the archive does not know. */
+  toolUseId?: string;
+  /** Whether a tool_result was an error, when the transcript said. */
+  isError?: boolean;
 }
 
 export interface Range {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildItems, looksFailed, relativeTo, tally, toolLabel } from "./items";
+import { buildItems, looksFailed, outcome, relativeTo, tally, toolLabel } from "./items";
 import type { Message } from "./chat-utils";
 
 let n = 0;
@@ -41,6 +41,45 @@ describe("buildItems", () => {
     const items = buildItems([m("user", "text", "a"), m("assistant", "text", "b")]);
     expect(new Set(items.map((i) => i.key)).size).toBe(2);
     expect(items[0].key).toMatch(/^\d+\.0$/);
+  });
+});
+
+describe("buildItems with tool ids", () => {
+  const useID = (name: string, id: string) => m("assistant", "tool_use", name, { toolName: name, toolInput: "{}", toolUseId: id });
+  const resultID = (content: string, id: string, isError?: boolean) => m("user", "tool_result", content, { toolUseId: id, isError });
+
+  it("pairs a result with the call of its id, whatever the order", () => {
+    const items = buildItems([useID("Read", "a"), useID("Bash", "b"), resultID("bash out", "b"), resultID("read out", "a")]);
+    const run = items[0];
+    if (run.kind !== "run") throw new Error("not a run");
+    expect(run.calls.map((c) => [c.use?.toolName, c.result?.content])).toEqual([["Read", "read out"], ["Bash", "bash out"]]);
+  });
+
+  it("keeps a result whose call is not in the run", () => {
+    const items = buildItems([useID("Read", "a"), resultID("orphan", "zzz")]);
+    const run = items[0];
+    if (run.kind !== "run") throw new Error("not a run");
+    expect(run.calls.map((c) => [c.use?.toolName, c.result?.content])).toEqual([["Read", undefined], [undefined, "orphan"]]);
+  });
+
+  it("tells how each call went", () => {
+    // The one call a run of messages makes.
+    const call = (...msgs: Message[]) => {
+      const run = buildItems(msgs)[0];
+      if (run.kind !== "run") throw new Error("not a run");
+      return run.calls[0];
+    };
+    expect(outcome(call(useID("Bash", "a"), resultID("boom", "a", true)))).toBe("error");
+    expect(outcome(call(useID("Bash", "a"), resultID("fine", "a", false)))).toBe("ok");
+    // Tied to its call and no is_error: it worked, whatever it says.
+    expect(outcome(call(useID("Bash", "a"), resultID("Exit code 1", "a")))).toBe("ok");
+    // From before the archive knew: the text tells a failure, else unknown.
+    expect(outcome(call(use("Bash"), result("Exit code 1")))).toBe("error");
+    expect(outcome(call(use("Bash"), result("done")))).toBe("unknown");
+    expect(outcome(call(use("Bash")))).toBe("unknown");
+    const run = buildItems([useID("Bash", "a"), useID("Read", "b"), resultID("x", "a", true), resultID("y", "b")])[0];
+    if (run.kind !== "run") throw new Error("not a run");
+    expect(tally(run.calls).failed).toBe(1);
   });
 });
 

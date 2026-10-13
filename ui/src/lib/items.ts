@@ -25,14 +25,15 @@ export function fromAPI(m: APIMessage): Message {
     uuid: m.uuid, role: m.role, blockType: m.type, content: m.content,
     toolName: m.toolName ?? undefined, toolInput: m.toolInput ?? undefined, timestamp: m.timestamp ?? undefined,
     cursor: m.cursor, contentLength: m.contentLength, toolInputLength: m.toolInputLength,
+    toolUseId: m.toolUseId, isError: m.isError,
   };
 }
 
 /**
- * Builds the items of messages. Tool results are paired with the calls
- * they answer in the order they came, since the archive does not keep
- * which call a result is for; Claude Code writes results in the order of
- * the calls.
+ * Builds the items of messages. A tool result is paired with the call it
+ * answers by their tool_use_id; one without, from a session imported before
+ * the archive kept it, goes with the first call still waiting, since
+ * Claude Code writes results in the order of the calls.
  */
 export function buildItems(messages: Message[]): Item[] {
   const out: Item[] = [];
@@ -52,7 +53,8 @@ export function buildItems(messages: Message[]): Item[] {
         run.calls.push(call);
         waiting.push(call);
       } else {
-        const call = waiting.shift();
+        const i = m.toolUseId ? waiting.findIndex((c) => c.use?.toolUseId === m.toolUseId) : 0;
+        const call = i >= 0 ? waiting.splice(i, 1)[0] : undefined;
         if (call) call.result = m;
         else run.calls.push({ result: m });
       }
@@ -66,6 +68,21 @@ export function buildItems(messages: Message[]): Item[] {
   return out;
 }
 
+/**
+ * How a call went: "ok" or "error" when the archive knows, "error" too
+ * when a result from before it knew reads as a failure, and "unknown"
+ * otherwise or with no result. Claude Code often writes no is_error for a
+ * call that worked, so a result tied to its call (toolUseId) with no
+ * isError worked.
+ */
+export function outcome(c: Call): "ok" | "error" | "unknown" {
+  const r = c.result;
+  if (!r) return "unknown";
+  if (r.isError !== undefined) return r.isError ? "error" : "ok";
+  if (r.toolUseId) return "ok";
+  return looksFailed(r.content) ? "error" : "unknown";
+}
+
 /** Counts a run's calls by tool, most used first, and its failures. */
 export function tally(calls: Call[]): { counts: [string, number][]; failed: number } {
   const n = new Map<string, number>();
@@ -73,15 +90,15 @@ export function tally(calls: Call[]): { counts: [string, number][]; failed: numb
   for (const c of calls) {
     const name = c.use?.toolName ?? "?";
     n.set(name, (n.get(name) ?? 0) + 1);
-    if (c.result && looksFailed(c.result.content)) failed++;
+    if (outcome(c) === "error") failed++;
   }
   return { counts: [...n.entries()].sort((a, b) => b[1] - a[1]), failed };
 }
 
 /**
- * Whether a result reads as a failure. The archive does not keep whether a
- * call failed, so this looks only at what Claude Code writes for one:
- * "Error: ...", "<tool_use_error>", or "Exit code N".
+ * Whether a result reads as a failure, for a session imported before the
+ * archive kept is_error: what Claude Code writes for one, "Error: ...",
+ * "<tool_use_error>", or "Exit code N".
  */
 export function looksFailed(content: string): boolean {
   const s = content.trimStart();

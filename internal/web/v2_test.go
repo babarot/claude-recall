@@ -298,3 +298,53 @@ func TestV2Theme(t *testing.T) {
 		t.Errorf("dracula: %v", got.Colors)
 	}
 }
+
+func TestV2ConversationToolIDs(t *testing.T) {
+	s, _, projects := archive(t)
+	lines := []map[string]any{
+		{"type": "user", "uuid": "u1", "sessionId": "77777777-tools", "timestamp": "2026-05-01T10:00:00.000Z", "cwd": "/work/tools",
+			"message": map[string]any{"role": "user", "content": "run them"}},
+		{"type": "assistant", "uuid": "a1", "sessionId": "77777777-tools", "timestamp": "2026-05-01T10:00:01.000Z",
+			"message": map[string]any{"role": "assistant", "content": []any{
+				map[string]any{"type": "tool_use", "id": "toolu_a", "name": "Bash", "input": map[string]any{"command": "false"}},
+				map[string]any{"type": "tool_use", "id": "toolu_b", "name": "Read", "input": map[string]any{"file_path": "/x"}},
+			}}},
+		{"type": "user", "uuid": "u2", "sessionId": "77777777-tools", "timestamp": "2026-05-01T10:00:02.000Z",
+			"message": map[string]any{"role": "user", "content": []any{
+				map[string]any{"type": "tool_result", "tool_use_id": "toolu_b", "content": "file"},
+				map[string]any{"type": "tool_result", "tool_use_id": "toolu_a", "content": "Exit code 1", "is_error": true},
+			}}},
+	}
+	var b strings.Builder
+	for _, l := range lines {
+		j, _ := json.Marshal(l)
+		b.Write(j)
+		b.WriteByte('\n')
+	}
+	dir := filepath.Join(projects, "-tools")
+	os.MkdirAll(dir, 0o755)
+	path := filepath.Join(dir, "77777777-tools.jsonl")
+	os.WriteFile(path, []byte(b.String()), 0o644)
+	if _, err := importer.ImportFile(s.DB, path, nil, s.trees); err != nil {
+		t.Fatal(err)
+	}
+	r := decode[api.V2Conversation](t, s, "/api/v2/sessions/77777777-tools/conversation")
+	got := ""
+	for _, m := range r.Messages {
+		id, isErr := "-", "-"
+		if m.ToolUseID != nil {
+			id = *m.ToolUseID
+		}
+		if m.IsError != nil {
+			isErr = fmt.Sprint(*m.IsError)
+		}
+		got += m.Type + ":" + id + ":" + isErr + " "
+	}
+	if want := "text:-:- tool_use:toolu_a:- tool_use:toolu_b:- tool_result:toolu_b:- tool_result:toolu_a:true "; got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
+	}
+	raw := get(t, s, "/api/v2/sessions/77777777-tools/conversation").Body.String()
+	if strings.Count(raw, `"isError"`) != 1 || strings.Count(raw, `"toolUseId"`) != 4 {
+		t.Errorf("the fields are left out when not known: %s", raw)
+	}
+}

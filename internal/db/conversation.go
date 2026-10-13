@@ -41,9 +41,16 @@ type ConvMessage struct {
 	ToolName  *string
 	ToolInput *string
 	Timestamp *string
+	// ToolUseID ties a tool_result to its tool_use; IsError is whether a
+	// tool_result was an error, nil when the transcript did not say.
+	ToolUseID *string
+	IsError   *bool
 }
 
-const convColumns = `SELECT turn_index, block_index, uuid, role, block_type, content, tool_name, tool_input, timestamp FROM messages`
+// The web server opens the archive writable, so its migrations, and the
+// tool_use_id and is_error columns, are always there.
+const convColumns = `SELECT turn_index, block_index, uuid, role, block_type, content, tool_name, tool_input, timestamp,
+        tool_use_id, is_error FROM messages`
 
 func (d *DB) convMessages(query string, args ...any) ([]ConvMessage, error) {
 	rows, err := d.sql.Query(query, args...)
@@ -55,7 +62,7 @@ func (d *DB) convMessages(query string, args ...any) ([]ConvMessage, error) {
 	for rows.Next() {
 		var m ConvMessage
 		if err := rows.Scan(&m.Cursor.Turn, &m.Cursor.Block, &m.UUID, &m.Role, &m.BlockType, &m.Content,
-			&m.ToolName, &m.ToolInput, &m.Timestamp); err != nil {
+			&m.ToolName, &m.ToolInput, &m.Timestamp, &m.ToolUseID, &m.IsError); err != nil {
 			return nil, err
 		}
 		out = append(out, m)

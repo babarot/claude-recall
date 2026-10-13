@@ -11,6 +11,8 @@ export interface Message {
   /** The whole lengths of a content or tool input the server clipped. */
   contentLength?: number;
   toolInputLength?: number;
+  toolUseId?: string;
+  isError?: boolean;
 }
 
 /** Where a message is, for the kinds that are folded or paired. */
@@ -22,8 +24,8 @@ interface At {
 export type DisplayMessage =
   | { type: "chat"; uuid: string; role: string; content: string; timestamp?: string; cursor?: string; contentLength?: number }
   | ({ type: "thinking"; content: string } & At)
-  | ({ type: "tool_use"; toolName: string; toolInput: string; toolInputLength?: number } & At)
-  | ({ type: "tool_result"; content: string; contentLength?: number } & At)
+  | ({ type: "tool_use"; toolName: string; toolInput: string; toolInputLength?: number; toolUseId?: string } & At)
+  | ({ type: "tool_result"; content: string; contentLength?: number; toolUseId?: string; isError?: boolean } & At)
   | { type: "bash"; command: string; stdout: string; stderr: string }
   | { type: "command"; name: string; args: string; stdout: string }
   | ({ type: "meta"; label: string; content: string } & At);
@@ -154,12 +156,13 @@ export function groupMessages(messages: Message[]): DisplayMessage[] {
     }
     if (msg.blockType === "tool_use") {
       result.push({ type: "tool_use", toolName: msg.toolName ?? content, toolInput: msg.toolInput ?? "",
-        toolInputLength: msg.toolInputLength, cursor: msg.cursor, timestamp: msg.timestamp });
+        toolInputLength: msg.toolInputLength, toolUseId: msg.toolUseId, cursor: msg.cursor, timestamp: msg.timestamp });
       i++;
       continue;
     }
     if (msg.blockType === "tool_result") {
-      result.push({ type: "tool_result", content, contentLength: msg.contentLength, cursor: msg.cursor, timestamp: msg.timestamp });
+      result.push({ type: "tool_result", content, contentLength: msg.contentLength, toolUseId: msg.toolUseId,
+        isError: msg.isError, cursor: msg.cursor, timestamp: msg.timestamp });
       i++;
       continue;
     }
