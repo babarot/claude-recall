@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render } from "preact";
 import { findQuery, spans, total } from "../store/conversation";
 import { Conversation, markWords } from "./Conversation";
@@ -8,7 +8,6 @@ const msg = (i: number, content = `m${i}`): Message => ({
   cursor: `${i}.0`, uuid: `u${i}`, role: i % 2 ? "assistant" : "user", type: "text", content,
   toolName: null, toolInput: null, timestamp: null,
 });
-const tick = () => new Promise((r) => setTimeout(r, 20));
 
 describe("Conversation", () => {
   // Marking a search's words, and taking the marks off, must not touch the
@@ -19,14 +18,18 @@ describe("Conversation", () => {
     spans.value = [{ msgs: [0, 1].map((i) => msg(i)), atStart: true, atEnd: false }, { msgs: [98, 99].map((i) => msg(i)), atStart: false, atEnd: true }];
     const el = document.createElement("div");
     render(<Conversation sessionId="s" />, el);
-    await tick();
-    expect(el.querySelector(".gap-marker")?.textContent).toContain("96 件");
-    expect(el.querySelectorAll("mark").length).toBeGreaterThan(0);
+    // Preact draws, and marks the words, after the signals change: wait for
+    // it rather than a fixed time, which a slow machine can outlast.
+    await vi.waitFor(() => {
+      expect(el.querySelector(".gap-marker")?.textContent).toContain("96 件");
+      expect(el.querySelectorAll("mark").length).toBeGreaterThan(0);
+    });
     findQuery.value = "";
     spans.value = [{ msgs: [0, 1, 2, 3].map((i) => msg(i)), atStart: true, atEnd: false }, spans.value[1]];
-    await tick();
-    expect(el.querySelector(".gap-marker")?.textContent).toContain("94 件");
-    expect(el.querySelectorAll("mark").length).toBe(0);
+    await vi.waitFor(() => {
+      expect(el.querySelector(".gap-marker")?.textContent).toContain("94 件");
+      expect(el.querySelectorAll("mark").length).toBe(0);
+    });
     render(null, el);
   });
 });
