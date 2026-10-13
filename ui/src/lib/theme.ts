@@ -15,8 +15,10 @@ const STYLE_ID = "recall-theme";
 export function themeCSS(t: Theme): string {
   if (!t.fixed || !t.colors) return "";
   const vars = Object.entries(t.colors).map(([k, v]) => `--${k}: ${v};`);
-  // What the stylesheet derives from the prompt color.
+  // What the stylesheet derives from the prompt color, and the shadow
+  // each of its light and dark sets has.
   vars.push(
+    `--shadow: ${t.dark ? "0 12px 40px rgba(0,0,0,.45)" : "0 12px 40px rgba(76,79,105,.18)"};`,
     `--user-bg: color-mix(in srgb, var(--prompt) ${t.dark ? 6 : 7}%, transparent);`,
     `--mark: color-mix(in srgb, var(--prompt) ${t.dark ? 28 : 25}%, transparent);`,
     `color-scheme: ${t.dark ? "dark" : "light"};`,

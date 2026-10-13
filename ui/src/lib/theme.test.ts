@@ -10,6 +10,13 @@ describe("theme", () => {
     expect(css).toContain("--prompt: #e0af68;");
     expect(css).toContain("color-scheme: dark;");
     expect(css.startsWith(":root:root:root")).toBe(true);
+    expect(css).toContain("--shadow: 0 12px 40px rgba(0,0,0,.45);");
+  });
+
+  it("gives a light scheme the light shadow", () => {
+    const css = themeCSS({ name: "catppuccin-latte", fixed: true, colors: { bg: "#eff1f5" } });
+    expect(css).toContain("--shadow: 0 12px 40px rgba(76,79,105,.18);");
+    expect(css).toContain("color-scheme: light;");
   });
 
   it("leaves auto to the stylesheet", () => {
