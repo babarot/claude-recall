@@ -94,6 +94,12 @@ var migrations = []string{
 	// NULL means the session was imported before titles were; the importer
 	// imports it again. An empty string means it has no title.
 	`ALTER TABLE sessions ADD COLUMN title TEXT`,
+	// 2: the origin of the git repository the session ran in, as
+	// worktree.NormalizeRemote writes it. NULL means it is not known: the
+	// session was imported before remotes were, or its directory was gone;
+	// the importer fills it in once the directory can be read. An empty
+	// string means the directory has no origin.
+	`ALTER TABLE sessions ADD COLUMN remote TEXT`,
 }
 
 func (d *DB) migrate() error {
@@ -156,6 +162,9 @@ type SearchResult struct {
 	MessageCount *int64  `json:"messageCount"`
 	FirstPrompt  *string `json:"firstPrompt"`
 	RecallOnly   bool    `json:"recallOnly"`
+	// Remote is the origin of the session's repository (see
+	// worktree.NormalizeRemote); nil when it is not known or there is none.
+	Remote *string `json:"remote,omitempty"`
 }
 
 var (
@@ -235,10 +244,14 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 	} else if !ok {
 		title = "NULL" // an archive opened read-only before the migration
 	}
+	remote, err := d.optionalColumn("NULLIF(s.remote, '')", "remote")
+	if err != nil {
+		return nil, fmt.Errorf("search: %w", err)
+	}
 	rows, err := d.sql.Query(`
       SELECT s.session_id, s.project, s.project_path, s.git_branch,
              s.started_at, m.role, m.content, m.timestamp, `+title+`, s.message_count, s.first_prompt,
-             `+recallOnly("s.session_id")+`
+             `+recallOnly("s.session_id")+`, `+remote+`
       FROM `+from+`
       JOIN sessions s ON s.session_id = m.session_id
       WHERE `+strings.Join(conds, " AND ")+`
@@ -253,7 +266,7 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 	for rows.Next() {
 		var r SearchResult
 		if err := rows.Scan(&r.SessionID, &r.Project, &r.ProjectPath, &r.GitBranch,
-			&r.StartedAt, &r.Role, &r.Content, &r.Timestamp, &r.Title, &r.MessageCount, &r.FirstPrompt, &r.RecallOnly); err != nil {
+			&r.StartedAt, &r.Role, &r.Content, &r.Timestamp, &r.Title, &r.MessageCount, &r.FirstPrompt, &r.RecallOnly, &r.Remote); err != nil {
 			return nil, fmt.Errorf("search: %w", err)
 		}
 		results = append(results, r)

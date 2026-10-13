@@ -25,6 +25,9 @@ type ListedSession struct {
 	EndedAt      *string `json:"endedAt"`
 	Title        *string `json:"title,omitempty"`
 	RecallOnly   bool    `json:"recallOnly"`
+	// Remote is the origin of the session's repository (see
+	// worktree.NormalizeRemote); nil when it is not known or there is none.
+	Remote *string `json:"remote,omitempty"`
 }
 
 // recallOnly is an SQL expression, for the session whose ID is in
@@ -82,9 +85,13 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	} else if !ok {
 		title = "NULL" // an archive opened read-only before the migration
 	}
+	remote, err := d.optionalColumn("NULLIF(remote, '')", "remote")
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
 	rows, err := d.sql.Query(`
       SELECT session_id, project, project_path, git_branch, first_prompt,
-             message_count, started_at, ended_at, `+title+`, `+recallOnly("sessions.session_id")+`
+             message_count, started_at, ended_at, `+title+`, `+recallOnly("sessions.session_id")+`, `+remote+`
       FROM sessions `+where+`
       ORDER BY COALESCE(ended_at, started_at) DESC
       LIMIT ? OFFSET ?`, args...)
@@ -96,7 +103,7 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	for rows.Next() {
 		var s ListedSession
 		if err := rows.Scan(&s.SessionID, &s.Project, &s.ProjectPath, &s.GitBranch, &s.FirstPrompt,
-			&s.MessageCount, &s.StartedAt, &s.EndedAt, &s.Title, &s.RecallOnly); err != nil {
+			&s.MessageCount, &s.StartedAt, &s.EndedAt, &s.Title, &s.RecallOnly, &s.Remote); err != nil {
 			return nil, fmt.Errorf("list sessions: %w", err)
 		}
 		out = append(out, s)
