@@ -20,7 +20,7 @@ Opening a session found in its conversation searches the conversation for the wo
 
 ## Conversation
 
-- Tool calls one after another are one line, `12 tool calls · Bash 6 · Read 4`; open it for each call with its result. `会話だけ` and `すべて` (`t`) show them folded or all open. A call whose result reads as a failure (`Exit code 1`, `Error: ...`) is marked; the archive does not keep whether a call failed, so this is a guess from the result
+- Tool calls one after another are one line, `12 tool calls · Bash 6 · Read 4`; open it for each call with its result. `会話だけ` and `すべて` (`t`) show them folded or all open. Each call is paired with its result by the id the transcript gives them, and marked ✓ or ✗ as the transcript says it went. A session stored before the archive kept these, whose transcript is gone, pairs them by order, and marks ✗ only a result that reads as a failure (`Exit code 1`, `Error: ...`)
 - The outline on the right lists what you wrote; click one to go there. `[` `]` go to the previous and next
 - The search box over the conversation (`/` there) searches all of it, the parts not read yet too; `n` `N` and `Enter` go through the matches
 - A long session is read in parts: its start and its end first, and `さらに読み込む` reads what lies between. A long message or tool result is cut, and `続きを読む` or `全文を読み込む` reads the rest
