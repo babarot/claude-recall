@@ -13,10 +13,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/babarot/claude-recall/internal/api"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/jscompat"
-	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/version"
+	"github.com/babarot/claude-recall/pkg/db"
+	"github.com/babarot/claude-recall/pkg/repos"
 )
 
 type prop struct {

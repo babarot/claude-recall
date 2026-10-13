@@ -3,7 +3,7 @@ package tidy
 import (
 	"testing"
 
-	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 func TestGroupFiles(t *testing.T) {

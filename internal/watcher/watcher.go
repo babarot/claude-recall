@@ -18,9 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/parser"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 const (

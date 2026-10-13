@@ -16,7 +16,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/babarot/claude-recall/internal/config"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/filter"
 	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/resume"
@@ -24,7 +23,8 @@ import (
 	"github.com/babarot/claude-recall/internal/tidy"
 	selfupdate "github.com/babarot/claude-recall/internal/update"
 	"github.com/babarot/claude-recall/internal/version"
-	"github.com/babarot/claude-recall/internal/worktree"
+	"github.com/babarot/claude-recall/pkg/db"
+	"github.com/babarot/claude-recall/pkg/worktree"
 )
 
 // Resume is what the caller should run after the TUI exits: claude -r ID in

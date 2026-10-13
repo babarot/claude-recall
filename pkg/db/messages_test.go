@@ -3,8 +3,8 @@ package db_test
 import (
 	"testing"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/fixture"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 func TestSessionMessages(t *testing.T) {

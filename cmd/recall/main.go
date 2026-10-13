@@ -29,10 +29,8 @@ import (
 
 	"github.com/babarot/claude-recall/internal/cli"
 	"github.com/babarot/claude-recall/internal/config"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/mcp"
-	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/title"
 	"github.com/babarot/claude-recall/internal/tui"
@@ -41,6 +39,8 @@ import (
 	"github.com/babarot/claude-recall/internal/watcher"
 	"github.com/babarot/claude-recall/internal/web"
 	"github.com/babarot/claude-recall/internal/webui"
+	"github.com/babarot/claude-recall/pkg/db"
+	"github.com/babarot/claude-recall/pkg/repos"
 )
 
 // exitError carries an exit status for errors already reported to stderr.

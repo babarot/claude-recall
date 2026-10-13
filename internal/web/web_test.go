@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/version"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 func newServer(t *testing.T) *Server {

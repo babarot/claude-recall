@@ -4,8 +4,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 // The /api/v2 responses, which the web UI reads. As with the others, add

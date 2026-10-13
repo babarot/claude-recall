@@ -11,14 +11,14 @@ import (
 	"time"
 
 	"github.com/babarot/claude-recall/internal/api"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/filter"
-	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/theme"
 	"github.com/babarot/claude-recall/internal/tidy"
 	"github.com/babarot/claude-recall/internal/title"
-	"github.com/babarot/claude-recall/internal/worktree"
+	"github.com/babarot/claude-recall/pkg/db"
+	"github.com/babarot/claude-recall/pkg/repos"
+	"github.com/babarot/claude-recall/pkg/worktree"
 )
 
 // /api/v2 is what the web UI reads: the sessions as the TUI lists them,

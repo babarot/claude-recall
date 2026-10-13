@@ -17,12 +17,12 @@ import (
 	"time"
 
 	"github.com/babarot/claude-recall/internal/api"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/jscompat"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/watcher"
 	"github.com/babarot/claude-recall/internal/webui"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 const keepAlive = 15 * time.Second

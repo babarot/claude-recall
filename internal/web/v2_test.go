@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/babarot/claude-recall/internal/api"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/fixture"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 // archive imports the fixture's transcripts, and returns a server on the

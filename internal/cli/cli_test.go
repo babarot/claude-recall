@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 func ptr[T any](v T) *T { return &v }

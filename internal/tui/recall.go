@@ -8,7 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/babarot/claude-recall/internal/resume"
-	"github.com/babarot/claude-recall/internal/worktree"
+	"github.com/babarot/claude-recall/pkg/worktree"
 )
 
 // c recalls the selected session in a new claude, for a session claude -r

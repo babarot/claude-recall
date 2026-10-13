@@ -14,7 +14,7 @@ import (
 	"github.com/charmbracelet/x/ansi/kitty"
 
 	"github.com/babarot/claude-recall/internal/config"
-	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 // withImage is a session whose first request has an image pasted into it.

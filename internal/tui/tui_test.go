@@ -14,9 +14,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/theme"
 	"github.com/babarot/claude-recall/internal/tidy"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 var now = time.Date(2026, 10, 2, 19, 0, 0, 0, time.Local)

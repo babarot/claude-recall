@@ -10,10 +10,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/tidy"
 	"github.com/babarot/claude-recall/internal/title"
-	"github.com/babarot/claude-recall/internal/worktree"
+	"github.com/babarot/claude-recall/pkg/db"
+	"github.com/babarot/claude-recall/pkg/worktree"
 )
 
 // The detail pane is three frames: Conversation (how the session began and

@@ -6,9 +6,9 @@ package api
 
 import (
 	"github.com/babarot/claude-recall/internal/cli"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/jscompat"
 	"github.com/babarot/claude-recall/internal/title"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 func slice(p *string, n int) *string {

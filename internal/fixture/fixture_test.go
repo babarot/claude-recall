@@ -3,7 +3,7 @@ package fixture
 import (
 	"testing"
 
-	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 func TestArchive(t *testing.T) {

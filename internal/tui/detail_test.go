@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/babarot/claude-recall/internal/config"
-	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/pkg/db"
 	"github.com/charmbracelet/x/ansi"
 )
 

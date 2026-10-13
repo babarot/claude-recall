@@ -16,8 +16,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/babarot/claude-recall/internal/config"
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/parser"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 // Status says what an import did.

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/filter"
 	"github.com/babarot/claude-recall/internal/title"
-	"github.com/babarot/claude-recall/internal/worktree"
+	"github.com/babarot/claude-recall/pkg/db"
+	"github.com/babarot/claude-recall/pkg/worktree"
 )
 
 // row is a session with everything the list shows, formatted once at load.

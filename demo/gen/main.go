@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 func main() {

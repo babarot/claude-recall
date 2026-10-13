@@ -12,9 +12,9 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/fixture"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files in testdata")

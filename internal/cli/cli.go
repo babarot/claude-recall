@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 // color wraps s like @std/fmt/colors: nested closing codes are reopened, and

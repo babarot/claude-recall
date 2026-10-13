@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 // The sessions Projects writes.

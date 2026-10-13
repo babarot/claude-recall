@@ -12,7 +12,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/filter"
-	"github.com/babarot/claude-recall/internal/worktree"
+	"github.com/babarot/claude-recall/pkg/worktree"
 )
 
 // The list can be narrowed to one folder: a repository with its worktrees,

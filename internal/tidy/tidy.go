@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/babarot/claude-recall/internal/db"
-	"github.com/babarot/claude-recall/internal/worktree"
+	"github.com/babarot/claude-recall/pkg/db"
+	"github.com/babarot/claude-recall/pkg/worktree"
 )
 
 // Edited files and commands come straight from tool inputs: absolute paths,

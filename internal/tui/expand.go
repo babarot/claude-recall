@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/babarot/claude-recall/internal/config"
-	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/pkg/db"
 )
 
 // Space spreads Conversation over the whole detail pane and grows the pane,
