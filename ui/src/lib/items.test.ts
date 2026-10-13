@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildItems, failedResult, looksFailed, relativeTo, tally, toolLabel } from "./items";
+import { buildItems, looksFailed, outcome, relativeTo, tally, toolLabel } from "./items";
 import type { Message } from "./chat-utils";
 
 let n = 0;
@@ -98,11 +98,15 @@ describe("relativeTo", () => {
   });
 });
 
-describe("failedResult", () => {
-  it("follows isError, and reads the text when it is not known", () => {
-    expect(failedResult({ content: "fine", isError: true })).toBe(true);
-    expect(failedResult({ content: "Error: but it said no", isError: false })).toBe(false);
-    expect(failedResult({ content: "Error: no such file" })).toBe(true);
-    expect(failedResult({ content: "fine" })).toBe(false);
+describe("outcome", () => {
+  const call = (content: string, extra: { toolUseId?: string; isError?: boolean } = {}) =>
+    ({ result: { type: "tool_result" as const, content, ...extra } });
+  it("follows isError, takes a result tied by id without one as ok, and reads the text of the rest", () => {
+    expect(outcome(call("fine", { toolUseId: "t1", isError: true }))).toBe("error");
+    expect(outcome(call("Error: but it said no", { toolUseId: "t1", isError: false }))).toBe("ok");
+    expect(outcome(call("Error: printed by a test that passed", { toolUseId: "t1" }))).toBe("ok");
+    expect(outcome(call("Error: no such file"))).toBe("error");
+    expect(outcome(call("fine"))).toBe("unknown");
+    expect(outcome({})).toBe("unknown");
   });
 });

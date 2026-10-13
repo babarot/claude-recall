@@ -75,17 +75,24 @@ export function tally(calls: Call[]): { counts: [string, number][]; failed: numb
   for (const c of calls) {
     const name = c.use?.toolName ?? "?";
     n.set(name, (n.get(name) ?? 0) + 1);
-    if (c.result && failedResult(c.result)) failed++;
+    if (outcome(c) === "error") failed++;
   }
   return { counts: [...n.entries()].sort((a, b) => b[1] - a[1]), failed };
 }
 
 /**
- * Whether a result was a failure: as the transcript said, or, for a
- * session stored before the archive kept it, as its text reads.
+ * How a call went: "ok" or "error" as the transcript said. Claude Code
+ * writes no is_error for many calls that worked, so a result tied to its
+ * call by id with no isError worked. A result with no id, from a session
+ * stored before the archive kept them, is an "error" when it reads as one,
+ * and "unknown" otherwise; so is a call with no result.
  */
-export function failedResult(r: { content: string; isError?: boolean }): boolean {
-  return r.isError ?? looksFailed(r.content);
+export function outcome(c: Call): "ok" | "error" | "unknown" {
+  const r = c.result;
+  if (!r) return "unknown";
+  if (r.isError !== undefined) return r.isError ? "error" : "ok";
+  if (r.toolUseId) return "ok";
+  return looksFailed(r.content) ? "error" : "unknown";
 }
 
 /**
