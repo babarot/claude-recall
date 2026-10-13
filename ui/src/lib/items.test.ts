@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildItems, looksFailed, relativeTo, tally, toolLabel } from "./items";
+import { buildItems, failedResult, looksFailed, relativeTo, tally, toolLabel } from "./items";
 import type { Message } from "./chat-utils";
 
 let n = 0;
@@ -37,6 +37,32 @@ describe("buildItems", () => {
     expect(first.calls[0].result?.content).toBe("orphan");
   });
 
+  it("pairs a result with the call whose id it carries, whatever the order", () => {
+    const items = buildItems([
+      use("Read"), use("Grep"), use("Bash"),
+      m("user", "tool_result", "matches", { toolUseId: "t2" }),
+      m("user", "tool_result", "Exit code 1", { toolUseId: "t3", isError: false }),
+      m("user", "tool_result", "file", { toolUseId: "t1", isError: true }),
+    ].map((x, i) => (i < 3 ? { ...x, toolUseId: `t${i + 1}` } : x)));
+    const run = items[0];
+    if (run.kind !== "run") throw new Error("not a run");
+    expect(run.calls.map((c) => [c.use?.toolName, c.result?.content])).toEqual([
+      ["Read", "file"], ["Grep", "matches"], ["Bash", "Exit code 1"],
+    ]);
+    // What the transcript said wins over how the text reads.
+    expect(tally(run.calls).failed).toBe(1);
+  });
+
+  it("keeps a result whose id matches no call apart", () => {
+    const items = buildItems([
+      { ...use("Read"), toolUseId: "t1" },
+      m("user", "tool_result", "late", { toolUseId: "t0" }),
+    ]);
+    const run = items[0];
+    if (run.kind !== "run") throw new Error("not a run");
+    expect(run.calls.map((c) => [c.use?.toolName, c.result?.content])).toEqual([["Read", undefined], [undefined, "late"]]);
+  });
+
   it("keys items by cursor", () => {
     const items = buildItems([m("user", "text", "a"), m("assistant", "text", "b")]);
     expect(new Set(items.map((i) => i.key)).size).toBe(2);
@@ -69,5 +95,14 @@ describe("relativeTo", () => {
     expect(relativeTo("cd /home/me/app/web && npm test", "/home/me/app/")).toBe("cd web && npm test");
     expect(relativeTo("/home/me/apple/x.go", "/home/me/app")).toBe("/home/me/apple/x.go");
     expect(relativeTo("/etc/hosts", undefined)).toBe("/etc/hosts");
+  });
+});
+
+describe("failedResult", () => {
+  it("follows isError, and reads the text when it is not known", () => {
+    expect(failedResult({ content: "fine", isError: true })).toBe(true);
+    expect(failedResult({ content: "Error: but it said no", isError: false })).toBe(false);
+    expect(failedResult({ content: "Error: no such file" })).toBe(true);
+    expect(failedResult({ content: "fine" })).toBe(false);
   });
 });

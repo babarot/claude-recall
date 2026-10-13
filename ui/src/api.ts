@@ -42,6 +42,10 @@ export interface Message {
   toolInput: string | null;
   toolInputLength?: number;
   timestamp: string | null;
+  /** Ties a tool_result to its tool_use; absent for a session stored before the archive kept it. */
+  toolUseId?: string;
+  /** Whether a tool_result was an error; absent when the archive does not know. */
+  isError?: boolean;
 }
 
 export interface Range {

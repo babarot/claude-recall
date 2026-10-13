@@ -41,12 +41,34 @@ type ConvMessage struct {
 	ToolName  *string
 	ToolInput *string
 	Timestamp *string
+	// ToolUseID ties a tool_result to its tool_use; IsError says whether
+	// a tool_result was an error. nil when the archive does not know.
+	ToolUseID *string
+	IsError   *bool
 }
 
-const convColumns = `SELECT turn_index, block_index, uuid, role, block_type, content, tool_name, tool_input, timestamp FROM messages`
+// convColumns selects a ConvMessage. tool_use_id and is_error read as NULL
+// on an archive opened read-only before the migrations that added them.
+func (d *DB) convColumns() (string, error) {
+	useID, err := d.optionalColumnOf("messages", "tool_use_id", "tool_use_id")
+	if err != nil {
+		return "", err
+	}
+	isError, err := d.optionalColumnOf("messages", "is_error", "is_error")
+	if err != nil {
+		return "", err
+	}
+	return `SELECT turn_index, block_index, uuid, role, block_type, content, tool_name, tool_input, timestamp, ` +
+		useID + `, ` + isError + ` FROM messages`, nil
+}
 
+// convMessages reads the messages of query, what follows FROM messages.
 func (d *DB) convMessages(query string, args ...any) ([]ConvMessage, error) {
-	rows, err := d.sql.Query(query, args...)
+	cols, err := d.convColumns()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := d.sql.Query(cols+query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +77,7 @@ func (d *DB) convMessages(query string, args ...any) ([]ConvMessage, error) {
 	for rows.Next() {
 		var m ConvMessage
 		if err := rows.Scan(&m.Cursor.Turn, &m.Cursor.Block, &m.UUID, &m.Role, &m.BlockType, &m.Content,
-			&m.ToolName, &m.ToolInput, &m.Timestamp); err != nil {
+			&m.ToolName, &m.ToolInput, &m.Timestamp, &m.ToolUseID, &m.IsError); err != nil {
 			return nil, err
 		}
 		out = append(out, m)
@@ -66,7 +88,7 @@ func (d *DB) convMessages(query string, args ...any) ([]ConvMessage, error) {
 // ConversationAfter returns up to limit messages of a session after c, not
 // c itself, oldest first; with c nil, from the start.
 func (d *DB) ConversationAfter(sessionID string, c *Cursor, limit int) ([]ConvMessage, error) {
-	q, args := convColumns+` WHERE session_id = ?`, []any{sessionID}
+	q, args := ` WHERE session_id = ?`, []any{sessionID}
 	if c != nil {
 		q, args = q+` AND (turn_index, block_index) > (?, ?)`, append(args, c.Turn, c.Block)
 	}
@@ -80,7 +102,7 @@ func (d *DB) ConversationAfter(sessionID string, c *Cursor, limit int) ([]ConvMe
 // ConversationBefore returns up to limit messages of a session before c,
 // not c itself, oldest first; with c nil, the last ones.
 func (d *DB) ConversationBefore(sessionID string, c *Cursor, limit int) ([]ConvMessage, error) {
-	q, args := convColumns+` WHERE session_id = ?`, []any{sessionID}
+	q, args := ` WHERE session_id = ?`, []any{sessionID}
 	if c != nil {
 		q, args = q+` AND (turn_index, block_index) < (?, ?)`, append(args, c.Turn, c.Block)
 	}
@@ -130,7 +152,7 @@ func (d *DB) Anchor(sessionID string, c Cursor, uuid string, upTo int) (bool, er
 
 // MessageAt returns the message at c, or nil.
 func (d *DB) MessageAt(sessionID string, c Cursor) (*ConvMessage, error) {
-	msgs, err := d.convMessages(convColumns+` WHERE session_id = ? AND turn_index = ? AND block_index = ?`, sessionID, c.Turn, c.Block)
+	msgs, err := d.convMessages(` WHERE session_id = ? AND turn_index = ? AND block_index = ?`, sessionID, c.Turn, c.Block)
 	if err != nil {
 		return nil, fmt.Errorf("message: %w", err)
 	}
@@ -144,7 +166,7 @@ func (d *DB) MessageAt(sessionID string, c Cursor) (*ConvMessage, error) {
 // blocks but those that are only tags (slash commands, hook output), as
 // SessionMessages leaves them out.
 func (d *DB) Prompts(sessionID string) ([]ConvMessage, error) {
-	msgs, err := d.convMessages(convColumns+` WHERE session_id = ? AND block_type = 'text' AND role = 'user'
+	msgs, err := d.convMessages(` WHERE session_id = ? AND block_type = 'text' AND role = 'user'
         AND content NOT LIKE '<%' ORDER BY turn_index, block_index`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("prompts: %w", err)
@@ -156,7 +178,7 @@ func (d *DB) Prompts(sessionID string) ([]ConvMessage, error) {
 // SessionMessages reads it, whose text contains text, ignoring ASCII case,
 // in order.
 func (d *DB) FindInConversation(sessionID, text string) ([]ConvMessage, error) {
-	msgs, err := d.convMessages(convColumns+` `+strings.TrimPrefix(textMessages, "FROM messages")+`
+	msgs, err := d.convMessages(` `+strings.TrimPrefix(textMessages, "FROM messages")+`
         AND content LIKE ? ESCAPE '\' ORDER BY turn_index, block_index`, sessionID, "%"+likeEscaper.Replace(text)+"%")
 	if err != nil {
 		return nil, fmt.Errorf("find in conversation: %w", err)
