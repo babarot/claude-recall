@@ -71,6 +71,7 @@ type Block struct {
 	Content   string
 	ToolName  string
 	ToolInput string
+	ToolUseID string
 }
 
 // BlocksIn yields the blocks whose timestamp is in [from, to), of the
@@ -79,8 +80,13 @@ type Block struct {
 // let go of when the loop ends, early or not. An error ends the sequence.
 func (d *DB) BlocksIn(ctx context.Context, sessionID string, from, to time.Time) iter.Seq2[Block, error] {
 	return func(yield func(Block, error) bool) {
+		useID, err := d.optionalColumnOf("messages", "tool_use_id", "tool_use_id")
+		if err != nil {
+			yield(Block{}, fmt.Errorf("blocks in: %w", err))
+			return
+		}
 		q := `SELECT session_id, COALESCE(turn_index, 0), block_index, uuid, timestamp, role, block_type,
-                     content, COALESCE(tool_name, ''), COALESCE(tool_input, '')
+                     content, COALESCE(tool_name, ''), COALESCE(tool_input, ''), COALESCE(` + useID + `, '')
               FROM messages
               WHERE timestamp >= ? AND timestamp < ?`
 		args := []any{timestampBound(from), timestampBound(to)}
@@ -100,7 +106,7 @@ func (d *DB) BlocksIn(ctx context.Context, sessionID string, from, to time.Time)
 			var b Block
 			var ts string
 			if err := rows.Scan(&b.SessionID, &b.Turn, &b.Index, &b.UUID, &ts, &b.Role, &b.Kind,
-				&b.Content, &b.ToolName, &b.ToolInput); err != nil {
+				&b.Content, &b.ToolName, &b.ToolInput, &b.ToolUseID); err != nil {
 				yield(Block{}, fmt.Errorf("blocks in: %w", err))
 				return
 			}

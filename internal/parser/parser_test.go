@@ -276,3 +276,31 @@ func TestParseTitle(t *testing.T) {
 		}
 	}
 }
+
+func TestParseToolUseID(t *testing.T) {
+	result := line(map[string]any{"type": "user", "uuid": "u2", "sessionId": "sess-001", "timestamp": "2026-01-01T00:00:02Z",
+		"message": map[string]any{"role": "user", "content": []any{
+			map[string]any{"type": "tool_result", "tool_use_id": "toolu_2", "content": "second"},
+			map[string]any{"type": "tool_result", "tool_use_id": "toolu_1", "content": "first"},
+			map[string]any{"type": "tool_result", "content": "no id"},
+		}}})
+	s := mustParse(t, jsonl(userMsg("go", "u1", "2026-01-01T00:00:00Z"),
+		assistantMsg([]any{
+			map[string]any{"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": map[string]any{"command": "ls"}},
+			map[string]any{"type": "tool_use", "id": "toolu_2", "name": "Read", "input": map[string]any{}},
+			map[string]any{"type": "tool_use", "name": "Grep"},
+		}, "a1", "2026-01-01T00:00:01Z"),
+		result))
+	got := []string{}
+	for _, m := range s.Messages {
+		id := "-"
+		if m.ToolUseID != nil {
+			id = *m.ToolUseID
+		}
+		got = append(got, m.BlockType+":"+id)
+	}
+	want := "text:-,tool_use:toolu_1,tool_use:toolu_2,tool_use:-,tool_result:toolu_2,tool_result:toolu_1,tool_result:-"
+	if strings.Join(got, ",") != want {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}

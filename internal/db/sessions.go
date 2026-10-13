@@ -47,7 +47,12 @@ func (d *DB) hasColumn(table, column string) (bool, error) {
 // optionalColumn is expr when sessions has column, and NULL on an archive
 // opened read-only before the migration that added it.
 func (d *DB) optionalColumn(expr, column string) (string, error) {
-	ok, err := d.hasColumn("sessions", column)
+	return d.optionalColumnOf("sessions", expr, column)
+}
+
+// optionalColumnOf is optionalColumn for a column of table.
+func (d *DB) optionalColumnOf(table, expr, column string) (string, error) {
+	ok, err := d.hasColumn(table, column)
 	if err != nil || !ok {
 		return "NULL", err
 	}

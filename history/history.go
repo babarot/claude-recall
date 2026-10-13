@@ -136,6 +136,11 @@ type Message struct {
 	// ToolName and ToolInput (JSON) are set on a tool_use.
 	ToolName  string
 	ToolInput string
+	// ToolUseID ties a tool_result to its tool_use: both carry the same
+	// id. Empty when recall stored the session before it kept ids and the
+	// transcript is gone since, so it could not import it again; pair such
+	// a result with the call by order.
+	ToolUseID string
 }
 
 // Messages yields the messages whose timestamp is in [from, to), of the
@@ -161,6 +166,7 @@ func (h *History) Messages(ctx context.Context, sessionID string, from, to time.
 				Content:   b.Content,
 				ToolName:  b.ToolName,
 				ToolInput: b.ToolInput,
+				ToolUseID: b.ToolUseID,
 			}
 			if !yield(m, nil) {
 				return
