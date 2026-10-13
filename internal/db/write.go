@@ -68,6 +68,7 @@ type MessageRow struct {
 	ToolName   *string
 	ToolInput  *string
 	ToolUseID  *string
+	IsError    *bool
 	Timestamp  string
 	TurnIndex  int
 }
@@ -129,15 +130,15 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, ch
 		return fmt.Errorf("insert session: %w", err)
 	}
 
-	msgStmt, err := tx.Prepare(`INSERT OR IGNORE INTO messages (session_id, uuid, role, block_type, block_index, content, tool_name, tool_input, tool_use_id, timestamp, turn_index)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	msgStmt, err := tx.Prepare(`INSERT OR IGNORE INTO messages (session_id, uuid, role, block_type, block_index, content, tool_name, tool_input, tool_use_id, is_error, timestamp, turn_index)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("insert messages: %w", err)
 	}
 	defer msgStmt.Close()
 	for _, m := range msgs {
 		if _, err = msgStmt.Exec(s.SessionID, m.UUID, m.Role, m.BlockType, m.BlockIndex, m.Content,
-			m.ToolName, m.ToolInput, m.ToolUseID, m.Timestamp, m.TurnIndex); err != nil {
+			m.ToolName, m.ToolInput, m.ToolUseID, m.IsError, m.Timestamp, m.TurnIndex); err != nil {
 			return fmt.Errorf("insert message: %w", err)
 		}
 	}

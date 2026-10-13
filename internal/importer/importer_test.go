@@ -392,7 +392,7 @@ func TestImportRereadsChangedFile(t *testing.T) {
 	}
 }
 
-func TestImportStoresToolUseIDsOfOlderRows(t *testing.T) {
+func TestImportStoresToolFieldsOfOlderRows(t *testing.T) {
 	use, _ := json.Marshal(map[string]any{
 		"type": "assistant", "uuid": "a1", "sessionId": "sess-001", "timestamp": "2026-01-01T00:00:01Z",
 		"message": map[string]any{"role": "assistant", "content": []any{
@@ -401,12 +401,12 @@ func TestImportStoresToolUseIDsOfOlderRows(t *testing.T) {
 	result, _ := json.Marshal(map[string]any{
 		"type": "user", "uuid": "u2", "sessionId": "sess-001", "timestamp": "2026-01-01T00:00:02Z",
 		"message": map[string]any{"role": "user", "content": []any{
-			map[string]any{"type": "tool_result", "tool_use_id": "toolu_1", "content": "file.go"}}},
+			map[string]any{"type": "tool_result", "tool_use_id": "toolu_1", "content": "file.go", "is_error": true}}},
 	})
 	e := newEnv(t, userLine("hello", "u1", "2026-01-01T00:00:00Z"), string(use), string(result))
 	e.importFile()
 	// Simulate rows written by the importer before it kept ids.
-	if _, err := e.db.Exec(`UPDATE messages SET tool_use_id = NULL`); err != nil {
+	if _, err := e.db.Exec(`UPDATE messages SET tool_use_id = NULL, is_error = NULL`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.db.Exec(`UPDATE sessions SET import_version = NULL`); err != nil {
@@ -418,7 +418,7 @@ func TestImportStoresToolUseIDsOfOlderRows(t *testing.T) {
 	if r := e.importFile(); r.Status != Unchanged {
 		t.Fatalf("second import: %+v", r)
 	}
-	n := 0
+	n, failed := 0, 0
 	for b, err := range e.db.BlocksIn(context.Background(), "sess-001", time.Time{}, time.Now()) {
 		if err != nil {
 			t.Fatal(err)
@@ -426,8 +426,21 @@ func TestImportStoresToolUseIDsOfOlderRows(t *testing.T) {
 		if b.ToolUseID == "toolu_1" {
 			n++
 		}
+		if b.IsError {
+			failed++
+		}
+	}
+	if failed != 1 {
+		t.Fatalf("%d blocks marked an error, want the result", failed)
 	}
 	if n != 2 {
 		t.Fatalf("%d blocks with the id, want the tool_use and its result", n)
+	}
+	// Stored by the importer that kept ids but not errors.
+	if _, err := e.db.Exec(`UPDATE sessions SET import_version = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.importFile(); r.Status != Resynced {
+		t.Fatalf("a session stored at an older version must be imported again: %+v", r)
 	}
 }

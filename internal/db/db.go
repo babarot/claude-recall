@@ -107,6 +107,10 @@ var migrations = []string{
 	// keeps NULL ids.
 	`ALTER TABLE messages ADD COLUMN tool_use_id TEXT;
 	 ALTER TABLE sessions ADD COLUMN import_version INTEGER`,
+	// 4: whether a tool_result was an error: 1 or 0 as the transcript
+	// says, NULL when it does not say or the session was stored before
+	// (importer.importVersion 2).
+	`ALTER TABLE messages ADD COLUMN is_error INTEGER`,
 }
 
 func (d *DB) migrate() error {

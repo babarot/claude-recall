@@ -141,6 +141,10 @@ type Message struct {
 	// transcript is gone since, so it could not import it again; pair such
 	// a result with the call by order.
 	ToolUseID string
+	// IsError is true for a tool_result the transcript marked an error.
+	// False when it was not, when the transcript does not say, and for a
+	// session stored before recall kept it whose transcript is gone.
+	IsError bool
 }
 
 // Messages yields the messages whose timestamp is in [from, to), of the
@@ -167,6 +171,7 @@ func (h *History) Messages(ctx context.Context, sessionID string, from, to time.
 				ToolName:  b.ToolName,
 				ToolInput: b.ToolInput,
 				ToolUseID: b.ToolUseID,
+				IsError:   b.IsError,
 			}
 			if !yield(m, nil) {
 				return

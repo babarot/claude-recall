@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -302,5 +303,29 @@ func TestParseToolUseID(t *testing.T) {
 	want := "text:-,tool_use:toolu_1,tool_use:toolu_2,tool_use:-,tool_result:toolu_2,tool_result:toolu_1,tool_result:-"
 	if strings.Join(got, ",") != want {
 		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestParseIsError(t *testing.T) {
+	result := line(map[string]any{"type": "user", "uuid": "u2", "sessionId": "sess-001", "timestamp": "2026-01-01T00:00:02Z",
+		"message": map[string]any{"role": "user", "content": []any{
+			map[string]any{"type": "tool_result", "tool_use_id": "toolu_1", "content": "Exit code 1", "is_error": true},
+			map[string]any{"type": "tool_result", "tool_use_id": "toolu_2", "content": "ok", "is_error": false},
+			map[string]any{"type": "tool_result", "tool_use_id": "toolu_3", "content": "no word on it"},
+		}}})
+	s := mustParse(t, jsonl(userMsg("go", "u1", "2026-01-01T00:00:00Z"), result))
+	got := []string{}
+	for _, m := range s.Messages[1:] {
+		v := "nil"
+		if m.IsError != nil {
+			v = strconv.FormatBool(*m.IsError)
+		}
+		got = append(got, v)
+	}
+	if strings.Join(got, ",") != "true,false,nil" {
+		t.Fatalf("IsError %v, want true,false,nil", got)
+	}
+	if s.Messages[0].IsError != nil {
+		t.Fatalf("a text block has IsError %v", *s.Messages[0].IsError)
 	}
 }
