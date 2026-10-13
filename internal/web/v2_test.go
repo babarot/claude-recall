@@ -276,3 +276,25 @@ func TestV2Find(t *testing.T) {
 		t.Errorf("after another process imported: %+v", f)
 	}
 }
+
+func TestV2Theme(t *testing.T) {
+	s := newServer(t)
+	for theme, want := range map[string]string{
+		"":                 `{"name":"auto","fixed":false}`,
+		"auto":             `{"name":"auto","fixed":false}`,
+		"ansi":             `{"name":"ansi","fixed":false}`,
+		"no-such-scheme":   `{"name":"auto","fixed":false}`,
+		"tokyo-night":      `{"name":"tokyo-night","fixed":true,"dark":true,"colors":{`,
+		"catppuccin-latte": `{"name":"catppuccin-latte","fixed":true,"colors":{`,
+	} {
+		s.Theme = theme
+		if got := strings.TrimSpace(get(t, s, "/api/v2/theme").Body.String()); !strings.HasPrefix(got, want) {
+			t.Errorf("%q: %s, want %s…", theme, got, want)
+		}
+	}
+	s.Theme = "dracula"
+	got := decode[api.V2Theme](t, s, "/api/v2/theme")
+	if got.Colors["bg"] != "#282a36" || got.Colors["accent"] != "#8be9fd" {
+		t.Errorf("dracula: %v", got.Colors)
+	}
+}

@@ -89,6 +89,14 @@ export interface Snippet {
   text: string;
 }
 
+/** The TUI's color scheme, as the page is to draw it (see internal/api.V2Theme). */
+export interface Theme {
+  name: string;
+  fixed: boolean;
+  dark?: boolean;
+  colors?: Record<string, string>;
+}
+
 export interface Find {
   ids: string[];
   text: boolean;
@@ -134,5 +142,6 @@ export const api = {
   detail: (id: string, signal?: AbortSignal) => get<Detail>(`/api/v2/sessions/${enc(id)}/detail`, signal),
   find: (q: string, text: boolean, signal?: AbortSignal) =>
     get<Find>(`/api/v2/find?q=${enc(q)}${text ? "&text=1" : ""}`, signal),
+  theme: () => get<Theme>("/api/v2/theme"),
   status: () => get<{ version: string; watcher: { running: boolean } }>("/api/status"),
 };

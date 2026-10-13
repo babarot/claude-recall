@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { effect } from "@preact/signals";
 import {
-  bodyWords, density, focus, folder, folders, found, loadSessions, loadSettings, now, query, reading, refreshSession,
+  bodyWords, density, fixedTheme, focus, folder, folders, found, loadSessions, loadSettings, now, query, reading, refreshSession,
   saveSettings, selected, setQuery, showFolders, sort, tab, theme, toast, visible, worktree,
 } from "./store/app";
 import * as conv from "./store/conversation";
@@ -14,6 +14,7 @@ import { copyID, copyResume, findInput, Reader, stepHit } from "./components/Rea
 import { atBottom, conversationEl, currentPrompt, goTo, zoom } from "./components/Conversation";
 import { StatsView } from "./components/StatsView";
 import { api } from "./api";
+import { applyTheme } from "./lib/theme";
 
 // URL: / or /session/<id>, with ?q= for the search; /stats for the stats.
 function readURL(): { id: string | null; q: string; stats: boolean } {
@@ -52,6 +53,10 @@ export function App() {
     if (u.q) setQuery(u.q, 0);
     void loadSessions();
     api.status().then((s) => setVersion(s.version)).catch(() => {});
+    api.theme().then((t) => {
+      applyTheme(t);
+      fixedTheme.value = t.fixed ? t.name : null;
+    }).catch(() => {});
     const tick = setInterval(() => { now.value = new Date(); }, 30000);
     // Back and forward: the URL says what to show.
     const onPop = () => {
@@ -294,13 +299,15 @@ export function App() {
           <button class="iconbtn" title="Stats" onClick={() => { history.pushState(null, "", "/stats"); setStats(true); }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
           </button>
-          <button class="iconbtn" title="テーマ：auto / dark / light" onClick={() => {
-            theme.value = ({ auto: "dark", dark: "light", light: "auto" } as const)[theme.value];
-            saveSettings();
-          }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" /></svg>
-            <span>{theme.value}</span>
-          </button>
+          {fixedTheme.value === null && (
+            <button class="iconbtn" title="テーマ：auto / dark / light" onClick={() => {
+              theme.value = ({ auto: "dark", dark: "light", light: "auto" } as const)[theme.value];
+              saveSettings();
+            }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" /></svg>
+              <span>{theme.value}</span>
+            </button>
+          )}
           <button class="iconbtn" title="キー一覧" onClick={() => setKeysOpen(true)}><kbd>?</kbd></button>
         </div>
       </header>

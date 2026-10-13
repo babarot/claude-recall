@@ -51,6 +51,8 @@ Opening a session found in its conversation searches the conversation for the wo
 
 ## Settings
 
-The theme (`auto`, `dark` or `light`, at the top right), how tool calls show, the sort order and whether the folders show are kept in the browser. The colors are the TUI's catppuccin-mocha and catppuccin-latte.
+The page is drawn in the TUI's color scheme, `theme` under `[tui]` in the [config file](configuration.md), read when `recall ui` starts. With `auto`, or `ansi`, which a page cannot draw, it is catppuccin-mocha or catppuccin-latte, and the switch at the top right picks `auto` (as the browser is), `dark` or `light`; with a scheme of its own, such as tokyo-night, the page takes it and the switch is gone.
+
+The switch, how tool calls show, the sort order and whether the folders show are kept in the browser.
 
 A page in a background tab lets go of its connection to the server and takes it again when shown, reading what changed meanwhile: a browser keeps at most six connections to one host.

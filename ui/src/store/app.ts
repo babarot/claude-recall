@@ -33,6 +33,8 @@ export const focus = signal<Pane>("list");
 export const tab = signal<Tab>("conv");
 export const showFolders = signal(true);
 export const theme = signal<Theme>("auto");
+/** The TUI's scheme is one of its own: the page is drawn in it, with no switch. */
+export const fixedTheme = signal<string | null>(null);
 export const density = signal<Density>("talk");
 /** On a narrow screen, the conversation is shown in place of the list. */
 export const reading = signal(false);

@@ -112,6 +112,9 @@ type Server struct {
 	// that recalls a session in a new claude; Home shortens paths to ~.
 	Self []string
 	Home string
+	// Theme is the TUI's color scheme ([tui] theme), which the web UI is
+	// drawn in too; empty or not a scheme is auto.
+	Theme string
 
 	trees []string
 	port  int
