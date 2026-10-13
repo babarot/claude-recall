@@ -104,7 +104,7 @@ function Row({ s, words, snippet, onPick }: { s: Session; words: string[]; snipp
         <span class="s-time" title={s.endedAt ?? ""}>{relative(s.endedAt, now.value)}</span>
       </div>
       <div class="s-meta">
-        <span class={`repo ${s.gone && !s.worktree ? "gone" : ""}`}>{s.groupName}</span>
+        <span class={`repo ${s.gone && !s.worktree ? "gone" : ""}`} title={s.groupName}>{s.folder}</span>
         {s.worktree
           ? <><span class="sep">·</span><span class="wt">{s.worktree}</span></>
           : s.branch && <><span class="sep">·</span><span>{s.branch}</span></>}

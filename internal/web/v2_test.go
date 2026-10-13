@@ -113,6 +113,30 @@ func TestV2Sessions(t *testing.T) {
 	}
 }
 
+// The checkouts of one git remote are one folder named by it; each
+// session still says where it ran.
+func TestV2SessionsGroupByRemote(t *testing.T) {
+	s, path, _ := archive(t)
+	d, err := db.Open(path, db.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Exec(`UPDATE sessions SET remote = 'github.com/acme/app'`); err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	list := decode[[]api.V2Session](t, s, "/api/v2/sessions")
+	for _, x := range list {
+		if x.GroupKey != "remote:github.com/acme/app" || x.GroupName != "acme/app" || !strings.HasPrefix(x.Folder, "/work/") {
+			t.Errorf("entry %+v", x)
+		}
+	}
+	one := decode[[]api.V2Session](t, s, "/api/v2/sessions?id="+fixture.AppSession)
+	if len(one) != 1 || one[0].GroupName != "acme/app" {
+		t.Errorf("?id= gives the same folder: %+v", one)
+	}
+}
+
 func TestV2SessionResume(t *testing.T) {
 	s, _, projects := archive(t)
 	gone := decode[api.V2SessionDetail](t, s, "/api/v2/sessions/"+fixture.AppSession)

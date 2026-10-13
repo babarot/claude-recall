@@ -92,6 +92,9 @@ type Model struct {
 	// startDir is the directory the TUI started in, where a recalled
 	// session's claude runs.
 	folders []folderInfo
+	// byRemote is the folder each directory's key went to by its git
+	// remote (see worktree.RemoteGroups).
+	byRemote map[string]worktree.Group
 	// branches and worktrees are the values the filter suggests for
 	// branch: and worktree:.
 	branches, worktrees []sideEntry
@@ -224,7 +227,10 @@ func New(sessions []db.Session, source Source, cfg config.TUI) Model {
 	ss.Placeholder = "search folders"
 	ss.SetWidth(sidebarWidth - 12)
 
+	folders, byRemote := groupRows(rows)
 	m := Model{
+		folders:       folders,
+		byRemote:      byRemote,
 		ask:           askState{input: newAskInput()},
 		recall:        recallState{input: newRecallInput()},
 		askRun:        claudeRunner([]string{"recall", "mcp"}, config.ModelID(cfg.AskModel), ""),
@@ -234,7 +240,6 @@ func New(sessions []db.Session, source Source, cfg config.TUI) Model {
 		conv:          newConvSearch(),
 		km:            defaultKeyMap(),
 		resolver:      resolver,
-		folders:       groupRows(rows),
 		cfg:           cfg,
 		source:        source,
 		home:          home,
