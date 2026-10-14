@@ -32,13 +32,7 @@ main() {
   "${INSTALL_DIR}/recall" import
 
   echo ""
-  if command -v claude &>/dev/null; then
-    echo "Registering MCP server..."
-    claude mcp add claude-recall -s user -- "${INSTALL_DIR}/recall" mcp 2>/dev/null && echo "  OK" || echo "  Failed (register manually)"
-  else
-    echo "Register the MCP server once Claude Code is installed:"
-    echo "  claude mcp add claude-recall -s user -- ${INSTALL_DIR}/recall mcp"
-  fi
+  register_mcp
 
   echo ""
   echo "Installed to ${INSTALL_DIR}/recall"
@@ -46,6 +40,36 @@ main() {
     *":${INSTALL_DIR}:"*) ;;
     *) echo "Add ${INSTALL_DIR} to PATH to run recall." ;;
   esac
+}
+
+# The registration stores the path to the binary, so an existing one keeps
+# working after an upgrade. Only `claude mcp add` fails with "already exists",
+# so check first instead of reporting that as a failure.
+register_mcp() {
+  local cmd="${INSTALL_DIR}/recall"
+
+  if ! command -v claude &>/dev/null; then
+    echo "Register the MCP server once Claude Code is installed:"
+    echo "  claude mcp add claude-recall -s user -- ${cmd} mcp"
+    return
+  fi
+
+  echo "Registering MCP server..."
+
+  local registered
+  if registered=$(claude mcp get claude-recall 2>/dev/null); then
+    if grep -qF -- "${cmd}" <<<"${registered}"; then
+      echo "  Already registered to ${cmd} — skipped"
+      return
+    fi
+    claude mcp remove claude-recall -s user &>/dev/null || true
+  fi
+
+  if claude mcp add claude-recall -s user -- "${cmd}" mcp &>/dev/null; then
+    echo "  OK"
+  else
+    echo "  Failed: claude mcp add claude-recall -s user -- ${cmd} mcp"
+  fi
 }
 
 detect_os() {
