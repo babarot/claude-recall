@@ -164,7 +164,7 @@ func (m *Model) openSidebar(focus bool) tea.Cmd {
 	m.sidebar = true
 	if !m.sidebarShown() {
 		m.sidebar = was
-		return m.showToast(toastInfo, fmt.Sprintf("The folder list needs %d columns and the detail pane below", minSidebarWidth))
+		return m.showToast(toastInfo, fmt.Sprintf("The folder list needs at least %d columns, with the detail pane below the list", minSidebarWidth))
 	}
 	if focus {
 		m.focus = focusFolders

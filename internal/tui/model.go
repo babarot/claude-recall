@@ -749,7 +749,7 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 			var text string
 			switch {
 			case r.transcriptDir != "":
-				text = "Its transcript is in another tree: " + worktree.TildePath(r.transcriptDir, m.home)
+				text = "Its transcript is where claude -r does not look: " + worktree.TildePath(r.transcriptDir, m.home)
 			case r.gone:
 				text = "Folder no longer exists: " + worktree.TildePath(r.s.ProjectPath, m.home)
 			default:

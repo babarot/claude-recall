@@ -1106,7 +1106,7 @@ func TestTranscriptInAnotherTree(t *testing.T) {
 	// Rows: bbbbbbbb (folder gone), aaaaaaaa, cccccccc.
 	for _, keys := range [][]string{{"enter"}, {"down", "down", "enter"}} {
 		r := press(t, m, keys...)
-		if r.Result != nil || !strings.Contains(r.toast, "Its transcript is in another tree: "+extra+" · c recalls it in a new claude") {
+		if r.Result != nil || !strings.Contains(r.toast, "Its transcript is where claude -r does not look: "+extra+" · c recalls it in a new claude") {
 			t.Fatalf("%v: result %+v toast %q", keys, r.Result, r.toast)
 		}
 	}
