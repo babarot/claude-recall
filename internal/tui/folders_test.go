@@ -192,7 +192,7 @@ func TestSidebarPicksAFolder(t *testing.T) {
 func TestSidebarNeedsRoom(t *testing.T) {
 	f := newFolderFixture(t)
 	m := update(t, folderModel(t, config.Default().TUI, f, 90, 30), tea.KeyPressMsg{Code: tea.KeyLeft})
-	if m.sidebarShown() || !strings.Contains(screen(m), "needs 100 columns") {
+	if m.sidebarShown() || !strings.Contains(screen(m), "needs at least 100 columns") {
 		t.Fatalf("a narrow terminal should not open the folder list:\n%s", screen(m))
 	}
 	cfg := config.Default().TUI
@@ -259,7 +259,7 @@ func TestArrowsOpenEnterLeaveAndCloseTheSidebar(t *testing.T) {
 	}
 	// Too narrow, ← says why.
 	m = update(t, folderModel(t, config.Default().TUI, f, 90, 30), left)
-	if m.sidebarShown() || !strings.Contains(screen(m), "needs 100 columns") {
+	if m.sidebarShown() || !strings.Contains(screen(m), "needs at least 100 columns") {
 		t.Fatalf("narrow:\n%s", screen(m))
 	}
 }

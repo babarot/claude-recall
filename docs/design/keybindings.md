@@ -17,7 +17,7 @@ In scope: the keyboard in the TUI (`recall` / `recall tui`). Out of scope: the m
 |---|---|
 | Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`) and the Ask Claude box (`a`) |
 | Field | Where text is typed: the filter (`/`), the folder search, the conversation search and Ask's question |
-| Pane | An area that can have the focus: the session list, the folder list, the detail frames (Conversation, What was done, Details) and the spread conversation |
+| Pane | An area that can have the focus: the session list, the folder list, the detail frames (Conversation, What was done, Details) and the reading view |
 | Global | Keys that work whatever pane has the focus |
 | Session operation | An operation on the selected session (resume, read the conversation, copy its ID and so on) |
 
@@ -40,7 +40,7 @@ Keys were compared as strings such as `"enter"` in a `switch` per place, and han
 
 1. The keys that close differed by place. The key list closed with `?` `esc` `q`, Ask's answer with `esc` `q`, a running ask with `esc` only, the sort menu with `esc` `s` `q`
 2. Paging with `ctrl+d` `ctrl+u` worked in the frames and the folder list but not in the session list
-3. A key a detail frame did not know acted as a list key (`q` quit, `space` spread the conversation, `/` opened the filter), while `s` alone was special-cased not to work while reading a frame. Which keys fell through and which did not could only be told from the code
+3. A key a detail frame did not know acted as a list key (`q` quit, `space` opened the reading view, `/` opened the filter), while `s` alone was special-cased not to work while reading a frame. Which keys fell through and which did not could only be told from the code
 4. `a` and `.` worked in the folder list and the frames, `s` did not
 5. Quitting on `ctrl+c` was written separately in each place
 6. Keys were described in four places, apart from one another: the handling, the footer (`renderHelp` in `view.go`), the `?` list (`help.go`), and the README and `docs/tui.md`
@@ -65,7 +65,7 @@ Which modal, field or pane is in front is read in one place, `uiState` in `inter
 
 ### 2. Two kinds of pane
 
-- Session panes: the session list, the detail frames and the spread conversation. They all show the selected session, so the session operations work in them
+- Session panes: the session list, the detail frames and the reading view. They all show the selected session, so the session operations work in them
 - The folder list: where a folder is picked, so the session operations do not work (`enter` there means "back to the sessions")
 
 The session operations are keys shared by the session panes, not global keys.
@@ -89,7 +89,7 @@ A key means the same in every pane.
 
 - The session list: the filter
 - The folder list: the folder search
-- The spread conversation: the conversation search
+- The reading view: the conversation search
 - A pane with no search of its own (a detail frame at its small size): opens the session list's filter, leaving the focus where it is, as before
 
 The last line keeps the old behavior (`/` in a frame opens the filter) as a rule for panes without a search, rather than as a key falling from one pane to another.
@@ -101,10 +101,10 @@ The last line keeps the old behavior (`/` in a frame opens the filter) as a rule
 | Where | 1st | 2nd | 3rd |
 |---|---|---|---|
 | The session list | Clear the filter | Clear the list narrowed by Claude's answer | Nothing |
-| The session list, with the conversation spread | Clear the filter | Clear the list narrowed by Claude's answer | Put the pane back ★ |
+| The session list, with the reading view open | Clear the filter | Clear the list narrowed by Claude's answer | Put the pane back ★ |
 | The folder list | Clear the folder search | Back to the sessions | |
 | A detail frame | Back to the session list | | |
-| The spread conversation | Clear the conversation search | Put the pane back | |
+| The reading view | Clear the conversation search | Put the pane back | |
 | A modal | Close it | | |
 | A field | Cancel (per field, in the table below) | | |
 
@@ -141,13 +141,13 @@ What can change are the global keys, the session panes' keys, the folder list's 
 | `s` | Open the sort menu ★ (only from the session list before) | `sort` |
 | `.` | Switch between the folder recall was started in and all folders | `scope` |
 
-### Session panes (the list, the detail frames, the spread conversation)
+### Session panes (the list, the detail frames, the reading view)
 
 | Key | What it does | Operation |
 |---|---|---|
 | `enter` | Resume the session | `resume` |
 | `c` | Recall the session in a new claude | `recall` |
-| `space` | Spread the conversation, put it back | `read` |
+| `space` | Open or close the reading view | `read` |
 | `y` | Copy the session ID | `copy_id` |
 | `Y` | Copy the resume command, or the recall command when it cannot be resumed | `copy_command` |
 | `+` `=` | Make the detail pane taller | `grow` |
@@ -162,7 +162,7 @@ The shared verbs (move, page ★ adding `ctrl+d` `ctrl+u`, ends, `/` for the fil
 | `←` `h` | Open the folder list; when it is open, move into it | `list.folders_open` |
 | `→` `l` | Close the folder list | `list.folders_close` |
 
-With the conversation spread and the focus on the list, `j` `k` read the next session's conversation in place (as before).
+With the reading view open and the focus on the list, `j` `k` read the next session's conversation in place (as before).
 
 ### The folder list
 
@@ -184,11 +184,11 @@ The shared verbs (scroll by a line, by a screen, to the ends, `esc` back to the 
 - `s`: moves to the global layer, so the sort menu opens from a frame too ★
 - Keys only for the list (`h` `l` alone, before) do not work in a frame (no change)
 
-### The spread conversation
+### The reading view
 
 The shared verbs (scroll, `/` for the conversation search, `n` `N`, `esc`) and the session operations, as before.
 
-★ `s` moves to the global layer, so the sort menu opens from the spread conversation too (it did nothing before).
+★ `s` moves to the global layer, so the sort menu opens from the reading view too (it did nothing before).
 
 ### Fields
 
@@ -214,10 +214,10 @@ All as before.
 ## What changes from the behavior before
 
 1. A key a detail frame does not take goes to the global layer, not to the list (no more keys falling from pane to pane)
-2. `s` (sort) moves to the global layer, so it opens from the detail frames, the spread conversation and the folder list too
+2. `s` (sort) moves to the global layer, so it opens from the detail frames, the reading view and the folder list too
 3. `ctrl+d` `ctrl+u` work in the session list (a screen's worth)
 4. `q` cancels a running ask too
-5. With the conversation spread and the focus on the list, `esc` puts the pane back when there is nothing to clear
+5. With the reading view open and the focus on the list, `esc` puts the pane back when there is nothing to clear
 6. `ctrl+c` is handled in one place at the top (same behavior)
 
 ## Stage 1: a keymap
@@ -227,7 +227,7 @@ All as before.
 - The keys in the footer and the `?` list are built from the keymap, so changing a key changes what they show. They are built by these rules:
   - An entry's keys are written as a template. `{operation.n}` stands for the operation's n-th key (counting from 0), and anything else (spaces, `/` and so on) is shown as is. For example:
     - The `?` list's move line: `{up.0} {down.0}  {down.1} {up.1}` → `↑ ↓  j k` (with the default keys `up = [up, k, ...]`, `down = [down, j, ...]`; as before)
-    - The footer's move in the list: `{up.0}{down.0}` → `↑↓`. Scrolling the spread conversation: `{down.1} {up.1}` → `j k`
+    - The footer's move in the list: `{up.0}{down.0}` → `↑↓`. Scrolling the reading view: `{down.1} {up.1}` → `j k`
     - Resizing: `{grow.0}/{shrink.0}` → `+/-` in the footer, `{grow.0} {shrink.0}` → `+ -` in the `?` list
   - Fixed keys that cannot change (`esc`, the keys of fields and modals) are written in the template as they are: `tab  →` on the filter's completion line, `↑ ↓  enter` on the line for picking a suggestion, `{help.0} esc q close` on the key list's frame
   - When a changed keymap has no key at the index a template names, that `{…}` is left out with the separator before it (after it, at the start). An entry with none of its keys left is left out whole
@@ -270,7 +270,7 @@ In each place keys are taken, the keys of the operations that work there do not 
 
 - The session list: global + session panes + shared verbs + the list's keys
 - A detail frame: global + session panes + shared verbs
-- The spread conversation: global + session panes + shared verbs
+- The reading view: global + session panes + shared verbs
 - The folder list: global + shared verbs + the folder list's keys
 
 Inside a modal, the key that opened it (`help` and `sort`) does not overlap that modal's fixed keys either. `sort = ["1"]`, for example, is an error, since it overlaps the sort menu's "choose the first". `help` and `sort` cannot take `esc` or `q` (they are fixed keys, so the rule above rejects them first).
@@ -283,14 +283,14 @@ A key written in the config file that a default key has is not an error: the key
 
 Stage 1 landed in #39 and stage 2 in #41. The questions left open when this was designed were decided as follows:
 
-1. `s` (sort) moved to the global layer; it opens from the frames, the spread conversation and the folder list too
-2. With the conversation spread and the focus on the list, `esc` puts the pane back when there is nothing to clear
+1. `s` (sort) moved to the global layer; it opens from the frames, the reading view and the folder list too
+2. With the reading view open and the focus on the list, `esc` puts the pane back when there is nothing to clear
 3. `esc` stays fixed; the config file cannot change it
 4. The shared verbs (move, page, ends, search, next and previous match) can be changed in the config file
 
 Added since:
 
-- With the focus on the spread conversation, `q` (the `quit` key) puts the pane back instead of quitting (#45). With the focus on the list, it quits as before
+- With the focus on the reading view, `q` (the `quit` key) puts the pane back instead of quitting (#45). With the focus on the list, it quits as before
 - In a field, `ctrl+v` and the terminal's own paste (`cmd+v`) paste the clipboard (#47). `ctrl+v` is a fixed key of the field layer, outside the config file
 - A mistake under `[keys]` is reported with where it is in the config file (#44)
 - `c` recalls the session in a new claude, and a key written in the config file takes over from the default operation that has it, rather than being a conflict (#48)

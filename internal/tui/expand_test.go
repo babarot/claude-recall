@@ -14,7 +14,7 @@ import (
 	"github.com/babarot/claude-recall/internal/tidy"
 )
 
-func TestSpaceSpreadsTheConversation(t *testing.T) {
+func TestSpaceOpensTheReadingView(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	h := m.paneHeight()
 	m = press(t, m, "space")
@@ -46,7 +46,7 @@ func TestSpaceSpreadsTheConversation(t *testing.T) {
 	}
 }
 
-func TestSpreadConversationTakesTheFocusMarks(t *testing.T) {
+func TestReadingViewTakesTheFocusMarks(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	line := func(m Model, i int) string { return strings.Split(m.render(), "\n")[i] }
 	accent := func(m Model) string { return m.st.id.Render(strings.Repeat("╌", m.listWidth())) }
@@ -65,9 +65,9 @@ func TestSpreadConversationTakesTheFocusMarks(t *testing.T) {
 	}
 }
 
-// quit closes the spread Conversation, as it closes the key list, and
+// quit closes the reading view, as it closes the key list, and
 // quits only from the list.
-func TestQuitClosesTheSpreadConversation(t *testing.T) {
+func TestQuitClosesTheReadingView(t *testing.T) {
 	quits := func(m Model, k string) (Model, bool) {
 		t.Helper()
 		next, cmd := m.Update(tea.KeyPressMsg{Code: []rune(k)[0], Text: k})
@@ -88,7 +88,7 @@ func TestQuitClosesTheSpreadConversation(t *testing.T) {
 	if q || m.expanded || m.conv.input.Value() != "" {
 		t.Fatalf("q with a search: quit %v expanded %v search %q", q, m.expanded, m.conv.input.Value())
 	}
-	// From the list, still spread, q quits.
+	// From the list, the reading view still open, q quits.
 	if _, q = quits(press(t, m, "space", "tab"), "q"); !q {
 		t.Fatal("q on the list should quit")
 	}
@@ -107,7 +107,7 @@ func TestReadTheNextSessionInPlace(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	m = press(t, m, "space", "tab")
 	if m.focus != focusList || !m.expanded {
-		t.Fatalf("tab should go to the list and keep the spread pane: focus %v", m.focus)
+		t.Fatalf("tab should go to the list and keep the reading view: focus %v", m.focus)
 	}
 	m = press(t, m, "j")
 	if !strings.Contains(screen(m), "first question about aaaaaaaa-1111") {
@@ -118,7 +118,7 @@ func TestReadTheNextSessionInPlace(t *testing.T) {
 	}
 }
 
-func TestSpreadPaneResizes(t *testing.T) {
+func TestReadingViewResizes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	m = m.RememberIn(path)
@@ -163,7 +163,7 @@ func TestSpreadPaneResizes(t *testing.T) {
 	}
 }
 
-func TestSpreadFitsTheTerminal(t *testing.T) {
+func TestReadingViewFitsTheTerminal(t *testing.T) {
 	for _, pos := range []string{config.DetailBottom, config.DetailRight} {
 		for _, w := range []int{60, 100, 200} {
 			cfg := config.Default().TUI
@@ -184,8 +184,8 @@ func TestSpreadFitsTheTerminal(t *testing.T) {
 }
 
 // In the background, moving onto a session does not wait for its detail:
-// the pane says it is loading until the detail comes, the spread
-// conversation too.
+// the pane says it is loading until the detail comes, the reading
+// view too.
 func TestDetailLoadsInBackground(t *testing.T) {
 	src := &fakePreview{}
 	m := New(testSessions(t), src, config.Default().TUI).LoadInBackground()
@@ -194,10 +194,10 @@ func TestDetailLoadsInBackground(t *testing.T) {
 	if len(m.details) != 0 || !m.detailLoading[id] || !strings.Contains(screen(m), "Loading…") {
 		t.Fatalf("details %v loading %v:\n%s", m.details, m.detailLoading, screen(m))
 	}
-	// Spread before it comes: loading there too, then the conversation.
+	// Opened before it comes: loading there too, then the conversation.
 	m = press(t, m, "space")
 	if !strings.Contains(screen(m), "Loading…") {
-		t.Fatalf("the spread pane should say it is loading:\n%s", screen(m))
+		t.Fatalf("the reading view should say it is loading:\n%s", screen(m))
 	}
 	d, _ := src.SessionDetail(id)
 	m = update(t, m, detailLoaded{id: id, d: d})
@@ -234,7 +234,7 @@ func TestDetailCountsCommandsWhereItIsRead(t *testing.T) {
 }
 
 // Reading in place from the list, esc steps back: the filter first, then
-// the spread conversation.
+// the reading view.
 func TestEscFromTheListPutsThePaneBack(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	m = press(t, m, "/")

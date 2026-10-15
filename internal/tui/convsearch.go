@@ -13,7 +13,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 )
 
-// Searching the conversation: / while the spread Conversation has the keys
+// Searching the conversation: / while the reading view has the keys
 // types a search. It looks through the whole conversation, not only the
 // first message and the latest ones the frame shows: while there is a
 // search, the frame shows the messages that have it with a few around each,
@@ -83,7 +83,7 @@ func newConvSearchInput() textinput.Model {
 }
 
 // convSearching reports whether / and n reach the conversation search: the
-// spread Conversation has the keys.
+// reading view has the keys.
 func (m Model) convSearching() bool { return m.expanded && m.focus == focusConv }
 
 // convQuery is the search the frame is built for.

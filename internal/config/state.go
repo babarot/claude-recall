@@ -14,7 +14,7 @@ type State struct {
 	DetailHeight int `json:"detail_height,omitempty"`
 	// Sidebar is whether the folder list was open.
 	Sidebar bool `json:"sidebar,omitempty"`
-	// ExpandRows is how many list rows stay above a spread Conversation.
+	// ExpandRows is how many list rows stay above the reading view.
 	ExpandRows int `json:"expand_rows,omitempty"`
 }
 

@@ -65,7 +65,7 @@ func newImageModel(t *testing.T, on bool) (Model, *withImage) {
 	return update(t, m, tea.WindowSizeMsg{Width: 140, Height: 40}), src
 }
 
-func TestImagesShowInTheSpreadConversation(t *testing.T) {
+func TestImagesShowInTheReadingView(t *testing.T) {
 	m, src := newImageModel(t, true)
 	m = press(t, m, "space")
 	// Until the image is read, its marker shows.

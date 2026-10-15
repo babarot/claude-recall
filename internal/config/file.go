@@ -161,7 +161,7 @@ type TUI struct {
 	// color number (0-255). Empty uses the frame's border color.
 	ScrollbarColor string `toml:"scrollbar_color"`
 	// Images shows the images pasted into a session where they were
-	// pasted, in the spread Conversation, through the Kitty graphics
+	// pasted, in the reading view, through the Kitty graphics
 	// protocol's Unicode placeholders.
 	Images bool `toml:"images"`
 }
@@ -282,7 +282,7 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # the frame's border color, so "thin" needs a color to stand out.
 # scrollbar_thumb = "heavy"
 # scrollbar_color = ""
-# Show the images pasted into a session in the spread Conversation (Space),
+# Show the images pasted into a session in the reading view (Space),
 # where they were pasted. Needs a terminal that draws Kitty graphics with
 # Unicode placeholders, such as Ghostty or Kitty; elsewhere they come out as
 # stray characters, so it is off by default.
@@ -307,7 +307,7 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # scope = "."
 # whats_new = "w"
 #
-# The selected session, from the list, a frame or the spread conversation:
+# The selected session, from the list, a frame or the reading view:
 # resume = "enter"
 # recall = "c"
 # read = "space"

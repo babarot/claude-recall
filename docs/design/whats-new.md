@@ -30,7 +30,7 @@ Parsing, in `internal/update` (`ParseChangelog`): a `## [<version>](<url>) - <da
 
 ## The view
 
-A modal, opened with `w` (`whats_new` under `[keys]`), a global key, so from every pane, the spread conversation included. It lists every version, newest first, scrolled to the top:
+A modal, opened with `w` (`whats_new` under `[keys]`), a global key, so from every pane, the reading view included. It lists every version, newest first, scrolled to the top:
 
 ```
 ╭ What's new ─────────────────────────────────────────────────╮

@@ -10,8 +10,8 @@ type uiState int
 const (
 	uiList         uiState = iota // the session list
 	uiFrame                       // a detail frame
-	uiReading                     // the spread conversation, focused
-	uiReadingList                 // the conversation spread, the list focused
+	uiReading                     // the reading view, focused
+	uiReadingList                 // the reading view open, the list focused
 	uiFolders                     // the folder list
 	uiFolderSearch                // typing the folder search
 	uiConvSearch                  // typing the conversation search

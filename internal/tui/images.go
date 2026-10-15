@@ -19,7 +19,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 )
 
-// Images: with tui.images, the spread Conversation shows the images pasted
+// Images: with tui.images, the reading view shows the images pasted
 // into the user's messages in place of their [Image #N] markers, the k-th
 // marker of a message being its k-th stored image, as the web UI has it.
 //
@@ -184,7 +184,7 @@ func (m *Model) storeImage(msg imageLoaded) {
 		transmit(&t.out, id, msg.png)
 	}
 	if r := m.current(); r != nil && r.s.ID == msg.key.session {
-		m.readFor = "" // the spread conversation, with it
+		m.readFor = "" // the reading view, with it
 	}
 }
 

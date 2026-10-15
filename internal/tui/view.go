@@ -26,7 +26,7 @@ const (
 // detailRight reports whether the detail pane sits right of the list. Only
 // this function knows the configured position; the rest of the view asks it.
 func (m Model) detailRight() bool {
-	// A spread Conversation always takes the full width below the list.
+	// The reading view always takes the full width below the list.
 	if m.expanded || m.width < minRightWidth {
 		return false
 	}
@@ -209,7 +209,7 @@ func (m Model) renderTable() []string {
 		}
 		return m.st.colHdr.Render(p.col.header)
 	}, plain)
-	// Beside the folder list or a spread Conversation, the focused side's
+	// Beside the folder list or the reading view, the focused side's
 	// rules take the accent. Only the side with the focus marks its
 	// selection with the bar; the row keeps its background so it still shows
 	// which session the frames are about.
