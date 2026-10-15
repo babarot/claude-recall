@@ -283,14 +283,12 @@ Each command's flags are in [docs/cli.md](docs/cli.md) and `recall <command> --h
 mise tasks                     # every task
 mise run test                  # gofmt, go vet, go test, the UI's types and tests, the plugin's tests
 mise run build                 # recall with the web UI embedded
-go run ./cmd/recall search "query" --db /tmp/vault-copy.db
-
-# Web UI: Vite dev server on 5173, proxying /api to the Go server on 6276
-cd ui && npm run dev
-go run ./cmd/recall ui --foreground
+mise run dev                   # the web UI with hot reload and its API, on a copy of the archive
+mise run dev:db                # copy the archive afresh for mise run dev
+go run ./cmd/recall search "query" --db .dev/vault.db
 ```
 
-Work against a copy of the archive (`sqlite3 ~/.claude/vault.db ".backup '/tmp/vault-copy.db'"`), not the live file.
+Work against a copy of the archive, not the live file. `mise run dev` copies `~/.claude/vault.db` to `.dev/vault.db` the first time and works on that copy: it rebuilds and restarts the API when Go code changes, and serves the web UI with Vite's hot reload, on ports of this worktree's own, so several worktrees can run side by side next to the usual `recall ui`.
 
 After a change to how the TUI looks, re-record its GIF with `mise run demo:tui`; after a change to what the plugin draws in Claude Code, `mise run demo:claude` (see [demo/README.md](demo/README.md)).
 

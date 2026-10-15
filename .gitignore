@@ -7,3 +7,5 @@ ui/node_modules/
 # Written by Claude Code when it loads the plugin
 /plugin/.claude-plugin/types/
 /.release/
+# mise run dev's copy of the archive and its build
+/.dev/

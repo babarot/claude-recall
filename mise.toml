@@ -25,6 +25,16 @@ run = 'install -m 755 -v recall "${RECALL_INSTALL_DIR:-$HOME/.local/bin}/recall"
 description = "Remove ./recall and the built UI"
 run = "rm -rf recall ui/dist internal/webui/dist"
 
+[tasks.dev]
+description = "Run the API (restarted when Go code changes) and the web UI with hot reload, on a copy of the archive and this worktree's own ports"
+file = "scripts/dev.sh"
+# Restarts the API when Go code changes
+tools = { watchexec = "2" }
+
+[tasks."dev:db"]
+description = "Copy the archive to .dev/vault.db afresh, for mise run dev"
+file = "scripts/dev-db.sh"
+
 [tasks.test]
 description = "Run every check: Go, the web UI and the plugin"
 run = [
