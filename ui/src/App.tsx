@@ -11,7 +11,7 @@ import type { Action, Pane } from "./lib/keymap";
 import { Folders, folderRows, pick } from "./components/Folders";
 import { SessionList, SORTS } from "./components/SessionList";
 import { copyID, copyResume, findInput, Reader, stepHit } from "./components/Reader";
-import { atBottom, conversationEl, currentPrompt, goTo, zoom } from "./components/Conversation";
+import { atBottom, conversationEl, currentPrompt, goTo, scrollToEdge, zoom } from "./components/Conversation";
 import { StatsView } from "./components/StatsView";
 import { api } from "./api";
 import { applyTheme } from "./lib/theme";
@@ -198,8 +198,8 @@ export function App() {
         break;
       case "down": if (pane === "folders") moveFolder(1); else moveSelection(1); break;
       case "up": if (pane === "folders") moveFolder(-1); else moveSelection(-1); break;
-      case "top": moveSelection("top"); break;
-      case "bottom": moveSelection("bottom"); break;
+      case "top": if (pane === "reader") scrollToEdge("top"); else moveSelection("top"); break;
+      case "bottom": if (pane === "reader") scrollToEdge("bottom"); else moveSelection("bottom"); break;
       case "open":
         focus.value = "reader";
         reading.value = true;

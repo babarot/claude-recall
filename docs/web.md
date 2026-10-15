@@ -24,7 +24,8 @@ Opening a session found in its conversation searches the conversation for the wo
 - The outline on the right lists what you wrote; click one to go there. `[` `]` go to the previous and next
 - The search box over the conversation (`/` there) searches all of it, the parts not read yet too; `n` `N` and `Enter` go through the matches
 - A long session is read in parts: its start and its end first, and `さらに読み込む` reads what lies between. A long message or tool result is cut, and `続きを読む` or `全文を読み込む` reads the rest
-- While a session is written, its new messages come in. At the end of the conversation, the view follows them; further up, a button says how many came in
+- A button at the bottom of the conversation goes to its end (`末尾へ`) when you are above it, and back to its start (`先頭へ`) when you are at it
+- While a session is written, its new messages come in. At the end of the conversation, the view follows them; further up, the button says how many came in
 - `やったこと` shows the activity, the tools and commands most used, the files edited by repository, and the details: times, counts, size, branch, folder, Claude Code version
 
 `Y` copies the command that goes back to the session: `claude -r` in its folder, or, when its folder or transcript is gone, a new claude that recalls it through recall, as the TUI's `Y`. `y` copies the session ID.
@@ -43,7 +44,7 @@ Opening a session found in its conversation searches the conversation for the wo
 | | `Esc` | Back a step: clear the search, return to the list |
 | Sessions | `j` `k` `↓` `↑`, `g` `G` | Move, to the top, to the bottom |
 | | `Enter` | Read the conversation |
-| Conversation | `j` `k` | Scroll |
+| Conversation | `j` `k`, `g` `G` | Scroll, to the start, to the end |
 | | `[` `]` | The previous and next thing you wrote |
 | | `n` `N` | The next and previous match |
 | | `t` | Tool calls folded or all open |
