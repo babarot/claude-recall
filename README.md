@@ -167,12 +167,12 @@ The package also carries the [Claude Code plugin](#claude-code-plugin) under `sh
 
 ### Build from source
 
-Requires Go and Node.js (for the web UI):
+Requires Go, Node.js (for the web UI) and [mise](https://mise.jdx.dev):
 
 ```bash
 git clone https://github.com/babarot/claude-recall.git
 cd claude-recall
-make install   # builds the UI, embeds it, installs recall to ~/.local/bin
+mise run install   # builds the UI, embeds it, installs recall to ~/.local/bin
 ```
 
 `go install github.com/babarot/claude-recall/cmd/recall@latest` also works; that build leaves the web UI out. Then [set up](#set-up).
@@ -280,8 +280,9 @@ Each command's flags are in [docs/cli.md](docs/cli.md) and `recall <command> --h
 ## Development
 
 ```bash
-make test                      # go vet, go test, UI tests
-make build                     # recall with the web UI embedded
+mise tasks                     # every task
+mise run test                  # gofmt, go vet, go test, the UI's types and tests, the plugin's tests
+mise run build                 # recall with the web UI embedded
 go run ./cmd/recall search "query" --db /tmp/vault-copy.db
 
 # Web UI: Vite dev server on 5173, proxying /api to the Go server on 6276
@@ -291,7 +292,7 @@ go run ./cmd/recall ui --foreground
 
 Work against a copy of the archive (`sqlite3 ~/.claude/vault.db ".backup '/tmp/vault-copy.db'"`), not the live file.
 
-After a change to how the TUI looks, re-record its GIF with `make demo-tui`; after a change to what the plugin draws in Claude Code, `make demo-claude` (see [demo/README.md](demo/README.md)).
+After a change to how the TUI looks, re-record its GIF with `mise run demo:tui`; after a change to what the plugin draws in Claude Code, `mise run demo:claude` (see [demo/README.md](demo/README.md)).
 
 For the plugin's hooks module, `claude --plugin-dir plugin` loads it from the checkout and reloads it as you edit, and `claude plugin test plugin` runs its tests (see [docs/plugin.md](docs/plugin.md#developing)).
 

@@ -26,11 +26,11 @@ Out of scope: Windows (no release builds), signatures beyond SHA256, updating th
 |---|---|---|---|
 | curl | release asset | `~/.local/bin/recall` (or `RECALL_INSTALL_DIR`) | the release |
 | Nix | the same binary, in the release's `claude-recall_<os>_<arch>.tar.gz` that the derivation GoReleaser writes fetches | `/nix/store/...` | the release |
-| `make install` | built locally | `~/.local/bin/recall` | the last release, whatever the checkout |
+| `mise run install` | built locally | `~/.local/bin/recall` | the last release, whatever the checkout |
 | `go install` | built locally, no web UI | `$GOBIN` | the last release |
 | Homebrew | none yet; babarot/homebrew-tap has no formula | | |
 
-- `version.Version` is a constant tagpr rewrites. Nothing tells a release build from a local one, and curl and `make install` share a path
+- `version.Version` is a constant tagpr rewrites. Nothing tells a release build from a local one, and curl and `mise run install` share a path
 - Tags have no `v` prefix (`1.7.2`)
 - The release workflow creates the release (tagpr) before the `goreleaser` job uploads assets, a few minutes later. Meanwhile `releases/latest` names a release with no binaries
 - `recall ui` runs detached and stays up. `recall mcp` runs once per Claude Code session. Neither notices the binary changing
@@ -49,7 +49,7 @@ Out of scope: Windows (no release builds), signatures beyond SHA256, updating th
 var Source string
 ```
 
-The release workflow adds `-X github.com/babarot/claude-recall/internal/version.Source=release` to its `-ldflags`. `make install` and `go install` leave it empty. Nix gets `release`, because it ships the release asset; the path check below catches it.
+The release workflow adds `-X github.com/babarot/claude-recall/internal/version.Source=release` to its `-ldflags`. `mise run install` and `go install` leave it empty. Nix gets `release`, because it ships the release asset; the path check below catches it.
 
 ### 2. How recall was installed
 
@@ -106,7 +106,7 @@ A shared helper, `restartUI(port, db, exe)`. Its caller works out one port and p
 It is called from:
 
 - `recall update`, after the rename
-- `recall ui`, when a UI is already running and its `version` is older than this binary's, or is missing (a server from before this change). A binary built without the web UI (`webui.Embedded == false`, a `go install` build) never restarts one, since it would serve only 404s. A running UI that is newer or the same is left alone: an older `recall` earlier on PATH (a stale Nix profile beside a curl install, say) must not replace a newer server with itself. Today `recall ui` starts a second process, which fails to bind, and prints the running UI's URL. It now checks first. This also restarts the UI after a Nix upgrade. A source build keeps the last release's version, so after `make install` the UI is restarted by hand with `recall ui stop`, as today
+- `recall ui`, when a UI is already running and its `version` is older than this binary's, or is missing (a server from before this change). A binary built without the web UI (`webui.Embedded == false`, a `go install` build) never restarts one, since it would serve only 404s. A running UI that is newer or the same is left alone: an older `recall` earlier on PATH (a stale Nix profile beside a curl install, say) must not replace a newer server with itself. Today `recall ui` starts a second process, which fails to bind, and prints the running UI's URL. It now checks first. This also restarts the UI after a Nix upgrade. A source build keeps the last release's version, so after `mise run install` the UI is restarted by hand with `recall ui stop`, as today
 
 The restarted UI uses this invocation's `--port` and `--db` (or the config's), not the old process's: `/api/status` does not report the database. A UI started by hand with a non-default `--db` comes back on the configured one. This is noted in docs/cli.md; reporting `db` in `/api/status` would remove the gap if it matters.
 

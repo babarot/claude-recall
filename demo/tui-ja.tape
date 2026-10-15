@@ -1,4 +1,4 @@
-# Records the Japanese demo, demo/ja/tui.gif, from the demo `make demo-tui-ja`
+# Records the Japanese demo, demo/ja/tui.gif, from the demo `mise run demo:tui-ja`
 # builds (see demo/README.md). It is not committed; make it when you need it.
 
 Output demo/ja/tui.gif

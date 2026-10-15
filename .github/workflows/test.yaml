@@ -24,8 +24,13 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - run: go vet ./...
-      - run: go test -race ./...
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.9.18
+      # The same checks as mise run test:go, with the race detector
+      - run: mise run test:go
+        env:
+          GOFLAGS: -race
 
   ui:
     runs-on: ubuntu-latest
@@ -42,7 +47,9 @@ jobs:
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: 22
-      - run: cd ui && npm ci && npm test && npm run build
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.9.18
+      - run: mise run test:ui
       # The release build embeds the UI; make sure that build compiles
-      - run: rm -rf internal/webui/dist && cp -R ui/dist internal/webui/dist
-      - run: go build -tags embedui ./cmd/recall
+      - run: mise run build

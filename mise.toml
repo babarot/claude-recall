@@ -1,0 +1,88 @@
+# Tasks for developing recall: mise tasks lists them, mise run <task> runs one.
+# Go and Node.js come from wherever you have them.
+
+[tasks.ui]
+description = "Build the web UI into internal/webui/dist, where the binary embeds it from"
+dir = "ui"
+run = [
+  "npm ci",
+  "npm run build",
+  "rm -rf ../internal/webui/dist",
+  "cp -R dist ../internal/webui/dist",
+]
+
+[tasks.build]
+description = "Build ./recall with the web UI in it"
+depends = ["ui"]
+run = "go build -tags embedui -o recall ./cmd/recall"
+
+[tasks.install]
+description = "Build and install recall into ~/.local/bin (or $RECALL_INSTALL_DIR)"
+depends = ["build"]
+run = 'install -m 755 -v recall "${RECALL_INSTALL_DIR:-$HOME/.local/bin}/recall"'
+
+[tasks.clean]
+description = "Remove ./recall and the built UI"
+run = "rm -rf recall ui/dist internal/webui/dist"
+
+[tasks.test]
+description = "Run every check: Go, the web UI and the plugin"
+run = [
+  { task = "test:go" },
+  { task = "test:ui" },
+  { task = "test:plugin" },
+]
+
+[tasks."test:go"]
+description = "Check formatting, vet, and run the Go tests"
+run = [
+  'test -z "$(gofmt -l .)" || { gofmt -l .; echo "gofmt: the files above are not formatted"; exit 1; }',
+  "go vet ./...",
+  "go test ./...",
+]
+
+[tasks."test:ui"]
+description = "Type-check and test the web UI"
+dir = "ui"
+run = [
+  "[ -d node_modules ] || npm ci",
+  "npm run typecheck",
+  "npm test",
+]
+
+[tasks."test:plugin"]
+description = "Run the plugin's tests with Claude Code (skipped without claude on PATH)"
+run = '''
+if command -v claude >/dev/null; then
+  claude plugin test plugin
+else
+  echo "test:plugin: skipped, claude is not on PATH"
+fi
+'''
+
+# The demo GIFs are recorded with VHS from a demo archive (see demo/README.md).
+
+[tasks."demo:tui"]
+description = "Record demo/tui.gif, the TUI"
+run = [
+  "go build -o demo/.out/bin/recall ./cmd/recall",
+  "go run ./demo/gen",
+  "vhs demo/tui.tape",
+]
+
+[tasks."demo:tui-ja"]
+description = "Record the TUI in Japanese, to demo/ja/tui.gif (not committed)"
+run = [
+  "go build -o demo/.out/bin/recall ./cmd/recall",
+  "go run ./demo/gen -lang ja",
+  "mkdir -p demo/ja",
+  "vhs demo/tui-ja.tape",
+]
+
+[tasks."demo:claude"]
+description = "Record demo/claude-*.gif, the plugin in the real Claude Code"
+run = "scripts/demo-claude.sh en"
+
+[tasks."demo:claude-ja"]
+description = "Record the plugin in Japanese, to demo/ja/claude-*.gif (not committed)"
+run = "scripts/demo-claude.sh ja"
