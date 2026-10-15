@@ -3,6 +3,7 @@ import { api } from "../api";
 import type { Find, Session } from "../api";
 import { buildFolders } from "../lib/folders";
 import type { Pane } from "../lib/keymap";
+import { t } from "../lib/i18n";
 
 // The page's state: the sessions, where the list is narrowed to, the
 // search, which session is open, and how things show. Components read the
@@ -192,9 +193,9 @@ export function say(html: string): void {
 export async function copy(text: string, what: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
-    say(`${what}をコピーしました：<code>${escapeHTML(text)}</code>`);
+    say(`${escapeHTML(t.copy.done(what))}<code>${escapeHTML(text)}</code>`);
   } catch {
-    say(`${what}をコピーできませんでした`);
+    say(escapeHTML(t.copy.failed(what)));
   }
 }
 

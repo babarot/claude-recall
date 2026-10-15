@@ -3,6 +3,7 @@ import { render } from "preact";
 import { findQuery, spans, total } from "../store/conversation";
 import { Conversation, markWords } from "./Conversation";
 import type { Message } from "../api";
+import { t } from "../lib/i18n";
 
 const msg = (i: number, content = `m${i}`): Message => ({
   cursor: `${i}.0`, uuid: `u${i}`, role: i % 2 ? "assistant" : "user", type: "text", content,
@@ -21,13 +22,13 @@ describe("Conversation", () => {
     // Preact draws, and marks the words, after the signals change: wait for
     // it rather than a fixed time, which a slow machine can outlast.
     await vi.waitFor(() => {
-      expect(el.querySelector(".gap-marker")?.textContent).toContain("96 件");
+      expect(el.querySelector(".gap-marker")?.textContent).toContain(t.conv.gap(96));
       expect(el.querySelectorAll("mark").length).toBeGreaterThan(0);
     });
     findQuery.value = "";
     spans.value = [{ msgs: [0, 1, 2, 3].map((i) => msg(i)), atStart: true, atEnd: false }, spans.value[1]];
     await vi.waitFor(() => {
-      expect(el.querySelector(".gap-marker")?.textContent).toContain("94 件");
+      expect(el.querySelector(".gap-marker")?.textContent).toContain(t.conv.gap(94));
       expect(el.querySelectorAll("mark").length).toBe(0);
     });
     render(null, el);
@@ -47,8 +48,8 @@ describe("Conversation", () => {
       conv.dispatchEvent(new Event("scroll"));
       await vi.waitFor(() => expect(el.querySelector(".jump")?.textContent).toBe(text));
     };
-    await scrollTo(0, "末尾へ ↓");
-    await scrollTo(1500, "先頭へ ↑");
+    await scrollTo(0, t.conv.toEnd);
+    await scrollTo(1500, t.conv.toTop);
     render(null, el);
   });
 });

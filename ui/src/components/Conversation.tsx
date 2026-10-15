@@ -12,6 +12,7 @@ import { getToolInputPreview, renderImages, stripAnsi } from "../lib/chat-utils"
 import { renderMarkdown } from "../lib/markdown";
 import { ansiToHtml, hasAnsi } from "../lib/ansi";
 import { duration, hhmm } from "../lib/format";
+import { t } from "../lib/i18n";
 
 /** The scrolling conversation, for the keys and the live updates to reach. */
 export const conversationEl: { current: HTMLDivElement | null } = { current: null };
@@ -22,7 +23,7 @@ export const goal = signal<string | null>(null);
 
 const CLAMP = 1000;
 
-export function atBottom(el = conversationEl.current): boolean {
+export function atBottom(el: HTMLElement | null = conversationEl.current): boolean {
   return !!el && el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 }
 
@@ -118,12 +119,12 @@ export function Conversation({ sessionId }: { sessionId: string }) {
         if (t.tagName === "IMG" && t.closest(".body")) zoom.value = (t as HTMLImageElement).src;
       }}>
         <div class="conv-inner" ref={inner}>
-          {list.length === 0 && <div class="list-empty">メッセージはありません</div>}
+          {list.length === 0 && <div class="list-empty">{t.conv.empty}</div>}
           {items.map((its, i) => (
             <SpanView key={i} span={list[i]} items={its} sessionId={sessionId} all={all} open={open} toggle={toggle}
               gap={i < gaps ? (gaps === 1 ? total.value - loaded : null) : undefined} onReadOn={() => readOn(i)} />
           ))}
-          {isLive(sessionId) && <div class="typing"><span class="dot pulse" />書き込み中</div>}
+          {isLive(sessionId) && <div class="typing"><span class="dot pulse" />{t.conv.writing}</div>}
         </div>
       </div>
       <Outline />
@@ -131,9 +132,9 @@ export function Conversation({ sessionId }: { sessionId: string }) {
         <button class="jump show new" onClick={() => {
           scrollToEdge("bottom");
           unseen.value = 0;
-        }}>新しいメッセージ {unseen.value}件 ↓</button>
+        }}>{t.conv.unseen(unseen.value)}</button>
       ) : pill && (
-        <button class="jump show" onClick={() => scrollToEdge(pill)}>{pill === "top" ? "先頭へ ↑" : "末尾へ ↓"}</button>
+        <button class="jump show" onClick={() => scrollToEdge(pill)}>{pill === "top" ? t.conv.toTop : t.conv.toEnd}</button>
       )}
     </div>
   );
@@ -158,12 +159,12 @@ function SpanView({ span, items, sessionId, all, open, toggle, gap, onReadOn }: 
       {items.map((it) => <ItemView key={it.key} it={it} sessionId={sessionId} open={all || open.has(it.key)} toggle={toggle} />)}
       {gap !== undefined && !span.atEnd && (
         <div class="gap-marker">
-          ⋮ {gap !== null ? `${gap.toLocaleString()} 件のメッセージ` : "読み込んでいないメッセージ"}
+          ⋮ {gap !== null ? t.conv.gap(gap) : t.conv.gapUnknown}
           <button disabled={busy} onClick={async () => {
             setBusy(true);
             await onReadOn();
             setBusy(false);
-          }}>{busy ? "読み込み中…" : "さらに読み込む"}</button>
+          }}>{busy ? t.conv.reading : t.conv.readOn}</button>
         </div>
       )}
     </>
@@ -177,14 +178,14 @@ function ItemView({ it, sessionId, open, toggle }: { it: Item; sessionId: string
     case "thinking":
       return (
         <div class={`run ${open ? "open" : ""}`}>
-          <button class="run-head" onClick={() => toggle(it.key)}><span class="chev">▶</span><span style="font-style:italic">考えていたこと</span></button>
+          <button class="run-head" onClick={() => toggle(it.key)}><span class="chev">▶</span><span style="font-style:italic">{t.conv.thinking}</span></button>
           <div class="think-body">{it.content}</div>
         </div>
       );
     case "meta":
       return (
         <div class={`run meta ${open ? "open" : ""}`}>
-          <button class="run-head" onClick={() => toggle(it.key)} title="Claude Code が差し込んだ内容（スキルの展開、文脈など）">
+          <button class="run-head" onClick={() => toggle(it.key)} title={t.conv.meta}>
             <span class="chev">▶</span><span class="badge">meta</span><span>{it.label}</span>
           </button>
           <div class="meta-body">{it.content}</div>
@@ -226,7 +227,7 @@ function Chat({ sessionId, msg }: { sessionId: string; msg: Extract<Item, { kind
         <button class="more" onClick={() => {
           if (clipped && msg.cursor) void readWhole(msg.cursor);
           setExpanded(!expanded || clipped);
-        }}>{long && expanded && !clipped ? "たたむ" : "続きを読む"}</button>
+        }}>{long && expanded && !clipped ? t.conv.showLess : t.conv.readMore}</button>
       )}
     </div>
   );
@@ -243,10 +244,10 @@ function Run({ it, open, toggle }: { it: Extract<Item, { kind: "run" }>; open: b
     <div class={`run ${open ? "open" : ""}`}>
       <button class="run-head" onClick={toggle}>
         <span class="chev">▶</span>
-        <span>{it.calls.length} 件のツール呼び出し</span>
+        <span>{t.conv.calls(it.calls.length)}</span>
         <span class="tally">
           {counts.map(([n, c]) => <span key={n} title={n}><b>{toolLabel(n)}</b> {c}</span>)}
-          {failed > 0 && <span class="fail">✗ {failed} 失敗</span>}
+          {failed > 0 && <span class="fail">✗ {t.conv.failedCount(failed)}</span>}
         </span>
         <span class="dur">{duration(it.start, it.end)}</span>
       </button>
@@ -270,7 +271,7 @@ function CallView({ c }: { c: Call }) {
         <span class="call-name" title={c.use?.toolName ?? ""}>{c.use ? toolLabel(c.use.toolName) : "result"}</span>
         <span class="call-in">{preview}</span>
         <span class={`call-st ${how === "error" ? "err" : how === "ok" ? "ok" : ""}`}>
-          {how === "error" ? "失敗" : !c.result ? "結果なし" : lines > 1 ? `${lines} 行` : how === "ok" ? "ok" : ""}
+          {how === "error" ? t.conv.failed : !c.result ? t.conv.noResult : lines > 1 ? t.conv.lines(lines) : how === "ok" ? "ok" : ""}
         </span>
       </button>
       {open && (
@@ -281,7 +282,7 @@ function CallView({ c }: { c: Call }) {
             <button class="more" onClick={() => {
               if (c.use?.toolInputLength && c.use.cursor) void readWhole(c.use.cursor);
               if (c.result?.contentLength && c.result.cursor) void readWhole(c.result.cursor);
-            }}>全文を読み込む</button>
+            }}>{t.conv.readWhole}</button>
           )}
         </div>
       )}
@@ -320,7 +321,7 @@ function Outline() {
   }, [hits.value, prompts]);
   return (
     <nav class="outline">
-      <div class="label">自分の発言</div>
+      <div class="label">{t.conv.outline}</div>
       {prompts.map((p, i) => (
         <div key={p.cursor} class={`o-item ${p.cursor === cur ? "cur" : ""} ${hitPrompts.has(p.cursor) ? "hit" : ""}`}
           onClick={() => void goTo(p.cursor)} title={p.text}>

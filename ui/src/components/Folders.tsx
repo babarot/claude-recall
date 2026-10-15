@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import { folder, folders, sessions, worktree } from "../store/app";
 import type { Folder } from "../lib/folders";
+import { t } from "../lib/i18n";
 
 export function pick(key: string | null, wt: string | null = null): void {
   folder.value = key;
@@ -45,7 +46,7 @@ export function Folders({ focused }: { focused: boolean }) {
           key={f.key + "/" + w.name}
           class={`f-row wt ${w.gone ? "gone" : ""} ${worktree.value === w.name ? "sel" : ""}`}
           onClick={() => pick(f.key, w.name)}
-          title={w.gone ? "削除済みの worktree" : w.name}
+          title={w.gone ? t.folders.gone : w.name}
         >
           <span class="name">{w.name}</span>
           <span class="n">{w.count}</span>
@@ -58,11 +59,11 @@ export function Folders({ focused }: { focused: boolean }) {
       <div class="pane-head"><span class="label">Folders</span><span style="margin-left:auto"><kbd>[</kbd></span></div>
       <label class="folder-search">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-        <input value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} placeholder="フォルダを絞り込む" />
+        <input value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} placeholder={t.folders.filter} />
       </label>
       <div class="scroll">
         <div class={`f-row ${folder.value === null ? "sel" : ""}`} onClick={() => pick(null)}>
-          <span class="caret" /><span class="name">すべてのフォルダ</span><span class="n">{sessions.value.length}</span>
+          <span class="caret" /><span class="name">{t.list.allFolders}</span><span class="n">{sessions.value.length}</span>
         </div>
         {repos.length > 0 && <div class="f-group">Repositories</div>}
         {repos.flatMap(row)}
