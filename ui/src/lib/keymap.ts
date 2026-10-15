@@ -45,6 +45,8 @@ export const KEYMAP: Binding[] = [
 
   { where: "reader", keys: ["j", "ArrowDown"], action: "scrollDown", label: "スクロール", footer: true },
   { where: "reader", keys: ["k", "ArrowUp"], action: "scrollUp", label: "スクロール" },
+  { where: "reader", keys: ["g"], action: "top", label: "会話の先頭へ" },
+  { where: "reader", keys: ["G"], action: "bottom", label: "会話の末尾へ" },
   { where: "reader", keys: ["["], action: "prevPrompt", label: "前・次の発言", footer: true },
   { where: "reader", keys: ["]"], action: "nextPrompt", label: "次の自分の発言へ" },
   { where: "reader", keys: ["/"], action: "search", label: "この会話を検索", footer: true },

@@ -32,6 +32,25 @@ describe("Conversation", () => {
     });
     render(null, el);
   });
+
+  // The pill leads to the end from above it, and back to the top from it.
+  it("offers the end from above it and the top from the end", async () => {
+    findQuery.value = "";
+    spans.value = [{ msgs: [0, 1].map((i) => msg(i)), atStart: true, atEnd: true }];
+    const el = document.createElement("div");
+    render(<Conversation sessionId="s" />, el);
+    const conv = el.querySelector<HTMLElement>(".conv")!;
+    Object.defineProperty(conv, "scrollHeight", { value: 2000 });
+    Object.defineProperty(conv, "clientHeight", { value: 500 });
+    const scrollTo = async (top: number, text: string | undefined) => {
+      conv.scrollTop = top;
+      conv.dispatchEvent(new Event("scroll"));
+      await vi.waitFor(() => expect(el.querySelector(".jump")?.textContent).toBe(text));
+    };
+    await scrollTo(0, "末尾へ ↓");
+    await scrollTo(1500, "先頭へ ↑");
+    render(null, el);
+  });
 });
 
 describe("markWords", () => {

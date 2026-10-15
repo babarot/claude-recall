@@ -22,9 +22,21 @@ export const goal = signal<string | null>(null);
 
 const CLAMP = 1000;
 
-export function atBottom(): boolean {
-  const el = conversationEl.current;
+export function atBottom(el = conversationEl.current): boolean {
   return !!el && el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+}
+
+/** Scrolls the conversation to the session's first or last message. */
+export function scrollToEdge(edge: "top" | "bottom"): void {
+  const el = conversationEl.current;
+  if (el) el.scrollTop = edge === "top" ? 0 : el.scrollHeight;
+}
+
+/** Where the pill takes the reader: to the end when above it, back to the top when at it. */
+function pillFor(el: HTMLElement | null): "top" | "bottom" | null {
+  if (!el) return null;
+  if (!atBottom(el)) return "bottom";
+  return el.scrollTop > 200 ? "top" : null;
 }
 
 /** Brings the message at cursor into view, reading it first if it is not. */
@@ -38,6 +50,7 @@ export function Conversation({ sessionId }: { sessionId: string }) {
   const scroller = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [pill, setPill] = useState<"top" | "bottom" | null>(null);
   const all = density.value === "all";
 
   useEffect(() => setOpen(new Set()), [density.value, sessionId]);
@@ -62,6 +75,7 @@ export function Conversation({ sessionId }: { sessionId: string }) {
       el.scrollTop = el.scrollHeight;
       stickToEnd.value = false;
     }
+    setPill(pillFor(el));
   }, [list]);
 
   // Marks what the conversation search found, and brings the current hit
@@ -92,6 +106,7 @@ export function Conversation({ sessionId }: { sessionId: string }) {
     }
     currentPrompt.value = cur;
     if (atBottom()) unseen.value = 0;
+    setPill(pillFor(el));
   };
 
   const loaded = list.reduce((n, s) => n + s.msgs.length, 0);
@@ -112,12 +127,13 @@ export function Conversation({ sessionId }: { sessionId: string }) {
         </div>
       </div>
       <Outline />
-      {unseen.value > 0 && (
-        <button class="jump show" onClick={() => {
-          const el = conversationEl.current;
-          if (el) el.scrollTop = el.scrollHeight;
+      {unseen.value > 0 ? (
+        <button class="jump show new" onClick={() => {
+          scrollToEdge("bottom");
           unseen.value = 0;
         }}>新しいメッセージ {unseen.value}件 ↓</button>
+      ) : pill && (
+        <button class="jump show" onClick={() => scrollToEdge(pill)}>{pill === "top" ? "先頭へ ↑" : "末尾へ ↓"}</button>
       )}
     </div>
   );
