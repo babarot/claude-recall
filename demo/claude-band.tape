@@ -1,4 +1,4 @@
-# Records demo/claude-band.gif from the demo `make demo-claude` builds (see
+# Records demo/claude-band.gif from the demo `mise run demo:claude` builds (see
 # demo/README.md): the band of the repository's last sessions as a session starts. The real Claude Code, RECALL_DEMO_CLAUDE, loads the
 # plugin from RECALL_DEMO_PLUGIN and talks to demo/fakeapi.
 

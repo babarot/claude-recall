@@ -1,4 +1,4 @@
-# Records demo/tui.gif from the demo `make demo-tui` builds (see demo/README.md).
+# Records demo/tui.gif from the demo `mise run demo:tui` builds (see demo/README.md).
 
 Output demo/tui.gif
 

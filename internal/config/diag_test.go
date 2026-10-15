@@ -76,12 +76,12 @@ func TestReport(t *testing.T) {
 func TestLoadReportsWhere(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	for body, want := range map[string]string{
-		"[ui]\nport = \"x\"\n":        `:2:8: ui.port must be a number, got a string`,
+		"[ui]\nport = \"x\"\n":       `:2:8: ui.port must be a number, got a string`,
 		"[tui]\nask_show_cost = 3\n": `:2:17: tui.ask_show_cost must be true or false, got a number`,
-		"[tui]\nscope = \"repo\"\n":    `:2:9: tui.scope must be "folder" or "all", got "repo"`,
-		"[ui]\ntheme = \"nord\"\n":     `:2:1: unknown key "ui.theme"; it belongs under [tui]`,
-		"[web]\nx = 1\n":              `:1:2: unknown table [web]`,
-		"[tui\n":                      `:1:5: expected ']' to close table name`,
+		"[tui]\nscope = \"repo\"\n":  `:2:9: tui.scope must be "folder" or "all", got "repo"`,
+		"[ui]\ntheme = \"nord\"\n":   `:2:1: unknown key "ui.theme"; it belongs under [tui]`,
+		"[web]\nx = 1\n":             `:1:2: unknown table [web]`,
+		"[tui\n":                     `:1:5: expected ']' to close table name`,
 	} {
 		os.WriteFile(path, []byte(body), 0o644)
 		_, err := Load(path)

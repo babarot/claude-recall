@@ -1,5 +1,5 @@
-# Records the Japanese demo, demo/ja/claude-search.gif, from the demo `make
-# demo-claude-ja` builds (see demo/README.md): claude-search.tape with Claude
+# Records the Japanese demo, demo/ja/claude-search.gif, from the demo `mise run
+# demo:claude-ja` builds (see demo/README.md): claude-search.tape with Claude
 # Code's language set to Japanese. It is not committed; make it when you need
 # it.
 

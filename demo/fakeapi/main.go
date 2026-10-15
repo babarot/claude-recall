@@ -10,7 +10,7 @@
 // with no tools (the session's title) gets a short title. A streamed reply
 // waits a moment before it starts and comes a few words at a time, as a
 // model's does; the waits are random from a fixed seed, so every recording
-// has the same ones. Run it from the Makefile: go run ./demo/fakeapi
+// has the same ones. scripts/demo-claude.sh runs it: go run ./demo/fakeapi
 package main
 
 import (
