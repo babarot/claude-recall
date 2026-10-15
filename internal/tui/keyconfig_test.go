@@ -276,7 +276,7 @@ func TestKeyProblemsSayWhere(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 	if p := ps[0]; strings.Join(p.Key, ".") != "keys.down" || p.Index != 1 ||
-		!strings.Contains(p.Message, "j is both resume and down in the session list and a frame or the spread conversation") {
+		!strings.Contains(p.Message, "j is both resume and down in the session list and a frame or the reading view") {
 		t.Errorf("got %+v", p)
 	}
 }

@@ -27,7 +27,7 @@ type globalKeys struct {
 }
 
 // sessionKeys act on the selected session, from the list, a frame or the
-// spread conversation.
+// reading view.
 type sessionKeys struct {
 	Resume, Recall, Read, CopyID, CopyCommand, Grow, Shrink key.Binding
 }
@@ -90,13 +90,13 @@ func (k keyMap) byName() map[string]key.Binding {
 }
 
 // keyContext is where a key that reaches the panes goes: which pane has
-// focus, and for the Conversation frame whether it is spread.
+// focus, and for the Conversation frame whether it is in the reading view.
 type keyContext int
 
 const (
 	ctxList    keyContext = iota
 	ctxFrame              // a detail frame: Conversation, What was done, Details
-	ctxReading            // the Conversation spread over the pane
+	ctxReading            // the reading view: Conversation over the pane
 	ctxFolders
 	numKeyContexts
 )
@@ -233,7 +233,7 @@ func (k keyMap) keyScopes() []struct {
 		fixed []string
 	}{
 		{"the session list", pick(all, opsIn(ctxList)...), []string{"esc"}},
-		{"a frame or the spread conversation", pick(all, opsIn(ctxFrame)...), []string{"esc"}},
+		{"a frame or the reading view", pick(all, opsIn(ctxFrame)...), []string{"esc"}},
 		{"the folder list", pick(all, opsIn(ctxFolders)...), []string{"esc"}},
 		// Boxes close on the key that opened them, beside their own keys.
 		{"the key list", pick(all, "help"), []string{"esc", "q"}},

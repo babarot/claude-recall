@@ -94,7 +94,7 @@ func (r helpRow) worksIn(g helpGroup, c keyContext) bool {
 }
 
 // works reports whether group g's keys work in context c; with the
-// conversation spread, the list's j k read the next session, which the
+// reading view open, the list's j k read the next session, which the
 // reading group tells.
 func (m Model) works(g helpGroup, c keyContext) bool {
 	return slices.Contains(g.in, c) || (c == ctxList && m.expanded && slices.Contains(g.in, ctxReading))

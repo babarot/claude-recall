@@ -107,7 +107,7 @@ type Model struct {
 	// the keys.
 	sideSearch textinput.Model
 	sideTyping bool
-	// conv is the search in the spread conversation.
+	// conv is the search in the reading view.
 	conv convSearch
 	// km is which keys do what.
 	km keyMap
@@ -126,8 +126,9 @@ type Model struct {
 	// changes.
 	sugHidden bool
 
-	// expanded spreads Conversation over the pane, leaving expandRows list
-	// rows; read is its content, rendered for readFor.
+	// expanded is whether the reading view is open, Conversation over the
+	// pane leaving expandRows list rows; read is its content, rendered for
+	// readFor.
 	expanded   bool
 	expandRows int
 	read       []string
@@ -315,7 +316,7 @@ func (m Model) maxDetailH() int {
 	return max(config.MinDetailHeight, m.height-m.chromeLines()-minListRows)
 }
 
-// resizeDetail sets the pane's height; while Conversation is spread, that
+// resizeDetail sets the pane's height; while the reading view is open, that
 // sets the list rows left above it instead.
 func (m *Model) resizeDetail(h int) {
 	h = max(config.MinDetailHeight, min(h, m.maxDetailH()))
@@ -611,7 +612,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		delete(m.detailLoading, msg.id)
 		m.storeDetail(msg.id, msg.d, msg.programs)
 		if r := m.current(); r != nil && r.s.ID == msg.id {
-			m.readFor = "" // the spread conversation, with it
+			m.readFor = "" // the reading view, with it
 		}
 		return m, nil
 	case textSearchTick:
@@ -725,7 +726,7 @@ func (m *Model) globalKey(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 // sessionKey handles a key that acts on the selected session, from the
-// list, a frame or the spread conversation.
+// list, a frame or the reading view.
 func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	s := m.km.Session
 	switch {
@@ -805,8 +806,8 @@ func (m *Model) listKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	case key.Matches(msg, n.Search):
 		return m.openFilter(), true
 	case msg.String() == "esc":
-		// One step back: the filter, then Claude's answer, then the spread
-		// conversation.
+		// One step back: the filter, then Claude's answer, then the reading
+		// view.
 		switch {
 		case m.filter.Value() != "":
 			m.filter.SetValue("")
@@ -835,8 +836,8 @@ func (m *Model) listKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	return nil, true
 }
 
-// frameKey handles a key on a detail frame, or on the Conversation spread
-// over the pane, which searches itself.
+// frameKey handles a key on a detail frame, or on the reading view,
+// which searches itself.
 func (m *Model) frameKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	if cmd, ok := m.sessionKey(msg); ok {
 		return cmd, true
@@ -859,7 +860,7 @@ func (m *Model) frameKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	case key.Matches(msg, n.Bottom):
 		m.scrollFrame(m.focus, 1<<20)
 	case key.Matches(msg, n.Search):
-		// The spread conversation searches itself; a frame, which has no
+		// The reading view searches itself; a frame, which has no
 		// search, opens the list's filter.
 		if reading {
 			return m.startConvSearch(), true
@@ -870,7 +871,7 @@ func (m *Model) frameKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	case reading && len(m.conv.hits) > 0 && key.Matches(msg, n.PrevMatch):
 		m.nextConvHit(-1)
 	case reading && key.Matches(msg, m.km.Global.Quit):
-		// The spread Conversation is opened over the pane, so quit closes
+		// The reading view is opened over the pane, so quit closes
 		// it, as it closes the key list; a search left in it goes too.
 		m.toggleExpand()
 	case msg.String() == "esc":

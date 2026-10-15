@@ -7,8 +7,8 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 )
 
-// Space spreads Conversation over the whole detail pane and grows the pane,
-// leaving the list a few rows, to read the selected session in full:
+// Space opens the reading view: Conversation over the whole detail pane,
+// grown to leave the list a few rows, to read the selected session in full:
 // messages wrapped, the user's boxed and Claude's railed. Tab back to the
 // list and j k read the next session in place. Space or Esc puts the pane
 // back. The rows left to the list can be changed like the pane's height,
@@ -16,7 +16,7 @@ import (
 
 const defaultExpandRows = 5
 
-// expandedPaneHeight is the pane's height while Conversation is spread: all
+// expandedPaneHeight is the pane's height while the reading view is open: all
 // but expandRows list rows, within what the terminal allows.
 func (m Model) expandedPaneHeight() int {
 	room := m.height - m.chromeLines()
@@ -24,8 +24,8 @@ func (m Model) expandedPaneHeight() int {
 	return max(0, min(h, room-minListRows))
 }
 
-// toggleExpand spreads Conversation, focused and from the top, or puts it
-// back.
+// toggleExpand opens the reading view, focused and from the top, or closes
+// it.
 func (m *Model) toggleExpand() {
 	m.expanded = !m.expanded
 	m.scroll[focusConv] = 0
@@ -38,8 +38,8 @@ func (m *Model) toggleExpand() {
 	m.clamp()
 }
 
-// readLines renders the selected session's conversation for the spread
-// frame, once per session and width.
+// readLines renders the selected session's conversation for the reading
+// view, once per session and width.
 func (m *Model) readLines() {
 	r := m.current()
 	if !m.expanded || r == nil {

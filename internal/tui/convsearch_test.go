@@ -39,7 +39,7 @@ func TestConversationSearch(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	m = press(t, m, "space", "/")
 	if !m.conv.typing || m.mode == modeFilter {
-		t.Fatalf("/ in the spread conversation should search it, not filter the list")
+		t.Fatalf("/ in the reading view should search it, not filter the list")
 	}
 	// Typing goes to the first hit and shows which it is.
 	m = settle(t, typeText(t, m, "Message 05"))
@@ -97,7 +97,7 @@ func TestSlashFiltersOutsideTheConversation(t *testing.T) {
 		t.Fatal("/ on the list should open the filter")
 	}
 	if m := press(t, m, "space", "tab", "/"); m.mode != modeFilter || m.conv.typing {
-		t.Fatal("/ with the list focused beside the spread pane should open the filter")
+		t.Fatal("/ with the list focused beside the reading view should open the filter")
 	}
 }
 
