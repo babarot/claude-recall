@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { footer, HELP_GROUPS, KEYMAP, lookup } from "./keymap";
 import type { Pane } from "./keymap";
+import { t } from "./i18n";
 
 const PANES: Pane[] = ["folders", "list", "reader"];
 
@@ -36,8 +37,8 @@ describe("keymap", () => {
   });
 
   it("joins a pair of keys in the footer", () => {
-    expect(footer("list")[0]).toEqual({ keys: "j k", label: "移動" });
-    expect(footer("reader").find((f) => f.label === "前・次の発言")?.keys).toBe("[ ]");
-    expect(footer("reader").find((f) => f.label === "一覧へ")?.keys).toBe("Esc");
+    expect(footer("list")[0]).toEqual({ keys: "j k", label: t.keys.move });
+    expect(footer("reader").find((f) => f.label === t.keys.prompts)?.keys).toBe("[ ]");
+    expect(footer("reader").find((f) => f.label === t.keys.toList)?.keys).toBe("Esc");
   });
 });

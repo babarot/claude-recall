@@ -2,6 +2,8 @@
 // the ? key list all read it, as the TUI's do its keymap. A new key is a
 // line here and a case in the action handler (App's runAction).
 
+import { t } from "./i18n";
+
 export type Pane = "folders" | "list" | "reader";
 export type Where = Pane | "any";
 
@@ -22,53 +24,53 @@ export interface Binding {
 }
 
 export const KEYMAP: Binding[] = [
-  { where: "any", keys: ["/"], action: "search", label: "セッションを検索（会話を読んでいるときはその会話を検索）" },
-  { where: "any", keys: ["Tab"], action: "focusNext", label: "フォルダ・一覧・会話のあいだでフォーカスを移す" },
-  { where: "any", keys: ["S-Tab"], action: "focusPrev", label: "フォーカスを逆に移す" },
-  { where: "any", keys: ["["], action: "folders", label: "フォルダ一覧を出す・しまう" },
-  { where: "any", keys: ["s"], action: "sort", label: "並べ替え" },
-  { where: "any", keys: ["y"], action: "copyId", label: "セッションIDをコピー" },
-  { where: "any", keys: ["Y"], action: "copyResume", label: "再開コマンドをコピー" },
-  { where: "any", keys: ["Escape"], action: "back", label: "一歩戻る：検索を消す、一覧に戻る" },
-  { where: "any", keys: ["?"], action: "help", label: "この一覧" },
+  { where: "any", keys: ["/"], action: "search", label: t.keys.search },
+  { where: "any", keys: ["Tab"], action: "focusNext", label: t.keys.focusNext },
+  { where: "any", keys: ["S-Tab"], action: "focusPrev", label: t.keys.focusPrev },
+  { where: "any", keys: ["["], action: "folders", label: t.keys.folders },
+  { where: "any", keys: ["s"], action: "sort", label: t.keys.sort },
+  { where: "any", keys: ["y"], action: "copyId", label: t.keys.copyId },
+  { where: "any", keys: ["Y"], action: "copyResume", label: t.keys.copyResume },
+  { where: "any", keys: ["Escape"], action: "back", label: t.keys.back },
+  { where: "any", keys: ["?"], action: "help", label: t.keys.help },
 
-  { where: "list", keys: ["j", "ArrowDown"], action: "down", label: "移動", footer: true },
-  { where: "list", keys: ["k", "ArrowUp"], action: "up", label: "移動" },
-  { where: "list", keys: ["g"], action: "top", label: "先頭へ" },
-  { where: "list", keys: ["G"], action: "bottom", label: "末尾へ" },
-  { where: "list", keys: ["Enter"], action: "open", label: "会話へ", footer: true },
-  { where: "list", keys: ["/"], action: "search", label: "検索", footer: true },
-  { where: "list", keys: ["s"], action: "sort", label: "並べ替え", footer: true },
-  { where: "list", keys: ["y"], action: "copyId", label: "ID", footer: true },
-  { where: "list", keys: ["Y"], action: "copyResume", label: "再開コマンド", footer: true },
-  { where: "list", keys: ["["], action: "folders", label: "フォルダ", footer: true },
+  { where: "list", keys: ["j", "ArrowDown"], action: "down", label: t.keys.move, footer: true },
+  { where: "list", keys: ["k", "ArrowUp"], action: "up", label: t.keys.move },
+  { where: "list", keys: ["g"], action: "top", label: t.keys.top },
+  { where: "list", keys: ["G"], action: "bottom", label: t.keys.bottom },
+  { where: "list", keys: ["Enter"], action: "open", label: t.keys.open, footer: true },
+  { where: "list", keys: ["/"], action: "search", label: t.keys.searchShort, footer: true },
+  { where: "list", keys: ["s"], action: "sort", label: t.keys.sort, footer: true },
+  { where: "list", keys: ["y"], action: "copyId", label: t.keys.id, footer: true },
+  { where: "list", keys: ["Y"], action: "copyResume", label: t.keys.resume, footer: true },
+  { where: "list", keys: ["["], action: "folders", label: t.keys.foldersShort, footer: true },
 
-  { where: "reader", keys: ["j", "ArrowDown"], action: "scrollDown", label: "スクロール", footer: true },
-  { where: "reader", keys: ["k", "ArrowUp"], action: "scrollUp", label: "スクロール" },
-  { where: "reader", keys: ["g"], action: "top", label: "会話の先頭へ" },
-  { where: "reader", keys: ["G"], action: "bottom", label: "会話の末尾へ" },
-  { where: "reader", keys: ["["], action: "prevPrompt", label: "前・次の発言", footer: true },
-  { where: "reader", keys: ["]"], action: "nextPrompt", label: "次の自分の発言へ" },
-  { where: "reader", keys: ["/"], action: "search", label: "この会話を検索", footer: true },
-  { where: "reader", keys: ["n"], action: "nextHit", label: "次・前の一致", footer: true },
-  { where: "reader", keys: ["N"], action: "prevHit", label: "前の一致へ" },
-  { where: "reader", keys: ["t"], action: "density", label: "ツールの見せ方", footer: true },
-  { where: "reader", keys: ["1"], action: "tabConv", label: "会話・やったことのタブ", footer: true },
-  { where: "reader", keys: ["2"], action: "tabDone", label: "やったことのタブ" },
-  { where: "reader", keys: ["Escape"], action: "back", label: "一覧へ", footer: true },
+  { where: "reader", keys: ["j", "ArrowDown"], action: "scrollDown", label: t.keys.scroll, footer: true },
+  { where: "reader", keys: ["k", "ArrowUp"], action: "scrollUp", label: t.keys.scroll },
+  { where: "reader", keys: ["g"], action: "top", label: t.keys.convTop },
+  { where: "reader", keys: ["G"], action: "bottom", label: t.keys.convEnd },
+  { where: "reader", keys: ["["], action: "prevPrompt", label: t.keys.prompts, footer: true },
+  { where: "reader", keys: ["]"], action: "nextPrompt", label: t.keys.nextPrompt },
+  { where: "reader", keys: ["/"], action: "search", label: t.keys.searchConv, footer: true },
+  { where: "reader", keys: ["n"], action: "nextHit", label: t.keys.hits, footer: true },
+  { where: "reader", keys: ["N"], action: "prevHit", label: t.keys.prevHit },
+  { where: "reader", keys: ["t"], action: "density", label: t.keys.density, footer: true },
+  { where: "reader", keys: ["1"], action: "tabConv", label: t.keys.tabs, footer: true },
+  { where: "reader", keys: ["2"], action: "tabDone", label: t.keys.tabDone },
+  { where: "reader", keys: ["Escape"], action: "back", label: t.keys.toList, footer: true },
 
-  { where: "folders", keys: ["j", "ArrowDown"], action: "down", label: "移動", footer: true },
-  { where: "folders", keys: ["k", "ArrowUp"], action: "up", label: "移動" },
-  { where: "folders", keys: ["Enter"], action: "pickFolder", label: "絞り込んで一覧へ", footer: true },
-  { where: "folders", keys: ["Escape"], action: "back", label: "一覧へ", footer: true },
+  { where: "folders", keys: ["j", "ArrowDown"], action: "down", label: t.keys.move, footer: true },
+  { where: "folders", keys: ["k", "ArrowUp"], action: "up", label: t.keys.move },
+  { where: "folders", keys: ["Enter"], action: "pickFolder", label: t.keys.pickFolder, footer: true },
+  { where: "folders", keys: ["Escape"], action: "back", label: t.keys.toList, footer: true },
 ];
 
 /** The ? key list's groups, the pane's own first. */
 export const HELP_GROUPS: { where: Where; title: string }[] = [
-  { where: "any", title: "どこでも" },
-  { where: "list", title: "一覧" },
-  { where: "reader", title: "会話" },
-  { where: "folders", title: "フォルダ" },
+  { where: "any", title: t.keyGroups.any },
+  { where: "list", title: t.keyGroups.list },
+  { where: "reader", title: t.keyGroups.reader },
+  { where: "folders", title: t.keyGroups.folders },
 ];
 
 /** The key a keydown event names in the table: "S-Tab" for shift+tab. */
@@ -87,7 +89,7 @@ export function footer(pane: Pane): { keys: string; label: string }[] {
   const out: { keys: string; label: string }[] = [];
   for (const b of KEYMAP) {
     if (b.where !== pane || !b.footer) continue;
-    // Bindings with the same label read as one: "j k 移動".
+    // Bindings with the same label read as one: "j k Move".
     const pair = KEYMAP.find((o) => o !== b && o.where === pane && !o.footer && isPair(b, o));
     out.push({ keys: [b.keys[0], pair?.keys[0]].filter(Boolean).join(" ").replace("Escape", "Esc"), label: b.label });
   }

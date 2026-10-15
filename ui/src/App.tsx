@@ -15,6 +15,7 @@ import { atBottom, conversationEl, currentPrompt, goTo, scrollToEdge, zoom } fro
 import { StatsView } from "./components/StatsView";
 import { api } from "./api";
 import { applyTheme } from "./lib/theme";
+import { t } from "./lib/i18n";
 
 // URL: / or /session/<id>, with ?q= for the search; /stats for the stats.
 function readURL(): { id: string | null; q: string; stats: boolean } {
@@ -262,7 +263,7 @@ export function App() {
         <label class="search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
           <input ref={searchRef} value={query.value} autocomplete="off"
-            placeholder="セッションを検索：タイトル・フォルダ・ブランチ・会話の中身"
+            placeholder={t.header.search}
             onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)}
             onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => {
@@ -281,12 +282,12 @@ export function App() {
           <kbd>/</kbd>
           <div class={`suggest ${searchFocused && !query.value ? "show" : ""}`}>
             {[
-              ["text:<word>", "会話の中身だけ"],
-              ["title:<part>", "タイトルの一部"],
-              ["in:<folder>", "フォルダ（あいまい一致、in:crec で claude-recall）"],
-              ["branch:<part>", "ブランチの一部"],
-              ["worktree:<part>", "worktree 名の一部"],
-              ["id:<prefix>", "セッション ID の先頭"],
+              ["text:<word>", t.header.suggest.text],
+              ["title:<part>", t.header.suggest.title],
+              ["in:<folder>", t.header.suggest.in],
+              ["branch:<part>", t.header.suggest.branch],
+              ["worktree:<part>", t.header.suggest.worktree],
+              ["id:<prefix>", t.header.suggest.id],
             ].map(([k, v]) => (
               <div key={k} onMouseDown={(e) => { e.preventDefault(); setQuery(k.replace(/<.*>/, ""), 0); }}>
                 <code>{k}</code><span>{v}</span>
@@ -295,12 +296,12 @@ export function App() {
           </div>
         </label>
         <div class="hdr-right">
-          <span class="live-pill" title="新しい会話は、開いたまま流れてきます"><span class="dot pulse" />live</span>
-          <button class="iconbtn" title="Stats" onClick={() => { history.pushState(null, "", "/stats"); setStats(true); }}>
+          <span class="live-pill" title={t.header.live}><span class="dot pulse" />live</span>
+          <button class="iconbtn" title={t.header.stats} onClick={() => { history.pushState(null, "", "/stats"); setStats(true); }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
           </button>
           {fixedTheme.value === null && (
-            <button class="iconbtn" title="テーマ：auto / dark / light" onClick={() => {
+            <button class="iconbtn" title={t.header.theme} onClick={() => {
               theme.value = ({ auto: "dark", dark: "light", light: "auto" } as const)[theme.value];
               saveSettings();
             }}>
@@ -308,7 +309,7 @@ export function App() {
               <span>{theme.value}</span>
             </button>
           )}
-          <button class="iconbtn" title="キー一覧" onClick={() => setKeysOpen(true)}><kbd>?</kbd></button>
+          <button class="iconbtn" title={t.header.keys} onClick={() => setKeysOpen(true)}><kbd>?</kbd></button>
         </div>
       </header>
 
@@ -328,12 +329,12 @@ export function App() {
 
       <footer>
         {footer(focus.value).map((f) => <span key={f.keys}><span class="k">{f.keys}</span>{f.label}</span>)}
-        <span class="right"><span class="k">?</span>すべてのキー</span>
+        <span class="right"><span class="k">?</span>{t.footer.allKeys}</span>
       </footer>
 
       <div class={`overlay ${keysOpen ? "show" : ""}`} onClick={(e) => { if (e.target === e.currentTarget) setKeysOpen(false); }}>
         <div class="modal">
-          <h2>キー</h2>
+          <h2>{t.keysTitle}</h2>
           <div class="keys">
             {HELP_GROUPS.flatMap((g) => [
               <h4 key={g.where}>{g.title}</h4>,

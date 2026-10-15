@@ -1,5 +1,7 @@
 // How times, sizes and counts show. Times are in the viewer's time zone.
 
+import { t } from "./i18n";
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export function hhmm(iso: string | null | undefined): string {
@@ -25,24 +27,24 @@ export function relative(iso: string | null | undefined, now: Date): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   const min = Math.round((now.getTime() - d.getTime()) / 60000);
-  if (min < 1) return "いま";
-  if (min < 60) return `${min}分前`;
+  if (min < 1) return t.time.now;
+  if (min < 60) return t.time.minsAgo(min);
   const days = Math.round((dayStart(now) - dayStart(d)) / 86400000);
   if (days === 0) return hhmm(iso);
-  if (days === 1) return "昨日";
-  if (days < 7) return `${days}日前`;
+  if (days === 1) return t.time.yesterday;
+  if (days < 7) return t.time.daysAgo(days);
   if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}/${d.getDate()}`;
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 /** The heading a session goes under in a list ordered by when sessions ended. */
 export function dayGroup(iso: string | null | undefined, now: Date): string {
-  if (!iso) return "それより前";
+  if (!iso) return t.time.earlier;
   const days = Math.round((dayStart(now) - dayStart(new Date(iso))) / 86400000);
-  if (days <= 0) return "今日";
-  if (days === 1) return "昨日";
-  if (days < 7) return "今週";
-  return "それより前";
+  if (days <= 0) return t.time.today;
+  if (days === 1) return t.time.yesterdayGroup;
+  if (days < 7) return t.time.thisWeek;
+  return t.time.earlier;
 }
 
 export function size(bytes: number): string {

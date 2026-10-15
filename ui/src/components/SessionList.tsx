@@ -6,12 +6,13 @@ import type { Sort } from "../store/app";
 import type { Session } from "../api";
 import { dayGroup, relative } from "../lib/format";
 import { highlight } from "../lib/highlight";
+import { t } from "../lib/i18n";
 
 export const SORTS: { key: Sort; label: string }[] = [
-  { key: "ended", label: "終わった順" },
-  { key: "started", label: "始まった順" },
-  { key: "messages", label: "メッセージ数" },
-  { key: "size", label: "サイズ" },
+  { key: "ended", label: t.sorts.ended },
+  { key: "started", label: t.sorts.started },
+  { key: "messages", label: t.sorts.messages },
+  { key: "size", label: t.sorts.size },
 ];
 
 export function Spark({ data }: { data: number[] }) {
@@ -53,10 +54,10 @@ export function SessionList({ focused, onPick, sortOpen, setSortOpen }: {
   return (
     <section class={`pane list ${focused ? "focused" : ""}`}>
       <div class="pane-head" style="position:relative">
-        <span class="label">{scoped && where ? (worktree.value ? `${where} · ${worktree.value}` : where) : "すべてのフォルダ"}</span>
+        <span class="label">{scoped && where ? (worktree.value ? `${where} · ${worktree.value}` : where) : t.list.allFolders}</span>
         <span>{list.length}</span>
         <button class="sortbtn" onClick={(e) => { e.stopPropagation(); setSortOpen(!sortOpen); }}>
-          並び：{SORTS.find((s) => s.key === sort.value)?.label} ▾
+          {t.list.sortBy(SORTS.find((s) => s.key === sort.value)?.label ?? "")} ▾
         </button>
         <div class={`menu ${sortOpen ? "show" : ""}`}>
           {SORTS.map((s, i) => (
@@ -69,17 +70,17 @@ export function SessionList({ focused, onPick, sortOpen, setSortOpen }: {
       <div class="scroll" ref={scroller}>
         {query.value && (
           <div class="result-head">
-            「<span class="chip">{query.value}</span>」に一致：{list.length}件のセッション
-            {searching.value && <span>（会話を検索中…）</span>}
-            <span style="margin-left:auto"><kbd>Esc</kbd> で消す</span>
+            {t.list.matchBefore}<span class="chip">{query.value}</span>{t.list.matchAfter}{t.list.sessions(list.length)}
+            {searching.value && <span>{t.list.searching}</span>}
+            <span style="margin-left:auto"><kbd>Esc</kbd>{t.list.escAfter}</span>
           </div>
         )}
-        {!loaded.value && <div class="list-empty">読み込んでいます…</div>}
-        {loadError.value && <div class="list-empty">セッションを読み込めませんでした：{loadError.value}</div>}
+        {!loaded.value && <div class="list-empty">{t.list.loading}</div>}
+        {loadError.value && <div class="list-empty">{t.list.loadFailed(loadError.value)}</div>}
         {loaded.value && !loadError.value && list.length === 0 && (
           <div class="list-empty">
-            一致するセッションはありません。
-            {folder.value && scoped && <><br /><small>すべてのフォルダで探すには、左の「すべてのフォルダ」を選んでください</small></>}
+            {t.list.noMatch}
+            {folder.value && scoped && <><br /><small>{t.list.noMatchHint}</small></>}
           </div>
         )}
         {list.flatMap((s) => {
@@ -108,7 +109,7 @@ function Row({ s, words, snippet, onPick }: { s: Session; words: string[]; snipp
         {s.worktree
           ? <><span class="sep">·</span><span class="wt">{s.worktree}</span></>
           : s.branch && <><span class="sep">·</span><span>{s.branch}</span></>}
-        {s.recallOnly && <span class="badge recall" title="recall で過去のセッションを見ただけのセッション">recall</span>}
+        {s.recallOnly && <span class="badge recall" title={t.list.recallOnly}>recall</span>}
         <span class="num"><Spark data={s.activity} /><span>{s.messages.toLocaleString()}</span></span>
       </div>
       {snippet && <div class="s-snip" dangerouslySetInnerHTML={{ __html: highlight(snippet, words) }} />}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { t } from "../lib/i18n";
 
 interface Stats {
   totalSessions: number;
@@ -20,17 +21,17 @@ export function StatsView({ onBack }: { onBack: () => void }) {
   return (
     <div class="stats-page">
       <div class="stats-head">
-        <button class="btn" onClick={onBack}>← セッション</button>
+        <button class="btn" onClick={onBack}>{t.stats.back}</button>
         <h1>Stats</h1>
       </div>
-      {error && <div class="list-empty">読み込めませんでした：{error}</div>}
-      {!data && !error && <div class="list-empty">読み込んでいます…</div>}
+      {error && <div class="list-empty">{t.stats.failed(error)}</div>}
+      {!data && !error && <div class="list-empty">{t.stats.loading}</div>}
       {data && (
         <div class="done-grid">
-          <div class="card"><h3>セッション</h3><div class="big">{data.totalSessions.toLocaleString()}</div></div>
-          <div class="card"><h3>メッセージ</h3><div class="big">{data.totalMessages.toLocaleString()}</div></div>
+          <div class="card"><h3>{t.stats.sessions}</h3><div class="big">{data.totalSessions.toLocaleString()}</div></div>
+          <div class="card"><h3>{t.stats.messages}</h3><div class="big">{data.totalMessages.toLocaleString()}</div></div>
           <div class="card" style="grid-column:1/-1">
-            <h3>月ごとのセッション</h3>
+            <h3>{t.stats.byMonth}</h3>
             {(data.byMonth ?? []).map((m) => (
               <div class="bar-row" key={m.month}>
                 <span class="k mono">{m.month}</span>
@@ -40,7 +41,7 @@ export function StatsView({ onBack }: { onBack: () => void }) {
             ))}
           </div>
           <div class="card" style="grid-column:1/-1">
-            <h3>フォルダごとのセッション</h3>
+            <h3>{t.stats.byFolder}</h3>
             {(data.byProject ?? []).map((p) => (
               <div class="bar-row wide" key={p.project}>
                 <span class="k" title={p.project}>{p.project}</span>
