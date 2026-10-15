@@ -31,7 +31,7 @@ const (
 	// Binary is a release binary install.sh copied into place: the only
 	// method recall updates itself.
 	Binary Method = iota
-	// Source is a build from source (make install, go install).
+	// Source is a build from source (mise run install, go install).
 	Source
 	// Nix is the release binary in the Nix store.
 	Nix
@@ -59,7 +59,7 @@ func Detect(source, exe string) Method {
 func (m Method) Hint() string {
 	switch m {
 	case Source:
-		return "recall was built from source; update the checkout and build it again (git pull && make install)."
+		return "recall was built from source; update the checkout and build it again (git pull && mise run install)."
 	case Nix:
 		return "recall was installed with Nix; update it with Nix (nix profile upgrade, or your flake)."
 	case Homebrew:

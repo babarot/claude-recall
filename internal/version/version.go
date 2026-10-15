@@ -5,5 +5,5 @@ package version
 const Version = "1.12.0"
 
 // Source is "release" in the binaries the release workflow builds (its
-// -ldflags set it), and empty in any other build: make install, go install.
+// -ldflags set it), and empty in any other build: mise run install, go install.
 var Source string

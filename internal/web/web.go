@@ -456,7 +456,7 @@ func serveAsset(w http.ResponseWriter, path string) {
 		return
 	}
 	if !webui.Embedded {
-		text(w, http.StatusNotFound, "Not Found (this binary was built without the web UI; build with `make build`)")
+		text(w, http.StatusNotFound, "Not Found (this binary was built without the web UI; build with `mise run build`)")
 		return
 	}
 	text(w, http.StatusNotFound, "Not Found")

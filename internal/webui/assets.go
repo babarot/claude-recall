@@ -1,7 +1,7 @@
 // Package webui holds the built web UI (ui/dist) for the HTTP server.
 //
 // The assets are embedded only when building with -tags embedui after
-// `make ui`, which copies ui/dist here. Without the tag the server still
+// `mise run ui`, which copies ui/dist here. Without the tag the server still
 // runs its API, and pages answer with a hint to build the UI.
 package webui
 
