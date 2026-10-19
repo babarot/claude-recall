@@ -307,7 +307,7 @@ func TestCopyCommand(t *testing.T) {
 			t.Fatalf("%v: toast %q", keys, r.toast)
 		}
 	}
-	got := m.recallCommand("cccccccc-3333")
+	got := m.recallCommand("", "cccccccc-3333")
 	want := `claude 'Use the recall tools to recall session cccccccc-3333 (recall_export), then pick up where it left off: say briefly what was being done and how far it got, and wait for my instructions.' --mcp-config '{"mcpServers":{"recall":{"args":["mcp","--db","/tmp/vault.db"],"command":"/bin/recall"}}}' --allowedTools 'mcp__recall__recall_search,mcp__recall__recall_list,mcp__recall__recall_export'`
 	if got != want {
 		t.Fatalf("command\n%s\nwant\n%s", got, want)
@@ -407,13 +407,13 @@ func TestColumnsAdaptToWidth(t *testing.T) {
 		}
 		return strings.Join(out, ",")
 	}
-	if got := names(140); got != "Date,Title,Folder,Branch,Msgs,Size,ID" {
+	if got := names(140); got != "Date,Title,Folder,Branch,Agent,Msgs,Size,ID" {
 		t.Errorf("140: %s", got)
 	}
 	if got := names(80); got != "Date,Title,Folder" {
 		t.Errorf("80: %s", got)
 	}
-	if got := names(100); got != "Date,Title,Folder,Branch,Msgs" {
+	if got := names(100); got != "Date,Title,Folder,Branch,Agent,Msgs" {
 		t.Errorf("100: %s", got)
 	}
 }

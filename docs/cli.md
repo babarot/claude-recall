@@ -12,7 +12,7 @@ recall import [options]
   -n, --dry-run       Show what would be imported without writing
 ```
 
-It reads `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` when set) and the trees listed in `extra_projects_dirs` under `[core]` in the [config file](configuration.md). With more than one tree it first says what it found in each:
+It reads `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` when set), Codex's `~/.codex/sessions` and `archived_sessions` (`$CODEX_HOME` when set) when they are there and `[codex]` has not turned them off, and the trees listed in `extra_projects_dirs` under `[core]` in the [config file](configuration.md). With more than one tree it first says what it found in each:
 
 ```console
 $ recall import
@@ -34,6 +34,7 @@ recall search <query> [options]
   --from <date>       Start date (YYYY-MM-DD)
   --to <date>         End date (YYYY-MM-DD)
   --repo <dir>        Only the repository <dir> is in, its worktrees included
+  --agent <name>      Only one agent's sessions: claude or codex (default: both)
   --format text|json  Output format (default: text)
   --substring         Match anywhere in the text, newest first
 ```
@@ -44,7 +45,7 @@ The full-text index splits words at spaces and punctuation, so it cannot find a 
 
 `--repo` takes the repository the way the TUI groups sessions: a linked worktree belongs to its main checkout, a removed Claude Code worktree (`<repo>/.claude/worktrees/<name>`) to the `<repo>` its path names, and a removed herdr worktree (`~/.herdr/worktrees/<name>/...`), whose path names the repository but not its owner, to the one checkout in the archive with that directory name; with none or several, it stays a repository of its own. `<dir>` may be the checkout, a worktree, a directory inside either, or a worktree since removed.
 
-With `--format json`, each result also has its session's `title`, `messageCount`, `firstPrompt`, `displayTitle` (the title, or else the first prompt made readable, as the TUI shows it), `recallOnly` (the session called recall's MCP tools and no other tool, so it was only a look back), `repository`, in a worktree `worktree`, and `remote`, the origin of the repository recorded when the session was imported (`github.com/owner/repo` whether the URL is https or ssh), when there is one.
+With `--format json`, each result also has its session's `title`, `messageCount`, `firstPrompt`, `displayTitle` (the title, or else the first prompt made readable, as the TUI shows it), `recallOnly` (the session called recall's MCP tools and no other tool, so it was only a look back), `repository`, in a worktree `worktree`, `remote`, the origin of the repository recorded when the session was imported (`github.com/owner/repo` whether the URL is https or ssh), when there is one, and `agent`, who wrote the session (`claude` or `codex`).
 
 ## List
 
@@ -53,11 +54,12 @@ recall list [options]
 
   --project <name>    Filter by project
   --repo <dir>        Only the repository <dir> is in, its worktrees included
+  --agent <name>      Only one agent's sessions: claude or codex (default: both)
   --limit <n>         Max sessions (default: 50)
   --format text|json  Output format (default: text)
 ```
 
-With `--format json`, each session also has `displayTitle`, `recallOnly`, `repository`, in a worktree `worktree`, and `remote`, as `search` has.
+With `--format json`, each session also has `displayTitle`, `recallOnly`, `repository`, in a worktree `worktree`, `remote` and `agent`, as `search` has.
 
 ## Export
 

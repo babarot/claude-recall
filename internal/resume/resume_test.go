@@ -3,6 +3,7 @@ package resume
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -41,13 +42,35 @@ func TestShellQuote(t *testing.T) {
 }
 
 func TestCommand(t *testing.T) {
-	if got, want := Command("/tmp/my dir", "abc-123"), `cd '/tmp/my dir' && claude -r abc-123`; got != want {
+	if got, want := Command(parser.AgentClaude, "/tmp/my dir", "abc-123"), `cd '/tmp/my dir' && claude -r abc-123`; got != want {
+		t.Errorf("Command = %s, want %s", got, want)
+	}
+	if got, want := Command(parser.AgentCodex, "/tmp/my dir", "abc-123"), `cd '/tmp/my dir' && codex resume abc-123`; got != want {
 		t.Errorf("Command = %s, want %s", got, want)
 	}
 	self := []string{"/bin/recall", "mcp"}
-	if got := RecallCommand(self, "abc-123"); !strings.HasPrefix(got, "claude 'Use the recall tools to recall session abc-123") ||
+	if got := RecallCommand(parser.AgentClaude, self, "abc-123"); !strings.HasPrefix(got, "claude 'Use the recall tools to recall session abc-123") ||
 		!strings.Contains(got, ` --mcp-config '{"mcpServers"`) {
 		t.Errorf("RecallCommand = %s", got)
+	}
+	if got, want := RecallCommand(parser.AgentCodex, self, "abc-123"),
+		`codex -c 'mcp_servers.recall.command="/bin/recall"' -c 'mcp_servers.recall.args=["mcp"]' 'Use the recall tools to recall session abc-123`; !strings.HasPrefix(got, want) {
+		t.Errorf("RecallCommand = %s, want prefix %s", got, want)
+	}
+}
+
+func TestCodexRecallArgs(t *testing.T) {
+	self := []string{"/bin/recall", "mcp", "--db", "/tmp/vault.db"}
+	args := CodexRecallArgs(self, "abc-123", "the retry policy")
+	want := []string{"-c", `mcp_servers.recall.command="/bin/recall"`, "-c", `mcp_servers.recall.args=["mcp","--db","/tmp/vault.db"]`}
+	if len(args) != 5 || !slices.Equal(args[:4], want) || !strings.Contains(args[4], "about: the retry policy") {
+		t.Fatalf("args %q", args)
+	}
+	if got := AgentRecallArgs(parser.AgentCodex, self, "abc-123", ""); got[0] != "-c" {
+		t.Errorf("AgentRecallArgs(codex) = %q", got)
+	}
+	if got := AgentRecallArgs(parser.AgentClaude, self, "abc-123", ""); got[1] != "--mcp-config" {
+		t.Errorf("AgentRecallArgs(claude) = %q", got)
 	}
 }
 
@@ -62,6 +85,7 @@ func TestWhere(t *testing.T) {
 		{parser.File{Dir: dirs[0], Project: "-src-app"}, true, "", false},
 		{parser.File{Dir: dirs[0], Project: "-src-elsewhere"}, true, "", true}, // claude -r reads the project's own directory
 		{parser.File{Dir: dirs[1], Project: "-src-app"}, true, dirs[1], false},
+		{parser.File{Dir: dirs[1], Project: "2026/05/07", Agent: parser.AgentCodex}, true, "", false}, // codex resume reads every tree under its home
 		{parser.File{}, false, "", true},
 	}
 	for _, c := range cases {

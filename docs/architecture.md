@@ -1,14 +1,18 @@
 # Architecture
 
-`recall` is one binary. The CLI starts each way into the archive: the TUI (`recall`), the MCP server (`recall mcp`, started by Claude Code) and the web UI (`recall ui`), and it also searches, lists and exports on its own.
+`recall` is one binary. The CLI starts each way into the archive: the TUI (`recall`), the MCP server (`recall mcp`, started by Claude Code or Codex) and the web UI (`recall ui`), and it also searches, lists and exports on its own.
 
 The web UI and the MCP server import everything on startup and run the watcher while they are up, the MCP servers one at a time. The `SessionEnd` hook imports when a session ends. The TUI and the CLI read the archive as it is.
+
+Two kinds of transcript feed the importer: Claude Code's JSONL, parsed by `internal/parser`, and Codex's rollouts, parsed by `internal/codex` into the same rows (see [docs/codex.md](codex.md)). The trees are told apart by their layout: `<tree>/<project>/<session>.jsonl` is Claude Code's, `<tree>/YYYY/MM/DD/rollout-*.jsonl` Codex's.
 
 ```mermaid
 flowchart TD
     JSONL["~/.claude/projects/*/*.jsonl"]
+    Rollouts["~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl"]
     JSONL -->|"watcher (while UI or MCP runs)"| Import["importer<br/>full parse, one transaction per session"]
     JSONL -->|"startup import, SessionEnd hook"| Import
+    Rollouts -->|"watcher, startup import"| Import
     Import --> DB["SQLite + FTS5<br/>~/.claude/vault.db"]
     Import --> SSE["server-sent events"]
     SSE -->|/api/stream| UI["Web UI"]
@@ -22,7 +26,7 @@ flowchart TD
 
 | State | What happens |
 |---|---|
-| UI or MCP running | Changed transcripts are imported after they stop changing for 300 ms, from `~/.claude/projects` and every tree in `extra_projects_dirs` |
+| UI or MCP running | Changed transcripts are imported after they stop changing for 300 ms, from `~/.claude/projects`, Codex's `sessions` and `archived_sessions` when they are there, and every tree in `extra_projects_dirs` |
 | A session ends | The plugin's `SessionEnd` hook runs `recall import` |
 | UI or MCP starts | A full import catches up on everything written in the meantime, in the background |
 
@@ -35,7 +39,10 @@ The watcher polls file sizes and mtimes every 250 ms; see [ADR-002](adr/002-fs-w
 ```sql
 sessions (session_id, project, project_path, git_branch, first_prompt,
           summary, message_count, started_at, ended_at, claude_version,
-          file_mtime, file_size, imported_at, title)
+          file_mtime, file_size, imported_at, title, remote, import_version,
+          agent)  -- 'claude' or 'codex'; NULL is claude, from before
+                  -- Codex sessions were stored. claude_version is the
+                  -- release of whichever agent wrote the session
 
 messages (id, session_id, uuid, role, block_type, block_index, content,
           tool_name, tool_input, timestamp, turn_index)

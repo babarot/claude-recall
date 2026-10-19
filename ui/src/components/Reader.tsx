@@ -4,6 +4,7 @@ import {
   convError, detail, findInConversation, findQuery, hitIndex, hits, header, loadDetail, opening,
 } from "../store/conversation";
 import { Conversation, goTo } from "./Conversation";
+import { agentName } from "../api";
 import { dateTime, hhmm, size } from "../lib/format";
 import { toolLabel } from "../lib/items";
 import { t } from "../lib/i18n";
@@ -170,7 +171,7 @@ function Done() {
             <dt>{t.done.size}</dt><dd>{size(s.size)}</dd>
             <dt>{t.done.branch}</dt><dd>{s.branch || "-"}</dd>
             <dt>{t.done.folder}</dt><dd class="mono">{s.path}{s.gone ? t.done.gone : ""}</dd>
-            {h?.claudeVersion && <><dt>Claude Code</dt><dd>{h.claudeVersion}</dd></>}
+            {h?.claudeVersion && <><dt>{agentName(s.agent)}</dt><dd>{h.agentVersion ?? h.claudeVersion}</dd></>}
             {h && <><dt>{t.done.goBack}</dt><dd class="mono" title={h.resume.command}>{shownCommand(h.resume.command, h.fullPath, s.path)}</dd></>}
           </dl>
         </div>

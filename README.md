@@ -2,14 +2,14 @@
 
 [![Test](https://github.com/babarot/claude-recall/actions/workflows/test.yaml/badge.svg)](https://github.com/babarot/claude-recall/actions/workflows/test.yaml)
 
-Recall any past Claude Code session: ask Claude to look into it, or find it yourself and go back to it.
+Recall any past Claude Code or Codex session: ask the agent to look into it, or find it yourself and go back to it.
 
 ![The recall TUI: looking through sessions, narrowing to a folder and what was said, reading a conversation, and asking Claude](demo/tui.gif)
 
-claude-recall archives every Claude Code session into SQLite, including the ones whose JSONL Claude Code has since deleted, and gives you three ways back into them from one binary called `recall`:
+claude-recall archives every Claude Code session into SQLite, including the ones whose JSONL Claude Code has since deleted, and every [Codex CLI](docs/codex.md) session beside them, and gives you three ways back into them from one binary called `recall`:
 
-- MCP server: Claude searches past sessions and reads what was done in them, from inside the session you are working in
-- TUI: find a session yourself and resume it where it left off
+- MCP server: Claude or Codex searches past sessions and reads what was done in them, from inside the session you are working in, whichever agent ran them
+- TUI: find a session yourself and resume it where it left off, with `claude -r` or `codex resume`
 - Web UI: read past conversations comfortably in the browser, live as they are written
 
 With the [Claude Code plugin](#claude-code-plugin), recall also shows up [in Claude Code](#in-claude-code) itself: the repository's last sessions when you start, search results you can read at a glance, and `/recall`.
@@ -21,7 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/babarot/claude-recall/main/bin/inst
 recall
 ```
 
-The installer puts `recall` in `~/.local/bin`, imports your sessions and registers the MCP server with Claude Code. Then ask Claude about a past session ("how did we set up the staging deploy last month?"), or run `recall` to browse them. See [Install](#install) for Nix, building from source and the Claude Code plugin.
+The installer puts `recall` in `~/.local/bin`, imports your sessions and registers the MCP server with Claude Code and with Codex, whichever are installed. Then ask Claude or Codex about a past session ("how did we set up the staging deploy last month?"), or run `recall` to browse them. See [Install](#install) for Nix, building from source and the Claude Code plugin, and [docs/codex.md](docs/codex.md) for Codex.
 
 ## Use cases
 
@@ -37,8 +37,8 @@ A support question comes in, you open a session, and it is settled in ten minute
 
 | You want to | Use | What only it gives you |
 |---|---|---|
-| Have Claude remember what happened in a past session | [MCP server](#mcp-server) | The answer lands in the session you are working in, as context Claude can use right away |
-| Find a session yourself and go back to it | [TUI](#tui) | Resume it in place (`claude -r`), recall it in a new claude, or copy its ID to hand to another agent |
+| Have Claude or Codex remember what happened in a past session | [MCP server](#mcp-server) | The answer lands in the session you are working in, as context the agent can use right away |
+| Find a session yourself and go back to it | [TUI](#tui) | Resume it in place (`claude -r`, or `codex resume`), recall it in a new agent, or copy its ID to hand to another agent |
 | Find a session yourself and read it | [Web UI](#web-ui) | A comfortable reader in the browser, for long conversations and images |
 | Look back without leaving the session | [In Claude Code](#in-claude-code) | The repository's last sessions as you start, a search without a model turn, and a recap of any session with one press |
 
@@ -46,12 +46,12 @@ The [CLI](#cli) underneath starts each of them (`recall mcp`, `recall`, `recall 
 
 ### MCP server
 
-Each Claude Code session runs its own `recall mcp`, so Claude can look into past sessions whenever it needs to. Nothing is injected into the prompt: Claude calls these tools when you ask about the past or when it realizes something was discussed before.
+Each Claude Code or Codex session runs its own `recall mcp`, so the agent can look into past sessions whenever it needs to, the other agent's included. Nothing is injected into the prompt: the agent calls these tools when you ask about the past or when it realizes something was discussed before.
 
 | Tool | Description |
 |------|-------------|
-| `recall_search` | Full-text search across past sessions, optionally within one repository (`repo`); each hit names its session's title, size and repository |
-| `recall_list` | List archived sessions, optionally of one repository (`repo`) |
+| `recall_search` | Full-text search across past sessions, optionally within one repository (`repo`) or of one agent (`agent`); each hit names its session's title, size, repository and agent |
+| `recall_list` | List archived sessions, optionally of one repository (`repo`) or one agent (`agent`) |
 | `recall_export` | Export a session's full conversation, or with `tail` only its last messages |
 | `recall_stats` | Show archive statistics |
 
@@ -61,14 +61,14 @@ A session ID from the TUI (`y`) works too: "look up session a1b2c3 with claude-r
 
 ### TUI
 
-`recall` lists every archived session with its title, folder (a git worktree is shown under the repository it belongs to), branch, message count, size and ID. Started inside a repository, it shows only that repository's sessions; `.` switches to all of them, and `recall --all` starts with all of them.
+`recall` lists every archived session with its title, folder (a git worktree is shown under the repository it belongs to), branch, agent, message count, size and ID. Started inside a repository, it shows only that repository's sessions; `.` switches to all of them, and `recall --all` starts with all of them.
 
 | Key | Action |
 |-----|--------|
-| `Enter` | Resume the session: `claude -r <id>` from the session's folder |
-| `c` | Recall the session in a new claude through MCP: for a session `claude -r` cannot resume, such as one whose worktree was removed |
+| `Enter` | Resume the session: `claude -r <id>`, or `codex resume <id>` for a Codex session, from the session's folder |
+| `c` | Recall the session in a new claude (or codex) through MCP: for a session that cannot be resumed, such as one whose worktree was removed |
 | `y` / `Y` | Copy the session ID / the resume command (the recall command when it cannot be resumed) |
-| `/` | Filter by title, folder, branch, ID or what was said; `text:`, `title:`, `folder:` and others narrow it to one field |
+| `/` | Filter by title, folder, branch, ID, agent or what was said; `text:`, `title:`, `folder:`, `agent:` and others narrow it to one field |
 | `a` | Ask Claude to find sessions, when you remember what it was about but not what to type. It runs your own `claude -p`, so no API key is needed |
 | `Space` | Read the conversation over the detail pane |
 | `?` | Show every key, the ones for where you are first |
@@ -124,7 +124,7 @@ claude-mem extends the agent's memory, for Claude Code and many other agents. It
 | Search | FTS5 + Chroma vector hybrid | FTS5 only (deterministic) |
 | LLM calls | During indexing, through a hosted observer, your own OpenRouter or Gemini key, or your Anthropic plan | Never while storing or searching; only when you ask Claude from the TUI (`a`), through your own `claude` |
 | Where data lives | Local, with optional cloud sync | Local only |
-| Agents | Claude Code, Codex, Gemini, OpenCode and more | Claude Code |
+| Agents | Claude Code, Codex, Gemini, OpenCode and more | Claude Code and Codex, in one archive |
 | Runtime | Node + Bun + Python (uv) + Chroma, resident worker | One static binary, no daemon |
 
 The tradeoff claude-recall picks:
@@ -136,14 +136,14 @@ The tradeoff claude-recall picks:
 
 ## Install
 
-Getting started takes three steps: put `recall` on PATH, import your sessions into the archive, and connect Claude Code to the MCP server. What each way of installing does for you:
+Getting started takes three steps: put `recall` on PATH, import your sessions into the archive, and connect Claude Code, Codex or both to the MCP server. What each way of installing does for you:
 
 | Install | `recall` on PATH | Import | MCP server |
 |---------|------------------|--------|------------|
-| [curl](#curl) | Yes | Yes | Yes, when `claude` is on PATH |
+| [curl](#curl) | Yes | Yes | Yes, with `claude` and with `codex`, whichever are on PATH |
 | [Nix](#nix) | Yes | No | No |
 | [Build from source](#build-from-source) | Yes | No | No |
-| [Claude Code plugin](#claude-code-plugin) | No | When a Claude Code session starts | Yes |
+| [Claude Code plugin](#claude-code-plugin) | No | When a Claude Code session starts | Yes, with Claude Code |
 
 Whatever is left is in [Set up](#set-up).
 
@@ -153,7 +153,7 @@ Whatever is left is in [Set up](#set-up).
 curl -fsSL https://raw.githubusercontent.com/babarot/claude-recall/main/bin/install.sh | bash
 ```
 
-Installs `recall` to `~/.local/bin` (set `RECALL_INSTALL_DIR` to change it), imports your sessions and registers the MCP server.
+Installs `recall` to `~/.local/bin` (set `RECALL_INSTALL_DIR` to change it), imports your sessions and registers the MCP server with each agent that is installed.
 
 ### Nix
 
@@ -199,14 +199,15 @@ Without the plugin, register just the MCP server, as in [Set up](#set-up).
 
 ### Set up
 
-After installing with Nix or from source, import your sessions and connect Claude Code:
+After installing with Nix or from source, import your sessions and connect the agents you use:
 
 ```bash
-recall import                                        # create the archive from ~/.claude/projects
+recall import                                        # create the archive from ~/.claude/projects and ~/.codex/sessions
 claude mcp add claude-recall -s user -- recall mcp   # or install the plugin
+codex mcp add claude-recall -- recall mcp            # Codex
 ```
 
-Until the archive exists, `recall` and its `search`, `list`, `export` and `stats` commands say how to set it up and exit with status 1. The MCP server and the web UI create the archive and import into it when they start, so with the MCP server connected, the first Claude Code session you start does the import too.
+Until the archive exists, `recall` and its `search`, `list`, `export` and `stats` commands say how to set it up and exit with status 1. The MCP server and the web UI create the archive and import into it when they start, so with the MCP server connected, the first Claude Code or Codex session you start does the import too. [docs/codex.md](docs/codex.md) has the rest about Codex: what is read from its rollouts, a `SessionEnd` hook, and how its sessions are resumed.
 
 ### Upgrade
 
@@ -227,7 +228,7 @@ The archive is `~/.claude/vault.db`. Sessions whose JSONL Claude Code has delete
 sqlite3 ~/.claude/vault.db ".backup '/path/to/backup.db'"
 ```
 
-Sessions are imported from `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` when Claude Code runs with `CLAUDE_CONFIG_DIR`), and from the trees `extra_projects_dirs` in the [config file](#configuration) lists, such as a container's; [docs/architecture.md](docs/architecture.md#sync-timing) says when. Symlinked project directories and transcripts are followed. The archive stays in `~/.claude` either way; `db` in the [config file](#configuration) moves it.
+Sessions are imported from `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` when Claude Code runs with `CLAUDE_CONFIG_DIR`), from Codex's `~/.codex/sessions` and `archived_sessions` (`$CODEX_HOME` when set) when they are there, and from the trees `extra_projects_dirs` in the [config file](#configuration) lists, such as a container's; [docs/architecture.md](docs/architecture.md#sync-timing) says when. Symlinked project directories and transcripts are followed. The archive stays in `~/.claude` either way, Codex sessions included; `db` in the [config file](#configuration) moves it.
 
 | Stored | Excluded |
 |--------|----------|
@@ -243,6 +244,9 @@ Sessions are imported from `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` w
 ```toml
 [core]
 db = "~/.claude/vault.db"   # the archive, unless --db says otherwise
+
+[codex]
+enabled = true              # archive Codex sessions too, from ~/.codex (or dir)
 
 [ui]
 port = 6276                 # the web UI, unless --port says otherwise
@@ -267,10 +271,11 @@ recall search "terraform module"
 recall search "deploy" --project oksskolten --from 2026-03-01
 recall list --project gh-infra --format json
 recall search "staging" --repo .            # this repository, its worktrees included
+recall list --agent codex                   # only Codex sessions (or claude)
 recall export <session-id> --format json --output session.json
 recall stats
 recall ui                   # Web UI in the background (http://localhost:6276)
-recall mcp                  # MCP server over stdio (started by Claude Code)
+recall mcp                  # MCP server over stdio (started by Claude Code or Codex)
 recall update               # Update to the latest release
 recall version
 ```

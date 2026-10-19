@@ -41,6 +41,8 @@ type V2Session struct {
 	// Activity is the number of messages in each of 12 equal slices of the
 	// session.
 	Activity []int `json:"activity"`
+	// Agent is who wrote the session: "claude" (Claude Code) or "codex".
+	Agent string `json:"agent"`
 }
 
 // V2Resume is how to go back to a session: claude -r in its folder when
@@ -58,8 +60,12 @@ type V2Resume struct {
 // the header.
 type V2SessionDetail struct {
 	V2Session
-	FullPath      string   `json:"fullPath"`
+	FullPath string `json:"fullPath"`
+	// ClaudeVersion is the release of the agent that wrote the session,
+	// under the name it had when every session was Claude Code's;
+	// AgentVersion is the same value.
 	ClaudeVersion string   `json:"claudeVersion"`
+	AgentVersion  string   `json:"agentVersion"`
 	Resume        V2Resume `json:"resume"`
 }
 

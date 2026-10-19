@@ -1,9 +1,9 @@
 // Package filter is the filter the TUI and the web UI narrow sessions
-// with: words to find in a session's title, folder, branch, ID or
+// with: words to find in a session's title, folder, branch, ID, agent or
 // conversation, and key:value terms that look in one field only: folder:
-// (in: for short), text: (conversation), title:, branch:, worktree: and id:.
-// A new key gets a constant, a field in Query, a line in Query.fields and a
-// case in Match.
+// (in: for short), text: (conversation), title:, branch:, worktree:, id:
+// and agent: (claude or codex). A new key gets a constant, a field in
+// Query, a line in Query.fields and a case in Match.
 package filter
 
 import "strings"
@@ -17,10 +17,11 @@ const (
 	BranchKey   = "branch:"
 	WorktreeKey = "worktree:"
 	IDKey       = "id:"
+	AgentKey    = "agent:"
 )
 
 // Keys lists the keys in the order they are offered.
-var Keys = []string{FolderKey, InKey, TextKey, TitleKey, BranchKey, WorktreeKey, IDKey}
+var Keys = []string{FolderKey, InKey, TextKey, TitleKey, BranchKey, WorktreeKey, IDKey, AgentKey}
 
 // MinBodyWord is the shortest plain word looked up in the conversation; a
 // single letter is in nearly every session.
@@ -38,13 +39,15 @@ type Query struct {
 	// Title, Branch and Worktree are parts of those fields, ID the start of
 	// the session ID. Several of one key match any of them.
 	Title, Branch, Worktree, ID []string
+	// Agent are starts of the agent's name: "claude" or "codex".
+	Agent []string
 }
 
 // fields maps each key to where its values go.
 func (q *Query) fields() map[string]*[]string {
 	return map[string]*[]string{
 		FolderKey: &q.In, InKey: &q.In, TextKey: &q.Text, TitleKey: &q.Title,
-		BranchKey: &q.Branch, WorktreeKey: &q.Worktree, IDKey: &q.ID,
+		BranchKey: &q.Branch, WorktreeKey: &q.Worktree, IDKey: &q.ID, AgentKey: &q.Agent,
 	}
 }
 
@@ -94,6 +97,8 @@ func (q Query) InFolder(name string) bool {
 // session is grouped under (the repository's name), which folder: matches.
 type Fields struct {
 	Title, Folder, Worktree, Branch, ID string
+	// Agent is who wrote the session, "claude" or "codex".
+	Agent string
 	// Search is the text a plain word is looked for in, as SearchText
 	// writes it.
 	Search string
@@ -101,10 +106,10 @@ type Fields struct {
 
 // SearchText is the text a plain word is looked for in, lower-cased: the
 // session's title, where it ran (its folder shortened, the main checkout
-// for a worktree), its worktree, branch and ID. It is kept in Fields.Search
-// so it is written once per session, not per match.
-func SearchText(title, folder, worktree, branch, id string) string {
-	return strings.ToLower(strings.Join([]string{title, folder, worktree, branch, id}, " "))
+// for a worktree), its worktree, branch, ID and agent. It is kept in
+// Fields.Search so it is written once per session, not per match.
+func SearchText(title, folder, worktree, branch, id, agent string) string {
+	return strings.ToLower(strings.Join([]string{title, folder, worktree, branch, id, agent}, " "))
 }
 
 // Match reports whether a session passes the query, the folder scope
@@ -121,7 +126,8 @@ func Match(q Query, f Fields, said func(word string) bool) bool {
 		return func(v string) bool { return strings.Contains(field, v) }
 	}
 	if !anyOf(q.Title, in(f.Title)) || !anyOf(q.Branch, in(f.Branch)) || !anyOf(q.Worktree, in(f.Worktree)) ||
-		!anyOf(q.ID, func(v string) bool { return strings.HasPrefix(strings.ToLower(f.ID), v) }) {
+		!anyOf(q.ID, func(v string) bool { return strings.HasPrefix(strings.ToLower(f.ID), v) }) ||
+		!anyOf(q.Agent, func(v string) bool { return strings.HasPrefix(agentOf(f.Agent), v) }) {
 		return false
 	}
 	for _, w := range q.Words {
@@ -135,6 +141,16 @@ func Match(q Query, f Fields, said func(word string) bool) bool {
 		}
 	}
 	return true
+}
+
+// agentOf is a session's agent as agent: matches it, lower-cased, with an
+// empty one as claude: every session before Codex sessions was Claude
+// Code's.
+func agentOf(agent string) string {
+	if agent == "" {
+		return "claude"
+	}
+	return strings.ToLower(agent)
 }
 
 // anyOf reports whether test holds for one of vs, or vs is empty.

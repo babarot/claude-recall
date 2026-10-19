@@ -11,6 +11,8 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/parser"
+	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/tidy"
 	"github.com/babarot/claude-recall/internal/title"
 	"github.com/babarot/claude-recall/internal/worktree"
@@ -565,7 +567,7 @@ func (m Model) detailsLines(r *row, d *db.Detail) []string {
 	}
 	msgs := m.st.strong.Render(fmt.Sprint(r.s.MessageCount))
 	if d != nil {
-		msgs += m.st.muted.Render(fmt.Sprintf("  you %d · claude %d", d.You, d.Claude))
+		msgs += m.st.muted.Render(fmt.Sprintf("  you %d · %s %d", d.You, resume.Program(r.s.Agent), d.Claude))
 	}
 	lines = append(lines, kv("Messages", msgs))
 	if d != nil {
@@ -584,7 +586,9 @@ func (m Model) detailsLines(r *row, d *db.Detail) []string {
 	}
 	lines = append(lines, kv("Size", size))
 	if d != nil && d.Version != "" {
-		lines = append(lines, kv("Version", m.st.muted.Render("Claude Code "+d.Version)))
+		lines = append(lines, kv("Version", m.st.muted.Render(parser.AgentName(r.s.Agent)+" "+d.Version)))
+	} else {
+		lines = append(lines, kv("Agent", m.st.muted.Render(parser.AgentName(r.s.Agent))))
 	}
 
 	name, badge := m.st.strong, m.st.worktree

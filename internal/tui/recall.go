@@ -19,11 +19,13 @@ import (
 // asking it to recall the session through recall's MCP server.
 
 // Recall is what the caller should run after the TUI exits instead of a
-// resume: a new claude that recalls SessionID, about Topic when it is not
-// empty.
+// resume: a new agent (claude, or codex for a Codex session) that recalls
+// SessionID, about Topic when it is not empty.
 type Recall struct {
 	SessionID string
 	Topic     string
+	// Agent is who wrote the session: parser.AgentClaude or AgentCodex.
+	Agent string
 }
 
 // RecallWith sets the command line of recall's MCP server, which a session
@@ -33,13 +35,16 @@ func (m Model) RecallWith(self []string) Model {
 	return m
 }
 
-// recallCommand is the shell command that recalls session id in a new
-// claude, as c does, for a session claude -r cannot resume.
-func (m Model) recallCommand(id string) string { return resume.RecallCommand(m.recallSelf, id) }
+// recallCommand is the shell command that recalls session id of agent in
+// a new agent, as c does, for a session it cannot resume.
+func (m Model) recallCommand(agent, id string) string {
+	return resume.RecallCommand(agent, m.recallSelf, id)
+}
 
 type recallState struct {
 	open  bool
 	id    string
+	agent string
 	input textinput.Model
 }
 
@@ -52,7 +57,12 @@ func newRecallInput() textinput.Model {
 
 // openRecall shows the box for session id.
 func (m *Model) openRecall(id string) tea.Cmd {
-	m.recall.open, m.recall.id = true, id
+	m.recall.open, m.recall.id, m.recall.agent = true, id, ""
+	for i := range m.rows {
+		if m.rows[i].s.ID == id {
+			m.recall.agent = m.rows[i].s.Agent
+		}
+	}
 	m.recall.input.SetValue("")
 	m.recall.input.SetWidth(min(askWidth, m.width-4) - 8)
 	return m.recall.input.Focus()
@@ -67,7 +77,7 @@ func (m *Model) closeRecall() {
 func (m Model) updateRecall(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
-		m.Recall = &Recall{SessionID: m.recall.id, Topic: strings.TrimSpace(m.recall.input.Value())}
+		m.Recall = &Recall{SessionID: m.recall.id, Topic: strings.TrimSpace(m.recall.input.Value()), Agent: m.recall.agent}
 		m.closeRecall()
 		return m, m.imagesQuit()
 	case "esc":
@@ -97,10 +107,11 @@ func (m Model) withRecall(screen string) string {
 		}
 	}
 	body = append(body, m.recall.input.View(), "")
-	where := "  claude with recall's MCP server"
+	program := resume.Program(m.recall.agent)
+	where := "  " + program + " with recall's MCP server"
 	if m.startDir != "" {
 		where += ", in " + worktree.TildePath(m.startDir, m.home)
 	}
 	body = append(body, m.st.dim.Render(where))
-	return m.boxOver(screen, w, "Recall in a new claude", "enter start · esc close", body)
+	return m.boxOver(screen, w, "Recall in a new "+program, "enter start · esc close", body)
 }

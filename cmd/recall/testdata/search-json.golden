@@ -11,6 +11,7 @@
     "messageCount": 4,
     "firstPrompt": "How do I configure the terraform module for staging?",
     "recallOnly": false,
+    "agent": "claude",
     "displayTitle": "How do I configure the terraform module for staging?",
     "repository": "/work/app"
   },
@@ -26,6 +27,7 @@
     "messageCount": 4,
     "firstPrompt": "How do I configure the terraform module for staging?",
     "recallOnly": false,
+    "agent": "claude",
     "displayTitle": "How do I configure the terraform module for staging?",
     "repository": "/work/app"
   },
@@ -41,6 +43,7 @@
     "messageCount": 4,
     "firstPrompt": "How do I configure the terraform module for staging?",
     "recallOnly": false,
+    "agent": "claude",
     "displayTitle": "How do I configure the terraform module for staging?",
     "repository": "/work/app"
   }

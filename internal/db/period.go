@@ -27,12 +27,16 @@ func (d *DB) SessionsIn(ctx context.Context, from, to time.Time) ([]Session, err
 	if err != nil {
 		return nil, fmt.Errorf("sessions in: %w", err)
 	}
+	agent, err := d.agentColumn("agent")
+	if err != nil {
+		return nil, fmt.Errorf("sessions in: %w", err)
+	}
 
 	rows, err := d.sql.QueryContext(ctx, `
       SELECT session_id, project, COALESCE(project_path, ''), COALESCE(git_branch, ''),
              COALESCE(first_prompt, ''), `+titleExpr+`, COALESCE(message_count, 0),
              COALESCE(file_size, 0), COALESCE(started_at, ''), COALESCE(ended_at, ''),
-             COALESCE(claude_version, ''), COALESCE(`+remote+`, '')
+             COALESCE(claude_version, ''), COALESCE(`+remote+`, ''), COALESCE(`+agent+`, 'claude')
       FROM sessions s
       WHERE EXISTS (SELECT 1 FROM messages m
                     WHERE m.session_id = s.session_id AND m.timestamp >= ? AND m.timestamp < ?)
@@ -47,7 +51,7 @@ func (d *DB) SessionsIn(ctx context.Context, from, to time.Time) ([]Session, err
 		var s Session
 		var started, ended string
 		if err := rows.Scan(&s.ID, &s.Project, &s.ProjectPath, &s.GitBranch, &s.FirstPrompt,
-			&s.Title, &s.MessageCount, &s.FileSize, &started, &ended, &s.ClaudeVersion, &s.Remote); err != nil {
+			&s.Title, &s.MessageCount, &s.FileSize, &started, &ended, &s.ClaudeVersion, &s.Remote, &s.Agent); err != nil {
 			return nil, fmt.Errorf("sessions in: %w", err)
 		}
 		s.StartedAt, s.EndedAt = parseTime(started), parseTime(ended)

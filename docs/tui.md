@@ -30,16 +30,17 @@ Every key but `ctrl+c` and `Esc` can be changed; see [Changing keys](#changing-k
 
 ## Filter
 
-`/` filters by title, folder, branch, ID or what was said in the conversation. Words of two letters or more are also looked up in the conversation, in the background.
+`/` filters by title, folder, branch, ID, agent or what was said in the conversation. Words of two letters or more are also looked up in the conversation, in the background.
 
 | Filter | Matches |
 |--------|---------|
-| `<word>` | Title, folder, branch, ID or the conversation |
+| `<word>` | Title, folder, branch, ID, the agent's name (`codex`, `claude code`) or the conversation |
 | `text:<word>` | Only the conversation |
 | `title:<part>` | Part of the title |
 | `branch:<part>` | Part of the branch |
 | `worktree:<part>` | Part of the worktree name |
 | `id:<prefix>` | The start of the session ID |
+| `agent:<name>` | The agent that ran the session: `claude` (Claude Code) or `codex`, or the start of either |
 | `folder:<name>` | Folders whose name matches fuzzily, as the folder list's search does (`folder:bdot` for babarot/dotfiles), within the folder the list is narrowed to; `in:` is the same, for short |
 
 Several of one key match any of them.

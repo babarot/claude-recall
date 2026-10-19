@@ -111,6 +111,17 @@ var migrations = []string{
 	// says, NULL when it does not say or the session was stored before
 	// (importer.importVersion 2).
 	`ALTER TABLE messages ADD COLUMN is_error INTEGER`,
+	// 5: the coding agent that wrote the session: 'claude' (Claude Code)
+	// or 'codex' (Codex CLI). NULL means claude: every session stored
+	// before Codex sessions were was Claude Code's.
+	`ALTER TABLE sessions ADD COLUMN agent TEXT`,
+}
+
+// agentColumn is the agent column of sessions, read with NULL as Claude
+// Code, as "NULL" on an archive opened read-only before the migration that
+// added it.
+func (d *DB) agentColumn(col string) (string, error) {
+	return d.optionalColumn("COALESCE(NULLIF("+col+", ''), 'claude')", "agent")
 }
 
 func (d *DB) migrate() error {
@@ -154,6 +165,9 @@ type SearchOptions struct {
 	// ProjectPaths, when not nil, keeps the sessions run in one of these
 	// directories: the ones a repository's sessions ran in.
 	ProjectPaths []string
+	// Agent keeps the sessions of one agent, "claude" or "codex"; empty
+	// keeps every agent's.
+	Agent string
 }
 
 // SearchResult is one matching message. Field order and JSON names match the
@@ -176,6 +190,8 @@ type SearchResult struct {
 	// Remote is the origin of the session's repository (see
 	// worktree.NormalizeRemote); nil when it is not known or there is none.
 	Remote *string `json:"remote,omitempty"`
+	// Agent is who wrote the session: "claude" or "codex".
+	Agent string `json:"agent"`
 }
 
 var (
@@ -247,6 +263,14 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 		conds = append(conds, "m.timestamp <= ?")
 		args = append(args, opts.To)
 	}
+	agent, err := d.agentColumn("s.agent")
+	if err != nil {
+		return nil, fmt.Errorf("search: %w", err)
+	}
+	if opts.Agent != "" {
+		conds = append(conds, agent+" = ?")
+		args = append(args, opts.Agent)
+	}
 	args = append(args, limit)
 
 	title := "NULLIF(s.title, '')"
@@ -262,7 +286,7 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 	rows, err := d.sql.Query(`
       SELECT s.session_id, s.project, s.project_path, s.git_branch,
              s.started_at, m.role, m.content, m.timestamp, `+title+`, s.message_count, s.first_prompt,
-             `+recallOnly("s.session_id")+`, `+remote+`
+             `+recallOnly("s.session_id")+`, `+remote+`, `+agent+`
       FROM `+from+`
       JOIN sessions s ON s.session_id = m.session_id
       WHERE `+strings.Join(conds, " AND ")+`
@@ -277,7 +301,7 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 	for rows.Next() {
 		var r SearchResult
 		if err := rows.Scan(&r.SessionID, &r.Project, &r.ProjectPath, &r.GitBranch,
-			&r.StartedAt, &r.Role, &r.Content, &r.Timestamp, &r.Title, &r.MessageCount, &r.FirstPrompt, &r.RecallOnly, &r.Remote); err != nil {
+			&r.StartedAt, &r.Role, &r.Content, &r.Timestamp, &r.Title, &r.MessageCount, &r.FirstPrompt, &r.RecallOnly, &r.Remote, &r.Agent); err != nil {
 			return nil, fmt.Errorf("search: %w", err)
 		}
 		results = append(results, r)

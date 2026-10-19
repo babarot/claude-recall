@@ -7,6 +7,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/babarot/claude-recall/internal/resume"
 )
 
 // A column of the session list. Which columns appear, and how wide they are,
@@ -90,6 +92,12 @@ var columns = []column{
 		header: "Branch", width: 16, minWidth: 90,
 		cell: func(c cellCtx, r *row, w int) string {
 			return c.style(c.st.dim).Render(ansi.Truncate(r.s.GitBranch, w, ellipsis))
+		},
+	},
+	{
+		header: "Agent", width: 6, minWidth: 96,
+		cell: func(c cellCtx, r *row, w int) string {
+			return c.style(c.st.dim).Render(resume.Program(r.s.Agent))
 		},
 	},
 	{

@@ -10,7 +10,8 @@
     "firstPrompt": "Fix the login bug where the session cookie expires early",
     "displayTitle": "Fix the login bug where the session cookie expires early",
     "recallOnly": false,
-    "repository": "/work/api"
+    "repository": "/work/api",
+    "agent": "claude"
   },
   {
     "sessionId": "22222222",
@@ -23,6 +24,7 @@
     "firstPrompt": "Fix the login bug where the session cookie expires early",
     "displayTitle": "Fix the login bug where the session cookie expires early",
     "recallOnly": false,
-    "repository": "/work/api"
+    "repository": "/work/api",
+    "agent": "claude"
   }
 ]

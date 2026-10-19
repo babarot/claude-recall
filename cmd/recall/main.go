@@ -32,6 +32,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/mcp"
+	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/title"
@@ -82,7 +83,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 // options are the flags of every subcommand, each defined only on the
 // commands it applies to.
 type options struct {
-	db, session, project, repo, format, from, to, output string
+	db, session, project, repo, format, from, to, output, agent string
 	// trees are the transcript trees to read, the primary first, from
 	// ProjectsDir and extra_projects_dirs under [core].
 	trees                         []string
@@ -92,6 +93,14 @@ type options struct {
 	limitSet                      bool
 	// theme is [tui] theme, which the web UI is drawn in too.
 	theme string
+}
+
+// checkAgent rejects an --agent that names no agent.
+func checkAgent(o *options) error {
+	if o.agent != "" && !slices.Contains(parser.Agents, o.agent) {
+		return fmt.Errorf("--agent must be %s, got %q", strings.Join(parser.Agents, " or "), o.agent)
+	}
+	return nil
 }
 
 // limitArg is the --limit given, or nil to use the command's default.
@@ -147,6 +156,9 @@ Run without a command, it opens the TUI.`,
 	project := func(c *cobra.Command, what string) {
 		c.Flags().StringVar(&o.project, "project", "", what)
 	}
+	agent := func(c *cobra.Command) {
+		c.Flags().StringVar(&o.agent, "agent", "", "limit to one coding agent's sessions: claude or codex (default: both)")
+	}
 	// --limit and --format default differently per command, so each command
 	// has its own variable and copies it into o when it runs: pflag writes
 	// the default when a flag is defined, so a shared variable would end up
@@ -200,10 +212,14 @@ Run without a command, it opens the TUI.`,
 	searchCmd.Flags().StringVar(&o.to, "to", "", "end date (YYYY-MM-DD)")
 	searchCmd.Flags().BoolVar(&o.substring, "substring", false, "match anywhere in the text, newest first (Japanese and other unspaced text always is)")
 	searchCmd.Flags().StringVar(&o.repo, "repo", "", "limit to the repository a directory is in, its worktrees included")
+	agent(searchCmd)
 	searchFormat := format(searchCmd, "text", "json")
 	searchCmd.RunE = func(c *cobra.Command, args []string) error {
 		searchLimit()
 		if err := searchFormat(); err != nil {
+			return err
+		}
+		if err := checkAgent(o); err != nil {
 			return err
 		}
 		return runSearch(o, strings.Join(args, " "), c.OutOrStdout())
@@ -216,11 +232,15 @@ Run without a command, it opens the TUI.`,
 	}
 	project(listCmd, "filter by project")
 	listCmd.Flags().StringVar(&o.repo, "repo", "", "limit to the repository a directory is in, its worktrees included")
+	agent(listCmd)
 	listLimit := limit(listCmd, 50, "max sessions")
 	listFormat := format(listCmd, "text", "json")
 	listCmd.RunE = func(c *cobra.Command, _ []string) error {
 		listLimit()
 		if err := listFormat(); err != nil {
+			return err
+		}
+		if err := checkAgent(o); err != nil {
 			return err
 		}
 		return runList(o, c.OutOrStdout())
@@ -420,7 +440,7 @@ func runSearch(o *options, query string, stdout io.Writer) error {
 		return err
 	}
 	results, err := d.Search(query, db.SearchOptions{Project: o.project, Limit: o.limitArg(), From: o.from, To: o.to,
-		Substring: o.substring, ProjectPaths: repoPaths(o, idx)})
+		Substring: o.substring, ProjectPaths: repoPaths(o, idx), Agent: o.agent})
 	d.Close()
 	if err != nil {
 		return err
@@ -452,7 +472,7 @@ func runList(o *options, stdout io.Writer) error {
 		d.Close()
 		return err
 	}
-	sessions, err := d.ListSessions(db.ListOptions{Project: o.project, Limit: o.limitArg(), ProjectPaths: repoPaths(o, idx)})
+	sessions, err := d.ListSessions(db.ListOptions{Project: o.project, Limit: o.limitArg(), ProjectPaths: repoPaths(o, idx), Agent: o.agent})
 	d.Close()
 	if err != nil {
 		return err
@@ -999,28 +1019,31 @@ func runTUI(o *options, c *cobra.Command) error {
 	return nil
 }
 
-// resumeSession replaces this process with claude -r, run from the
-// session's folder so Claude Code finds the transcript.
+// resumeSession replaces this process with the agent's resume (claude -r,
+// or codex resume), run from the session's folder so the agent finds the
+// transcript.
 func resumeSession(r tui.Resume) error {
-	claude, err := exec.LookPath("claude")
+	program := resume.Program(r.Agent)
+	agent, err := exec.LookPath(program)
 	if err != nil {
-		return errors.New("claude is not on PATH")
+		return errors.New(program + " is not on PATH")
 	}
 	if err := os.Chdir(r.Dir); err != nil {
 		return fmt.Errorf("cd %s: %w", r.Dir, err)
 	}
-	return syscall.Exec(claude, []string{"claude", "-r", r.SessionID}, os.Environ())
+	return syscall.Exec(agent, append([]string{program}, resume.ResumeArgs(r.Agent, r.SessionID)...), os.Environ())
 }
 
-// recallSession replaces this process with a new claude, in the folder
-// recall was started in, that recalls the session through recall's MCP
-// server, run as the command line self.
+// recallSession replaces this process with a new agent (claude, or codex
+// for a Codex session), in the folder recall was started in, that recalls
+// the session through recall's MCP server, run as the command line self.
 func recallSession(self []string, r tui.Recall) error {
-	claude, err := exec.LookPath("claude")
+	program := resume.Program(r.Agent)
+	agent, err := exec.LookPath(program)
 	if err != nil {
-		return errors.New("claude is not on PATH")
+		return errors.New(program + " is not on PATH")
 	}
-	return syscall.Exec(claude, append([]string{"claude"}, resume.RecallArgs(self, r.SessionID, r.Topic)...), os.Environ())
+	return syscall.Exec(agent, append([]string{program}, resume.AgentRecallArgs(r.Agent, self, r.SessionID, r.Topic)...), os.Environ())
 }
 
 func deref(p *string) string {

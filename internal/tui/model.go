@@ -27,11 +27,13 @@ import (
 	"github.com/babarot/claude-recall/internal/worktree"
 )
 
-// Resume is what the caller should run after the TUI exits: claude -r ID in
-// Dir.
+// Resume is what the caller should run after the TUI exits: the agent's
+// resume of SessionID (claude -r, or codex resume) in Dir.
 type Resume struct {
 	Dir       string
 	SessionID string
+	// Agent is who wrote the session: parser.AgentClaude or AgentCodex.
+	Agent string
 }
 
 // Source loads what the detail pane shows about a session.
@@ -748,20 +750,21 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	case key.Matches(msg, s.Resume):
 		if !r.resumable() {
 			var text string
+			program := resume.Program(r.s.Agent)
 			switch {
 			case r.transcriptDir != "":
-				text = "Its transcript is where claude -r does not look: " + worktree.TildePath(r.transcriptDir, m.home)
+				text = "Its transcript is where " + resume.Verb(r.s.Agent) + " does not look: " + worktree.TildePath(r.transcriptDir, m.home)
 			case r.gone:
 				text = "Folder no longer exists: " + worktree.TildePath(r.s.ProjectPath, m.home)
 			default:
-				text = "Claude Code has deleted its transcript"
+				text = parser.AgentName(r.s.Agent) + " has deleted its transcript"
 			}
 			if k := m.hintKeys("{recall.0}"); k != "" {
-				text += " · " + k + " recalls it in a new claude"
+				text += " · " + k + " recalls it in a new " + program
 			}
 			return m.showToast(toastWarn, text), true
 		}
-		m.Result = &Resume{Dir: r.s.ProjectPath, SessionID: r.s.ID}
+		m.Result = &Resume{Dir: r.s.ProjectPath, SessionID: r.s.ID, Agent: r.s.Agent}
 		return m.imagesQuit(), true
 	case key.Matches(msg, s.Recall):
 		return m.openRecall(r.s.ID), true
@@ -769,10 +772,11 @@ func (m *Model) sessionKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 		return tea.Batch(copyCmd(r.s.ID), m.showToast(toastOK, "Copied session ID "+r.s.ID)), true
 	case key.Matches(msg, s.CopyCommand):
 		if !r.resumable() {
-			// claude -r would fail: copy what c runs instead.
-			return tea.Batch(copyCmd(m.recallCommand(r.s.ID)), m.showToast(toastOK, "Copied a command that recalls it in a new claude")), true
+			// The agent's resume would fail: copy what c runs instead.
+			return tea.Batch(copyCmd(m.recallCommand(r.s.Agent, r.s.ID)),
+				m.showToast(toastOK, "Copied a command that recalls it in a new "+resume.Program(r.s.Agent))), true
 		}
-		cmd := resume.Command(r.s.ProjectPath, r.s.ID)
+		cmd := resume.Command(r.s.Agent, r.s.ProjectPath, r.s.ID)
 		return tea.Batch(copyCmd(cmd), m.showToast(toastOK, "Copied "+cmd)), true
 	}
 	return nil, false

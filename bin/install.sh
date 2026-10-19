@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Install the latest claude-recall release: the `recall` binary, an import of
-# existing sessions, and the MCP server registration.
+# existing sessions (Claude Code's and Codex's), and the MCP server
+# registration with Claude Code and Codex, whichever are installed.
 #
 #   curl -fsSL https://raw.githubusercontent.com/babarot/claude-recall/main/bin/install.sh | bash
 #
@@ -42,33 +43,54 @@ main() {
   esac
 }
 
-# The registration stores the path to the binary, so an existing one keeps
-# working after an upgrade. Only `claude mcp add` fails with "already exists",
-# so check first instead of reporting that as a failure.
+# The MCP server is registered with each agent on PATH: Claude Code and
+# Codex. The registration stores the path to the binary, so an existing one
+# keeps working after an upgrade. Only `claude mcp add` fails with "already
+# exists", so check first instead of reporting that as a failure.
 register_mcp() {
   local cmd="${INSTALL_DIR}/recall"
 
-  if ! command -v claude &>/dev/null; then
-    echo "Register the MCP server once Claude Code is installed:"
+  if ! command -v claude &>/dev/null && ! command -v codex &>/dev/null; then
+    echo "Register the MCP server once Claude Code or Codex is installed:"
     echo "  claude mcp add claude-recall -s user -- ${cmd} mcp"
+    echo "  codex mcp add claude-recall -- ${cmd} mcp"
     return
   fi
 
-  echo "Registering MCP server..."
-
-  local registered
-  if registered=$(claude mcp get claude-recall 2>/dev/null); then
-    if grep -qF -- "${cmd}" <<<"${registered}"; then
+  if command -v claude &>/dev/null; then
+    echo "Registering MCP server with Claude Code..."
+    local registered
+    if registered=$(claude mcp get claude-recall 2>/dev/null) && grep -qF -- "${cmd}" <<<"${registered}"; then
       echo "  Already registered to ${cmd} — skipped"
-      return
+    else
+      claude mcp remove claude-recall -s user &>/dev/null || true
+      if claude mcp add claude-recall -s user -- "${cmd}" mcp &>/dev/null; then
+        echo "  OK"
+      else
+        echo "  Failed: claude mcp add claude-recall -s user -- ${cmd} mcp"
+      fi
     fi
-    claude mcp remove claude-recall -s user &>/dev/null || true
+  else
+    echo "Register the MCP server once Claude Code is installed:"
+    echo "  claude mcp add claude-recall -s user -- ${cmd} mcp"
   fi
 
-  if claude mcp add claude-recall -s user -- "${cmd}" mcp &>/dev/null; then
-    echo "  OK"
+  if command -v codex &>/dev/null; then
+    echo "Registering MCP server with Codex..."
+    local registered
+    if registered=$(codex mcp get claude-recall 2>/dev/null) && grep -qF -- "${cmd}" <<<"${registered}"; then
+      echo "  Already registered to ${cmd} — skipped"
+    else
+      codex mcp remove claude-recall &>/dev/null || true
+      if codex mcp add claude-recall -- "${cmd}" mcp &>/dev/null; then
+        echo "  OK"
+      else
+        echo "  Failed: codex mcp add claude-recall -- ${cmd} mcp"
+      fi
+    fi
   else
-    echo "  Failed: claude mcp add claude-recall -s user -- ${cmd} mcp"
+    echo "Register the MCP server once Codex is installed:"
+    echo "  codex mcp add claude-recall -- ${cmd} mcp"
   fi
 }
 

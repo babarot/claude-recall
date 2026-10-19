@@ -48,9 +48,10 @@ const DefaultPort = 6276
 
 // File is the user's config file, ~/.config/claude-recall/config.toml.
 type File struct {
-	Core Core `toml:"core"`
-	UI   UI   `toml:"ui"`
-	TUI  TUI  `toml:"tui"`
+	Core  Core  `toml:"core"`
+	Codex Codex `toml:"codex"`
+	UI    UI    `toml:"ui"`
+	TUI   TUI   `toml:"tui"`
 	// Keys changes which keys do what in the TUI, by operation name. The TUI
 	// checks the names and keys when it starts, so a mistake here stops only
 	// the TUI, as one under [tui] does.
@@ -124,6 +125,18 @@ type Core struct {
 	UpdateCheck bool `toml:"update_check"`
 }
 
+// Codex configures where Codex CLI sessions are read from.
+type Codex struct {
+	// Enabled imports, searches and watches Codex sessions beside Claude
+	// Code's. Nothing changes when Codex is not installed: its trees are
+	// read only when they are on disk.
+	Enabled bool `toml:"enabled"`
+	// Dir is Codex's home directory, whose sessions and archived_sessions
+	// hold the rollouts: an absolute path or one starting with ~/. Empty
+	// means CodexDir ($CODEX_HOME or ~/.codex).
+	Dir string `toml:"dir"`
+}
+
 // UI configures the web UI.
 type UI struct {
 	// Port is where recall ui listens, and where ui stop and ui status look.
@@ -168,8 +181,17 @@ type TUI struct {
 
 // Default returns the settings used when the config file is absent.
 func Default() File {
-	return File{Core: Core{UpdateCheck: true}, UI: UI{Port: DefaultPort}, TUI: TUI{DetailPosition: DetailBottom, DetailAutoWidth: 160, Theme: theme.Auto, DetailHeight: 16, Scope: ScopeFolder,
+	return File{Core: Core{UpdateCheck: true}, Codex: Codex{Enabled: true}, UI: UI{Port: DefaultPort}, TUI: TUI{DetailPosition: DetailBottom, DetailAutoWidth: 160, Theme: theme.Auto, DetailHeight: 16, Scope: ScopeFolder,
 		AskModel: "sonnet-5.5", AskShowCost: true, AskReasons: true, ScrollbarThumb: ThumbHeavy}}
+}
+
+// CodexDirPath is the Codex home directory the file names, with ~/
+// expanded, or CodexDir.
+func (f File) CodexDirPath() string {
+	if f.Codex.Dir == "" {
+		return CodexDir()
+	}
+	return expandHome(f.Codex.Dir)
 }
 
 // DBPath is the archive database the file names, with ~/ expanded, or
@@ -185,16 +207,25 @@ func (f File) DBPath() string {
 }
 
 // ProjectsDirs are the transcript trees to read: ProjectsDir first, then
-// the extra ones in the order the file lists them, with ~/ expanded. An
-// extra tree that is ProjectsDir under another name is left out, so listing
-// ~/.claude/projects does no harm when CLAUDE_CONFIG_DIR moves the primary.
+// Codex's sessions and archived_sessions when Codex is enabled and they are
+// on disk, then the extra ones in the order the file lists them, with ~/
+// expanded. An extra tree that is ProjectsDir under another name is left
+// out, so listing ~/.claude/projects does no harm when CLAUDE_CONFIG_DIR
+// moves the primary.
 func (f File) ProjectsDirs() []string {
 	dirs := []string{ProjectsDir()}
-	for _, d := range f.Core.ExtraProjectsDirs {
-		d = expandHome(d)
+	add := func(d string) {
 		if !slices.ContainsFunc(dirs, func(seen string) bool { return sameDir(seen, d) }) {
 			dirs = append(dirs, d)
 		}
+	}
+	if f.Codex.Enabled {
+		for _, d := range CodexSessionsDirs(f.CodexDirPath()) {
+			add(d)
+		}
+	}
+	for _, d := range f.Core.ExtraProjectsDirs {
+		add(expandHome(d))
 	}
 	return dirs
 }
@@ -247,6 +278,16 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # recall version. Only release builds look. RECALL_NO_UPDATE_CHECK=1 turns it
 # off too.
 # update_check = true
+
+[codex]
+# Archive Codex CLI sessions too, from $CODEX_HOME/sessions and
+# archived_sessions (~/.codex by default) when they are there: they are
+# imported, searched, watched and listed beside Claude Code's, and Enter
+# resumes one with codex resume.
+# enabled = true
+# Codex's home directory, when it is not $CODEX_HOME or ~/.codex: an absolute
+# path or one starting with ~/.
+# dir = ""
 
 [ui]
 # Where the web UI (recall ui) listens, and where recall ui stop and
@@ -382,21 +423,25 @@ func LoadCore(path string) (File, error) {
 	cfg := Default()
 	// [keys] is read as it is and checked by the TUI.
 	doc := struct {
-		Core Core           `toml:"core"`
-		UI   UI             `toml:"ui"`
-		TUI  TUI            `toml:"tui"`
-		Keys map[string]any `toml:"keys"`
-	}{Core: cfg.Core, UI: cfg.UI, TUI: cfg.TUI}
+		Core  Core           `toml:"core"`
+		Codex Codex          `toml:"codex"`
+		UI    UI             `toml:"ui"`
+		TUI   TUI            `toml:"tui"`
+		Keys  map[string]any `toml:"keys"`
+	}{Core: cfg.Core, Codex: cfg.Codex, UI: cfg.UI, TUI: cfg.TUI}
 	if err := toml.NewDecoder(bytes.NewReader(src)).DisallowUnknownFields().Decode(&doc); err != nil {
 		return File{}, Report(path, decodeProblems(err))
 	}
-	cfg = File{Core: doc.Core, UI: doc.UI, TUI: doc.TUI, Keys: keysFrom(doc.Keys)}
+	cfg = File{Core: doc.Core, Codex: doc.Codex, UI: doc.UI, TUI: doc.TUI, Keys: keysFrom(doc.Keys)}
 	if len(cfg.Core.ExtraProjectsDirs) == 0 {
 		cfg.Core.ExtraProjectsDirs = nil // [] is the default, no trees
 	}
 	var ps Problems
 	if db := cfg.Core.DB; db != "" && !strings.HasPrefix(db, "~/") && !filepath.IsAbs(db) {
 		ps = append(ps, problem("core.db", "core.db must be an absolute path or start with ~/, got %q", db))
+	}
+	if d := cfg.Codex.Dir; d != "" && !strings.HasPrefix(d, "~/") && !filepath.IsAbs(d) {
+		ps = append(ps, problem("codex.dir", "codex.dir must be an absolute path or start with ~/, got %q", d))
 	}
 	var listed []string
 	for i, d := range cfg.Core.ExtraProjectsDirs {

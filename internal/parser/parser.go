@@ -1,6 +1,7 @@
 // Package parser turns a Claude Code JSONL transcript into the rows the
 // archive stores. Text is trimmed and cut with JavaScript semantics (see
-// jscompat) so it matches rows written before the Go port.
+// jscompat) so it matches rows written before the Go port. Codex rollouts
+// are parsed by package codex into the same Session.
 package parser
 
 import (
@@ -40,16 +41,41 @@ type Image struct {
 	Data        string // base64, decoded by the importer
 }
 
+// The agents whose sessions the archive holds, as the sessions table's
+// agent column names them.
+const (
+	AgentClaude = "claude" // Claude Code
+	AgentCodex  = "codex"  // OpenAI Codex CLI
+)
+
+// Agents lists every agent, Claude Code first.
+var Agents = []string{AgentClaude, AgentCodex}
+
+// AgentName is how an agent is shown: "Claude Code" or "Codex".
+func AgentName(agent string) string {
+	switch agent {
+	case AgentCodex:
+		return "Codex"
+	default:
+		return "Claude Code"
+	}
+}
+
 // Meta is the session row.
 type Meta struct {
-	SessionID     string
-	Project       string
-	ProjectPath   string
-	GitBranch     string
-	FirstPrompt   string
-	Summary       *string
-	StartedAt     string
-	EndedAt       string
+	SessionID string
+	// Agent is the coding agent that wrote the session: AgentClaude or
+	// AgentCodex. Empty means AgentClaude.
+	Agent       string
+	Project     string
+	ProjectPath string
+	GitBranch   string
+	FirstPrompt string
+	Summary     *string
+	StartedAt   string
+	EndedAt     string
+	// ClaudeVersion is the release of the agent that wrote the session:
+	// Claude Code's, or Codex's for a Codex session.
 	ClaudeVersion string
 	// Title is the latest /rename title, or else the latest title Claude
 	// Code generated. Empty when there is neither.
@@ -346,6 +372,7 @@ func Parse(content, project string, index *IndexEntry) *Session {
 	}
 	meta := Meta{
 		SessionID:     r.header.sessionID,
+		Agent:         AgentClaude,
 		Project:       project,
 		ProjectPath:   r.header.projectPath,
 		GitBranch:     r.header.gitBranch,

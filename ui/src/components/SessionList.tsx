@@ -3,7 +3,7 @@ import {
   bodyWords, folder, folders, found, isLive, loadError, loaded, now, query, searching, selected, sort, visible, worktree,
 } from "../store/app";
 import type { Sort } from "../store/app";
-import type { Session } from "../api";
+import { agentName, type Session } from "../api";
 import { dayGroup, relative } from "../lib/format";
 import { highlight } from "../lib/highlight";
 import { t } from "../lib/i18n";
@@ -109,6 +109,7 @@ function Row({ s, words, snippet, onPick }: { s: Session; words: string[]; snipp
         {s.worktree
           ? <><span class="sep">·</span><span class="wt">{s.worktree}</span></>
           : s.branch && <><span class="sep">·</span><span>{s.branch}</span></>}
+        {s.agent === "codex" && <span class="badge agent" title={agentName(s.agent)}>codex</span>}
         {s.recallOnly && <span class="badge recall" title={t.list.recallOnly}>recall</span>}
         <span class="num"><Spark data={s.activity} /><span>{s.messages.toLocaleString()}</span></span>
       </div>

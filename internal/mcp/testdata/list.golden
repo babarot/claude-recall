@@ -9,7 +9,8 @@
     "date": "2026-04-02",
     "displayTitle": "Fix the login bug where the session cookie expires early",
     "recallOnly": false,
-    "repository": "/work/api"
+    "repository": "/work/api",
+    "agent": "claude"
   },
   {
     "sessionId": "11111111",
@@ -21,6 +22,7 @@
     "date": "2026-03-01",
     "displayTitle": "How do I configure the terraform module for staging?",
     "recallOnly": false,
-    "repository": "/work/app"
+    "repository": "/work/app",
+    "agent": "claude"
   }
 ]

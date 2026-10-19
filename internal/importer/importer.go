@@ -15,6 +15,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/babarot/claude-recall/internal/codex"
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/parser"
@@ -92,9 +93,25 @@ func ImportFile(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	return nil, nil
 }
 
+// treeOf is the transcript tree a file is in: two levels up for a Claude
+// Code transcript (<tree>/<project>/<session>.jsonl), four for a Codex
+// rollout (<tree>/YYYY/MM/DD/rollout-....jsonl).
+func treeOf(path string, isCodex bool) string {
+	tree := filepath.Dir(filepath.Dir(path))
+	if isCodex {
+		tree = filepath.Dir(filepath.Dir(tree))
+	}
+	return tree
+}
+
 func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) (*Result, error) {
+	isCodex := parser.IsCodexPath(path)
 	sessionID := strings.TrimSuffix(filepath.Base(path), ".jsonl")
 	project := filepath.Base(filepath.Dir(path))
+	if isCodex {
+		// The project is the session's directory, read from the rollout.
+		sessionID, _ = parser.CodexSessionID(filepath.Base(path))
+	}
 	if sessionID == "" || project == "" {
 		return nil, nil
 	}
@@ -120,20 +137,34 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 		return &Result{Status: Unchanged, SessionID: sessionID, Project: project, TotalMessages: existing.MessageCount}, nil
 	}
 
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, nil
+	var parsed *parser.Session
+	if isCodex {
+		raw, err := codex.ReadFile(path)
+		if err != nil {
+			return nil, nil
+		}
+		if afterRead != nil {
+			afterRead()
+		}
+		title := codex.Titles(codex.HomeOf(treeOf(path, true)))[sessionID]
+		parsed = codex.Parse(decodeText(raw), sessionID, title)
+	} else {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, nil
+		}
+		if afterRead != nil {
+			afterRead()
+		}
+		parsed = parser.Parse(decodeText(raw), project, index)
 	}
-	if afterRead != nil {
-		afterRead()
-	}
-	parsed := parser.Parse(decodeText(raw), project, index)
 	if parsed == nil {
 		return nil, nil
 	}
 
 	row := db.SessionRow{
 		SessionID:     sessionID,
+		Agent:         parsed.Meta.Agent,
 		Project:       parsed.Meta.Project,
 		ProjectPath:   parsed.Meta.ProjectPath,
 		GitBranch:     parsed.Meta.GitBranch,
@@ -167,7 +198,7 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	}
 
 	if len(dirs) == 0 {
-		dirs = []string{filepath.Dir(filepath.Dir(path))}
+		dirs = []string{treeOf(path, isCodex)}
 	}
 	check := func() error {
 		copies := parser.FindSession(dirs, sessionID)
@@ -190,7 +221,7 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 	if existing != nil {
 		status, added = Resynced, max(0, len(msgs)-existing.MessageCount)
 	}
-	return &Result{Status: status, SessionID: sessionID, Project: project, TotalMessages: len(msgs), AddedMessages: added}, nil
+	return &Result{Status: status, SessionID: sessionID, Project: row.Project, TotalMessages: len(msgs), AddedMessages: added}, nil
 }
 
 // FillRemotes stores the remote of the sessions imported before remotes

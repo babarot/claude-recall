@@ -35,7 +35,7 @@ func TestBodyWords(t *testing.T) {
 func TestMatch(t *testing.T) {
 	f := Fields{Title: "Fix the Parser", Folder: "babarot/claude-recall", Worktree: "silver-valley",
 		Branch: "feat/web", ID: "AbCd1234-5678"}
-	f.Search = SearchText(f.Title, "~/src/github.com/babarot/claude-recall", f.Worktree, f.Branch, f.ID)
+	f.Search = SearchText(f.Title, "~/src/github.com/babarot/claude-recall", f.Worktree, f.Branch, f.ID, "Claude Code")
 	said := map[string]bool{"retry": true}
 	cases := map[string]bool{
 		"":                      true,

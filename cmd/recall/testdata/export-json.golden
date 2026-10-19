@@ -6,7 +6,8 @@
     "gitBranch": "feature/login",
     "startedAt": "2026-04-02T09:00:00.000Z",
     "firstPrompt": "Fix the login bug where the session cookie expires early",
-    "summary": null
+    "summary": null,
+    "agent": "claude"
   },
   "messages": [
     {

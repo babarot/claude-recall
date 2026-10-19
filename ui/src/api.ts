@@ -18,6 +18,13 @@ export interface Session {
   endedAt: string | null;
   recallOnly: boolean;
   activity: number[];
+  /** Who wrote the session: "claude" (Claude Code) or "codex" (Codex CLI). */
+  agent?: string;
+}
+
+/** How an agent is shown. */
+export function agentName(agent?: string): string {
+  return agent === "codex" ? "Codex" : "Claude Code";
 }
 
 export interface Resume {
@@ -29,7 +36,9 @@ export interface Resume {
 
 export interface SessionDetail extends Session {
   fullPath: string;
+  /** The release of the agent that wrote the session; agentVersion is the same value under its newer name. */
   claudeVersion: string;
+  agentVersion?: string;
   resume: Resume;
 }
 

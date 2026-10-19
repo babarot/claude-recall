@@ -37,7 +37,10 @@ func (d *DB) GetFileInfo(sessionID string) (*FileInfo, error) {
 
 // SessionRow is a row of the sessions table.
 type SessionRow struct {
-	SessionID     string
+	SessionID string
+	// Agent is who wrote the session, "claude" or "codex"; "" is stored as
+	// "claude".
+	Agent         string
 	Project       string
 	ProjectPath   string
 	GitBranch     string
@@ -123,10 +126,14 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, ch
 		}
 	}
 
-	if _, err = tx.Exec(`INSERT INTO sessions (session_id, project, project_path, git_branch, first_prompt, summary, message_count, started_at, ended_at, claude_version, file_mtime, file_size, title, remote, import_version)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	agent := s.Agent
+	if agent == "" {
+		agent = "claude"
+	}
+	if _, err = tx.Exec(`INSERT INTO sessions (session_id, project, project_path, git_branch, first_prompt, summary, message_count, started_at, ended_at, claude_version, file_mtime, file_size, title, remote, import_version, agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.SessionID, s.Project, s.ProjectPath, s.GitBranch, s.FirstPrompt, s.Summary, s.MessageCount,
-		s.StartedAt, s.EndedAt, s.ClaudeVersion, s.FileMtime, s.FileSize, s.Title, remote, s.ImportVersion); err != nil {
+		s.StartedAt, s.EndedAt, s.ClaudeVersion, s.FileMtime, s.FileSize, s.Title, remote, s.ImportVersion, agent); err != nil {
 		return fmt.Errorf("insert session: %w", err)
 	}
 

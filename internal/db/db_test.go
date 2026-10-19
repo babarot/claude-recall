@@ -202,6 +202,7 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN agent`)
 	old.sql.Exec(`ALTER TABLE messages DROP COLUMN is_error`)
 	old.sql.Exec(`ALTER TABLE messages DROP COLUMN tool_use_id`)
 	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN import_version`)

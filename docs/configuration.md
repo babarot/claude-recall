@@ -5,6 +5,7 @@
 | Section | What it sets |
 |---|---|
 | `[core]` | `db`, the archive, and `extra_projects_dirs`, more transcript trees to read, for every command, the MCP server and the web UI; `update_check`, whether to look for new releases |
+| `[codex]` | Whether to archive [Codex CLI sessions](codex.md) too, and where Codex keeps them |
 | `[ui]` | `port`, where the web UI listens |
 | `[tui]` | The TUI: the detail pane, the color scheme, which sessions to start with, `a` (ask Claude), the scrollbar and images |
 | `[keys]` | Which keys do what in the TUI; see [Changing keys](tui.md#changing-keys) |
@@ -44,6 +45,16 @@ extra_projects_dirs = []
 # recall version. Only release builds look. RECALL_NO_UPDATE_CHECK=1 turns it
 # off too.
 update_check = true
+
+[codex]
+# Archive Codex CLI sessions too, from $CODEX_HOME/sessions and
+# archived_sessions (~/.codex by default) when they are there: they are
+# imported, searched, watched and listed beside Claude Code's, and Enter
+# resumes one with codex resume.
+enabled = true
+# Codex's home directory, when it is not $CODEX_HOME or ~/.codex: an absolute
+# path or one starting with ~/.
+dir = ""
 
 [ui]
 # Where the web UI (recall ui) listens, and where recall ui stop and

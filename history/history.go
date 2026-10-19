@@ -77,7 +77,10 @@ type Session struct {
 	// github.com/owner/repo whether the URL was https or ssh. Empty when
 	// the directory has no origin, or was gone before recall first read it.
 	Remote string
-	// Title is what recall calls the session: the title Claude Code wrote
+	// Agent is who wrote the session: "claude" (Claude Code) or "codex"
+	// (Codex CLI).
+	Agent string
+	// Title is what recall calls the session: the title the agent wrote
 	// (a /rename or a generated one), or failing that the first prompt.
 	Title       string
 	FirstPrompt string
@@ -107,6 +110,7 @@ func (h *History) Sessions(ctx context.Context, from, to time.Time) ([]Session, 
 			RepositoryKey: repo.Key,
 			Worktree:      repo.Worktree,
 			Remote:        s.Remote,
+			Agent:         s.Agent,
 			Title:         title.Display(s.Title, s.FirstPrompt),
 			FirstPrompt:   s.FirstPrompt,
 			GitBranch:     s.GitBranch,

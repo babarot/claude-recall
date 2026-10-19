@@ -13,6 +13,11 @@
 - The `history` package is the Go API other modules import, under v1 semver. Add to it rather than change or remove what it exports, keep it read-only, and keep its imports to the standard library, `modernc.org/sqlite` and the `internal/` packages that need nothing more
 - `internal/jscompat` keeps stored text identical to what the earlier TypeScript importer wrote (JavaScript trim, UTF-16 lengths, JSON.stringify). Keep using it in the parser so re-imports do not rewrite existing rows
 
+## Agents
+
+- Sessions come from two agents: Claude Code's JSONL (`internal/parser`) and Codex's rollouts (`internal/codex`), told apart by the tree's layout in `parser.Discover` and by the file name (`rollout-...`) in the importer. Both become the same `parser.Session`; `sessions.agent` ('claude' or 'codex', NULL meaning claude) says which. Anything that runs or names the agent goes through `internal/resume` (`Program`, `ResumeArgs`, `AgentRecallArgs`) and `parser.AgentName`, not a literal `claude`
+- The JSON of the CLI, the MCP tools and the HTTP API carries `agent`; filters take it as `--agent`, the `agent` input and `agent:` in the TUI filter. See docs/codex.md
+
 ## TUI
 
 - A new pane, modal or field is a value of `uiState` in `internal/tui/uistate.go`, so keys reach it and the footer and the `?` key list know it. Then fill in what the tests in `internal/tui/uistate_test.go` ask for: a footer case in `renderHelp`, a case in `footerCases`, whether `?` opens over it, and for a pane its group in `helpGroups`

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/babarot/claude-recall/internal/api"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/version"
 )
@@ -33,14 +35,16 @@ type schema struct {
 var (
 	projectProp = prop{"string", "Filter by project name (partial match)"}
 	repoProp    = prop{"string", `Only the sessions of the repository this directory is in, its worktrees included ("." is the directory the session runs in)`}
+	agentProp   = prop{"string", `Only the sessions of one coding agent: "claude" (Claude Code) or "codex" (Codex CLI). Default: both`}
 
 	searchTool = &mcp.Tool{
 		Name:        "recall_search",
-		Description: "Search past coding agent session conversations by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count, first prompt and repository. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
+		Description: "Search past coding agent session conversations (Claude Code and Codex) by full-text query. Use this when you need to find previous discussions, decisions, or context from past sessions. Each hit carries its session's title, message count, first prompt, repository and agent. Text in Japanese and other scripts written without spaces is matched as a substring, newest first.",
 		InputSchema: schema{Type: "object", Required: []string{"query"}, Properties: map[string]prop{
 			"query":     {"string", `Full-text search query. Supports FTS5 syntax: "exact phrase", term1 AND term2, term1 OR term2, term1 NOT term2`},
 			"project":   projectProp,
 			"repo":      repoProp,
+			"agent":     agentProp,
 			"substring": {"boolean", "Match the query as plain text anywhere in a message, newest first, instead of as FTS5 words (always so for Japanese and other unspaced text)"},
 			"limit":     {"number", "Max results (default: 10)"},
 			"from":      {"string", "Start date filter (YYYY-MM-DD)"},
@@ -49,10 +53,11 @@ var (
 	}
 	listTool = &mcp.Tool{
 		Name:        "recall_list",
-		Description: "List archived coding agent sessions. Use this to see what sessions are available before exporting a specific one.",
+		Description: "List archived coding agent sessions (Claude Code and Codex). Use this to see what sessions are available before exporting a specific one.",
 		InputSchema: schema{Type: "object", Properties: map[string]prop{
 			"project": projectProp,
 			"repo":    repoProp,
+			"agent":   agentProp,
 			"limit":   {"number", "Max sessions to return (default: 20)"},
 		}},
 	}
@@ -99,6 +104,17 @@ func (a args) repoPaths(idx *repos.Index) []string {
 	return nil
 }
 
+// agent is the agent input, lower-cased and trimmed, or "" for every
+// agent; a value that is no agent is "" too, rather than a filter that
+// matches nothing.
+func (a args) agent() string {
+	v := strings.ToLower(strings.TrimSpace(a.str("agent")))
+	if slices.Contains(parser.Agents, v) {
+		return v
+	}
+	return ""
+}
+
 func (a args) num(key string, def int) *int {
 	v, ok := a[key]
 	if !ok || v == nil {
@@ -138,7 +154,7 @@ func (h Handlers) Call(name string, a args) (any, error) {
 			return nil, err
 		}
 		r, err := h.DB.Search(a.str("query"), db.SearchOptions{Project: a.str("project"), Limit: a.num("limit", 10),
-			From: a.str("from"), To: a.str("to"), Substring: a.flag("substring"), ProjectPaths: a.repoPaths(idx)})
+			From: a.str("from"), To: a.str("to"), Substring: a.flag("substring"), ProjectPaths: a.repoPaths(idx), Agent: a.agent()})
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +165,7 @@ func (h Handlers) Call(name string, a args) (any, error) {
 			return nil, err
 		}
 		s, err := h.DB.ListSessions(db.ListOptions{Project: a.str("project"), Limit: a.num("limit", 20),
-			ProjectPaths: a.repoPaths(idx)})
+			ProjectPaths: a.repoPaths(idx), Agent: a.agent()})
 		if err != nil {
 			return nil, err
 		}

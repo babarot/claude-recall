@@ -13,6 +13,7 @@ import (
 	"github.com/babarot/claude-recall/internal/api"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/filter"
+	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/theme"
@@ -114,8 +115,8 @@ type row struct {
 }
 
 func (r *row) fields() filter.Fields {
-	return filter.Fields{Title: r.out.Title, Folder: r.out.GroupName, Worktree: r.repo.Worktree, Branch: r.s.GitBranch, ID: r.s.ID,
-		Search: filter.SearchText(r.out.Title, r.repo.Folder, r.repo.Worktree, r.s.GitBranch, r.s.ID)}
+	return filter.Fields{Title: r.out.Title, Folder: r.out.GroupName, Worktree: r.repo.Worktree, Branch: r.s.GitBranch, ID: r.s.ID, Agent: r.s.Agent,
+		Search: filter.SearchText(r.out.Title, r.repo.Folder, r.repo.Worktree, r.s.GitBranch, r.s.ID, parser.AgentName(r.s.Agent))}
 }
 
 func isoTime(t time.Time) *string {
@@ -165,7 +166,7 @@ func (s *Server) rows(id string) ([]row, error) {
 		out[i] = row{s: ses, repo: repo, out: api.V2Session{ID: ses.ID, Title: title.Display(ses.Title, ses.FirstPrompt),
 			Folder: repo.Folder, GroupKey: group.Key, GroupName: group.Name, Repository: isRepo, Worktree: repo.Worktree, Gone: !repo.Exists,
 			Branch: ses.GitBranch, Path: worktree.TildePath(ses.ProjectPath, home), Messages: ses.MessageCount,
-			Size: ses.FileSize, StartedAt: isoTime(ses.StartedAt), EndedAt: isoTime(ses.EndedAt)}}
+			Size: ses.FileSize, StartedAt: isoTime(ses.StartedAt), EndedAt: isoTime(ses.EndedAt), Agent: ses.Agent}}
 	}
 	if len(stale) > 0 {
 		recall, err := s.DB.RecallOnly(stale)
@@ -295,11 +296,12 @@ func (s *Server) v2Session(w http.ResponseWriter, id string) error {
 		res.Reason = "no-transcript"
 	}
 	if res.Resumable {
-		res.Command = resume.Command(r.s.ProjectPath, r.s.ID)
+		res.Command = resume.Command(r.s.Agent, r.s.ProjectPath, r.s.ID)
 	} else {
-		res.Command = resume.RecallCommand(s.self(), r.s.ID)
+		res.Command = resume.RecallCommand(r.s.Agent, s.self(), r.s.ID)
 	}
-	writeJSON(w, api.V2SessionDetail{V2Session: r.out, FullPath: r.s.ProjectPath, ClaudeVersion: r.s.ClaudeVersion, Resume: res})
+	writeJSON(w, api.V2SessionDetail{V2Session: r.out, FullPath: r.s.ProjectPath, ClaudeVersion: r.s.ClaudeVersion,
+		AgentVersion: r.s.ClaudeVersion, Resume: res})
 	return nil
 }
 

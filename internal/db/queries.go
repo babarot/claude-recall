@@ -28,6 +28,8 @@ type ListedSession struct {
 	// Remote is the origin of the session's repository (see
 	// worktree.NormalizeRemote); nil when it is not known or there is none.
 	Remote *string `json:"remote,omitempty"`
+	// Agent is who wrote the session: "claude" or "codex".
+	Agent string `json:"agent"`
 }
 
 // recallOnly is an SQL expression, for the session whose ID is in
@@ -51,6 +53,9 @@ type ListOptions struct {
 	// ProjectPaths, when not nil, keeps the sessions run in one of these
 	// directories, as SearchOptions.ProjectPaths does.
 	ProjectPaths []string
+	// Agent keeps the sessions of one agent, "claude" or "codex"; empty
+	// keeps every agent's.
+	Agent string
 }
 
 // ListSessions returns sessions, most recently active first.
@@ -59,11 +64,19 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	if opts.Limit != nil {
 		limit = *opts.Limit
 	}
+	agent, err := d.agentColumn("agent")
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
 	var conds []string
 	args := []any{}
 	if opts.Project != "" {
 		conds = append(conds, "(project LIKE ? OR project_path LIKE ?)")
 		args = append(args, "%"+opts.Project+"%", "%"+opts.Project+"%")
+	}
+	if opts.Agent != "" {
+		conds = append(conds, agent+" = ?")
+		args = append(args, opts.Agent)
 	}
 	if opts.ProjectPaths != nil {
 		if len(opts.ProjectPaths) == 0 {
@@ -91,7 +104,8 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	}
 	rows, err := d.sql.Query(`
       SELECT session_id, project, project_path, git_branch, first_prompt,
-             message_count, started_at, ended_at, `+title+`, `+recallOnly("sessions.session_id")+`, `+remote+`
+             message_count, started_at, ended_at, `+title+`, `+recallOnly("sessions.session_id")+`, `+remote+`,
+             COALESCE(`+agent+`, 'claude')
       FROM sessions `+where+`
       ORDER BY COALESCE(ended_at, started_at) DESC
       LIMIT ? OFFSET ?`, args...)
@@ -103,7 +117,7 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	for rows.Next() {
 		var s ListedSession
 		if err := rows.Scan(&s.SessionID, &s.Project, &s.ProjectPath, &s.GitBranch, &s.FirstPrompt,
-			&s.MessageCount, &s.StartedAt, &s.EndedAt, &s.Title, &s.RecallOnly, &s.Remote); err != nil {
+			&s.MessageCount, &s.StartedAt, &s.EndedAt, &s.Title, &s.RecallOnly, &s.Remote, &s.Agent); err != nil {
 			return nil, fmt.Errorf("list sessions: %w", err)
 		}
 		out = append(out, s)
@@ -120,6 +134,8 @@ type ExportedSession struct {
 	StartedAt   *string `json:"startedAt"`
 	FirstPrompt *string `json:"firstPrompt"`
 	Summary     *string `json:"summary"`
+	// Agent is who wrote the session: "claude" or "codex".
+	Agent string `json:"agent"`
 }
 
 // ExportedMessage is a message of exportSession.
@@ -138,10 +154,14 @@ type ExportedMessage struct {
 // of its messages. The session is nil when nothing matches.
 func (d *DB) ExportSession(id string) (*ExportedSession, []ExportedMessage, error) {
 	var s ExportedSession
-	err := d.sql.QueryRow(`
-        SELECT session_id, project, project_path, git_branch, started_at, first_prompt, summary
+	agent, err := d.agentColumn("agent")
+	if err != nil {
+		return nil, nil, fmt.Errorf("export: %w", err)
+	}
+	err = d.sql.QueryRow(`
+        SELECT session_id, project, project_path, git_branch, started_at, first_prompt, summary, COALESCE(`+agent+`, 'claude')
         FROM sessions WHERE session_id = ? OR session_id LIKE ?`, id, id+"%").
-		Scan(&s.SessionID, &s.Project, &s.ProjectPath, &s.GitBranch, &s.StartedAt, &s.FirstPrompt, &s.Summary)
+		Scan(&s.SessionID, &s.Project, &s.ProjectPath, &s.GitBranch, &s.StartedAt, &s.FirstPrompt, &s.Summary, &s.Agent)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, []ExportedMessage{}, nil
 	}

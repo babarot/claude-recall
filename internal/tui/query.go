@@ -24,7 +24,7 @@ const (
 
 // fields are what the filter matches r on.
 func (r *row) fields() filter.Fields {
-	return filter.Fields{Title: r.title, Folder: r.groupName, Worktree: r.worktree, Branch: r.s.GitBranch, ID: r.s.ID, Search: r.search}
+	return filter.Fields{Title: r.title, Folder: r.groupName, Worktree: r.worktree, Branch: r.s.GitBranch, ID: r.s.ID, Agent: r.s.Agent, Search: r.search}
 }
 
 // match reports whether r passes the query, the folder scope aside. Words

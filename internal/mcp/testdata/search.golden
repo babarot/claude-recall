@@ -10,7 +10,8 @@
     "firstPrompt": "How do I configure the terraform module for staging?",
     "displayTitle": "How do I configure the terraform module for staging?",
     "recallOnly": false,
-    "repository": "/work/app"
+    "repository": "/work/app",
+    "agent": "claude"
   },
   {
     "sessionId": "11111111",
@@ -23,7 +24,8 @@
     "firstPrompt": "How do I configure the terraform module for staging?",
     "displayTitle": "How do I configure the terraform module for staging?",
     "recallOnly": false,
-    "repository": "/work/app"
+    "repository": "/work/app",
+    "agent": "claude"
   },
   {
     "sessionId": "11111111",
@@ -36,6 +38,7 @@
     "firstPrompt": "How do I configure the terraform module for staging?",
     "displayTitle": "How do I configure the terraform module for staging?",
     "recallOnly": false,
-    "repository": "/work/app"
+    "repository": "/work/app",
+    "agent": "claude"
   }
 ]

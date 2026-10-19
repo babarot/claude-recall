@@ -7,6 +7,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/filter"
+	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/title"
 	"github.com/babarot/claude-recall/internal/worktree"
 )
@@ -49,7 +50,7 @@ func newRow(s db.Session, home string, wt *worktree.Resolver) row {
 	r.gone = !repo.Exists
 	r.mainRoot, r.folder, r.worktree = repo.MainRoot, repo.Folder, repo.Worktree
 	r.group, r.groupName = repo.Key, repo.Name
-	r.search = filter.SearchText(r.title, r.folder, r.worktree, s.GitBranch, s.ID)
+	r.search = filter.SearchText(r.title, r.folder, r.worktree, s.GitBranch, s.ID, parser.AgentName(s.Agent))
 	return r
 }
 

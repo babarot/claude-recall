@@ -28,9 +28,9 @@ Opening a session found in its conversation searches the conversation for the wo
 - A long session is read in parts: its start and its end first, and `Load more` reads what lies between. A long message or tool result is cut, and `Show more` or `Load full text` reads the rest
 - A button at the bottom of the conversation goes to its end (`Jump to latest`) when you are above it, and back to its start (`Back to top`) when you are at it
 - While a session is written, its new messages come in. At the end of the conversation, the view follows them; further up, the button says how many came in
-- `What was done` shows the activity, the tools and commands most used, the files edited by repository, and the details: times, counts, size, branch, folder, Claude Code version
+- `What was done` shows the activity, the tools and commands most used, the files edited by repository, and the details: times, counts, size, branch, folder, and the version of the agent (Claude Code or Codex) that ran the session
 
-`Y` copies the command that goes back to the session: `claude -r` in its folder, or, when its folder or transcript is gone, a new claude that recalls it through recall, as the TUI's `Y`. `y` copies the session ID.
+`Y` copies the command that goes back to the session: `claude -r` (or `codex resume` for a Codex session, which has a `codex` badge in the list) in its folder, or, when its folder or transcript is gone, a new claude or codex that recalls it through recall, as the TUI's `Y`. `y` copies the session ID.
 
 ## Keys
 
