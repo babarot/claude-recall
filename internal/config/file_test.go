@@ -69,6 +69,30 @@ func TestLoadScrollbar(t *testing.T) {
 	}
 }
 
+func TestLoadImages(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	for body, want := range map[string]string{
+		"":                    ImagesAuto,
+		"images = \"auto\"\n": ImagesAuto,
+		"images = true\n":     "on", // as before auto was there
+		"images = false\n":    "off",
+	} {
+		os.WriteFile(path, []byte("[tui]\n"+body), 0o644)
+		if got, err := Load(path); err != nil || got.TUI.ImagesMode() != want {
+			t.Errorf("%q: got %q, %v, want %q", body, got.TUI.ImagesMode(), err, want)
+		}
+	}
+	for body, msg := range map[string]string{
+		"images = \"on\"\n": `tui.images must be "auto", true or false, got "on"`,
+		"images = 1\n":      `tui.images must be "auto", true or false, got a number`,
+	} {
+		os.WriteFile(path, []byte("[tui]\n"+body), 0o644)
+		if _, err := Load(path); err == nil || !strings.Contains(err.Error(), msg) {
+			t.Errorf("%q: got %v, want %s", body, err, msg)
+		}
+	}
+}
+
 func TestLoadRejectsUnknownKeys(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	cases := map[string]string{

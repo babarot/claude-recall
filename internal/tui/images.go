@@ -13,13 +13,15 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/ansi/kitty"
 
+	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 )
 
-// Images: with tui.images, the reading view shows the images pasted
+// Images: with tui.images, when the terminal draws them, the reading view shows the images pasted
 // into the user's messages in place of their [Image #N] markers, the k-th
 // marker of a message being its k-th stored image, as the web UI has it.
 //
@@ -28,6 +30,12 @@ import (
 // with the Kitty graphics protocol, and the view holds Unicode placeholders:
 // ordinary cells whose color names the image and whose diacritics name the
 // row and column of it they show. They scroll, clip and redraw like text.
+//
+// Whether the terminal draws them it says itself: with tui.images at auto,
+// recall asks it when it starts, and one that does not know the protocol
+// says nothing, so the markers stay text. The size of a cell in pixels it
+// is asked too, to keep an image's proportions; until it answers, a cell is
+// taken to be twice as tall as it is wide.
 //
 // An image is read, decoded, shrunk and turned into PNG in the background
 // the first time a build asks for it; the marker shows as text until then,
@@ -45,7 +53,23 @@ const (
 	// maxImageIDs is how many images the terminal holds at once: the ID is
 	// a 256-color foreground, which no color profile turns into another.
 	maxImageIDs = 255
+	// kittyQueryID is the image ID kittyQuery asks about, outside the IDs
+	// images are sent under; the terminal stores nothing for a query.
+	kittyQueryID = 1000
 )
+
+// kittyQuery asks the terminal whether it draws Kitty graphics: one that
+// does answers with an APC holding kittyQueryID and OK, which comes as a
+// uv.KittyGraphicsEvent. A terminal that does not know APC, as Terminal.app,
+// prints the query as text, on the screen recall leaves when it quits, so
+// the line is erased from where the cursor was.
+var kittyQuery = ansi.SaveCursor +
+	ansi.KittyGraphics([]byte("AAAA"), fmt.Sprintf("i=%d", kittyQueryID), "s=1", "v=1", "a=q", "t=d", "f=24") +
+	ansi.RestoreCursor + ansi.EraseLineRight
+
+// requestCellSize asks the terminal how many pixels a cell is; the answer
+// comes as a uv.CellSizeEvent.
+var requestCellSize = ansi.WindowOp(16)
 
 var imageMarker = regexp.MustCompile(`\[Image #\d+\]`)
 
@@ -76,11 +100,54 @@ type termImages struct {
 	byID    map[int]imageKey // which image has an ID
 	nextID  int
 	out     strings.Builder // commands for the terminal, sent after Update
+	// drawn is set once the terminal is known to draw the images, and cell
+	// is how many pixels a cell is, once it tells.
+	drawn bool
+	cell  image.Point
 }
 
 func newTermImages() *termImages {
 	return &termImages{held: map[imageKey]*termImage{}, failed: map[imageKey]bool{},
 		loading: map[imageKey]bool{}, byID: map[int]imageKey{}}
+}
+
+// imagesStart asks the terminal what tui.images needs to know of it.
+func (m Model) imagesStart() tea.Cmd {
+	switch m.cfg.ImagesMode() {
+	case config.ImagesAuto:
+		return tea.Raw(kittyQuery + requestCellSize)
+	case "on":
+		return tea.Raw(requestCellSize)
+	}
+	return nil
+}
+
+// imagesAnswer takes what the terminal says about the images: whether it
+// draws them, and the size of a cell. Either changes the reading view.
+func (m *Model) imagesAnswer(msg tea.Msg) {
+	t := m.images
+	switch msg := msg.(type) {
+	case uv.KittyGraphicsEvent:
+		if t.drawn || m.cfg.ImagesMode() != config.ImagesAuto || msg.Options.ID != kittyQueryID || !bytes.HasPrefix(msg.Payload, []byte("OK")) {
+			return
+		}
+		t.drawn = true
+	case uv.CellSizeEvent:
+		if msg.Width <= 0 || msg.Height <= 0 || t.cell == image.Pt(msg.Width, msg.Height) {
+			return
+		}
+		t.cell = image.Pt(msg.Width, msg.Height)
+	}
+	m.readFor = ""
+}
+
+// imagesResized asks the size of a cell again when the window changes,
+// which it does when the font size does.
+func (m Model) imagesResized() tea.Cmd {
+	if m.images == nil || !m.images.drawn {
+		return nil
+	}
+	return tea.Raw(requestCellSize)
 }
 
 // imageLoaded brings an image read in the background, as PNG.
@@ -245,7 +312,7 @@ func (m Model) image(k imageKey, w int) ([]string, bool) {
 		}
 		return nil, false
 	}
-	cols, rows := imageCells(img.w, img.h, w)
+	cols, rows := imageCells(img.w, img.h, w, t.cell)
 	if cols != img.cols || rows != img.rows {
 		// p=1 replaces the image's one placement rather than adding one.
 		t.out.WriteString(ansi.KittyGraphics(nil, "a=p", "U=1", fmt.Sprintf("i=%d", img.id), "p=1",
@@ -255,14 +322,19 @@ func (m Model) image(k imageKey, w int) ([]string, bool) {
 	return placeholders(img.id, cols, rows), true
 }
 
-// imageCells sizes a w by h pixel image in cells, at most maxCols wide and
-// maxImageRows tall, taking a cell to be twice as tall as it is wide.
-func imageCells(w, h, maxCols int) (cols, rows int) {
+// imageCells sizes a w by h pixel image in cells of cell pixels, at most
+// maxCols wide and maxImageRows tall, taking a cell to be twice as tall as
+// it is wide while its size is not known.
+func imageCells(w, h, maxCols int, cell image.Point) (cols, rows int) {
+	if cell.X <= 0 || cell.Y <= 0 {
+		cell = image.Pt(1, 2)
+	}
 	cols = max(1, min(maxCols, (w+pixelsPerCell-1)/pixelsPerCell))
-	rows = max(1, (cols*h+w)/(2*w))
+	// rows = cols*cell.X*h / (w*cell.Y), rounded
+	rows = max(1, (2*cols*cell.X*h+w*cell.Y)/(2*w*cell.Y))
 	if rows > maxImageRows {
 		rows = maxImageRows
-		cols = max(1, min(cols, (rows*2*w+h/2)/h))
+		cols = max(1, min(cols, (2*rows*cell.Y*w+h*cell.X)/(2*h*cell.X)))
 	}
 	return cols, rows
 }
@@ -293,7 +365,7 @@ type bodyLine struct {
 }
 
 // messageBody wraps a message's text to w cells, with its images in place
-// of their markers when tui.images is on and they are held.
+// of their markers when the terminal draws them and they are held.
 func (m Model) messageBody(msg db.Message, w int) []bodyLine {
 	var out []bodyLine
 	text := func(s string) {
@@ -302,7 +374,7 @@ func (m Model) messageBody(msg db.Message, w int) []bodyLine {
 		}
 	}
 	r := m.current()
-	if !m.cfg.Images || m.images == nil || r == nil || msg.UUID == "" || msg.Role != "user" {
+	if m.images == nil || !m.images.drawn || r == nil || msg.UUID == "" || msg.Role != "user" {
 		text(msg.Content)
 		return out
 	}

@@ -14,6 +14,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	uv "github.com/charmbracelet/ultraviolet"
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
@@ -258,6 +259,7 @@ func New(sessions []db.Session, source Source, cfg config.TUI) Model {
 		detailH:       max(config.MinDetailHeight, cfg.DetailHeight),
 		version:       version.Version,
 	}
+	m.images.drawn = cfg.ImagesMode() == "on"
 	m.branches = values(m.rows, func(r *row) string { return r.s.GitBranch })
 	m.worktrees = values(m.rows, func(r *row) string { return r.worktree })
 	m.refresh()
@@ -405,9 +407,9 @@ func (m Model) LoadInBackground() Model {
 
 func (m Model) Init() tea.Cmd {
 	if m.settling {
-		return tea.Batch(tea.RequestBackgroundColor, tea.Tick(settleWait, func(time.Time) tea.Msg { return settledMsg{} }), m.startCmds())
+		return tea.Batch(tea.RequestBackgroundColor, tea.Tick(settleWait, func(time.Time) tea.Msg { return settledMsg{} }), m.imagesStart(), m.startCmds())
 	}
-	return tea.Batch(tea.RequestBackgroundColor, m.startCmds())
+	return tea.Batch(tea.RequestBackgroundColor, m.imagesStart(), m.startCmds())
 }
 
 // Some terminals first report a size a column off and the right one a few
@@ -599,7 +601,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.filter.SetWidth(max(10, m.width-30))
 		m.clamp()
-		return m, nil
+		return m, m.imagesResized()
 	case askStepMsg, askDoneMsg, askTickMsg:
 		return m, m.askMsg(msg)
 	case convTick, convLoaded:
@@ -607,6 +609,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case imageLoaded:
 		m.storeImage(msg)
+		return m, nil
+	case uv.KittyGraphicsEvent, uv.CellSizeEvent:
+		m.imagesAnswer(msg)
 		return m, nil
 	case detailLoaded:
 		delete(m.detailLoading, msg.id)

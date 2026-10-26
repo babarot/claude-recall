@@ -2,6 +2,7 @@ package tui
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/ansi/kitty"
 
@@ -55,10 +57,11 @@ func testPNG(t *testing.T, w, h int) []byte {
 	return b.Bytes()
 }
 
-func newImageModel(t *testing.T, on bool) (Model, *withImage) {
+// newImageModel is a model with tui.images at images: "auto", true or false.
+func newImageModel(t *testing.T, images any) (Model, *withImage) {
 	t.Helper()
 	cfg := config.Default().TUI
-	cfg.Images = on
+	cfg.Images = images
 	src := &withImage{png: testPNG(t, 800, 400)}
 	m := New(testSessions(t), src, cfg)
 	m.now = func() time.Time { return now }
@@ -106,6 +109,58 @@ func TestImagesOff(t *testing.T) {
 	}
 }
 
+// With tui.images at auto, the images show once the terminal says it draws
+// them, and the markers stay text in one that says nothing.
+func TestImagesAuto(t *testing.T) {
+	m, src := newImageModel(t, "auto")
+	if s := fmt.Sprint(m.imagesStart()()); !strings.Contains(s, "a=q") || !strings.Contains(s, requestCellSize) {
+		t.Fatalf("the terminal should be asked whether it draws images and how big a cell is, got %q", s)
+	}
+	m = press(t, m, "space")
+	if s := m.render(); !strings.Contains(ansi.Strip(s), "[Image #1]") || strings.ContainsRune(s, kitty.Placeholder) || src.asked != 0 {
+		t.Fatalf("before the terminal answers, the marker shows and nothing is read (read %d):\n%s", src.asked, ansi.Strip(s))
+	}
+	// An answer to another ID, or not OK, is not one to the query.
+	m = update(t, m, uv.KittyGraphicsEvent{Options: kitty.Options{ID: 7}, Payload: []byte("OK")})
+	m = update(t, m, uv.KittyGraphicsEvent{Options: kitty.Options{ID: kittyQueryID}, Payload: []byte("ENOTSUPPORTED")})
+	if m.images.drawn {
+		t.Fatal("only OK to the query says the terminal draws images")
+	}
+	m = update(t, m, uv.KittyGraphicsEvent{Options: kitty.Options{ID: kittyQueryID}, Payload: []byte("OK")})
+	m = update(t, m, loadImage(src, imageKey{m.current().s.ID, "u1", 0}))
+	if s := m.render(); strings.Contains(ansi.Strip(s), "[Image #1]") || !strings.ContainsRune(s, kitty.Placeholder) {
+		t.Fatalf("once the terminal answers, the image should replace its marker:\n%s", ansi.Strip(s))
+	}
+	// A resize asks the size of a cell again, the font size having changed.
+	if cmd := m.imagesResized(); cmd == nil || !strings.Contains(fmt.Sprint(cmd()), requestCellSize) {
+		t.Fatal("a resize should ask the size of a cell again")
+	}
+}
+
+func TestImagesTrueAndFalseDoNotAsk(t *testing.T) {
+	m, _ := newImageModel(t, true)
+	if s := fmt.Sprint(m.imagesStart()()); strings.Contains(s, "a=q") || !m.images.drawn {
+		t.Fatalf("true draws images without asking whether the terminal can, sent %q", s)
+	}
+	if m, _ = newImageModel(t, false); m.imagesStart() != nil {
+		t.Fatal("false asks the terminal nothing")
+	}
+}
+
+// The size of a cell the terminal tells places the image again.
+func TestImagesTakeTheCellSize(t *testing.T) {
+	m, src := newImageModel(t, true)
+	m = press(t, m, "space")
+	k := imageKey{m.current().s.ID, "u1", 0}
+	m = update(t, m, loadImage(src, k))
+	m.render()
+	m = update(t, m, uv.CellSizeEvent{Width: 10, Height: 10})
+	m.render()
+	if img := m.images.held[k]; img.cols != 40 || img.rows != 20 {
+		t.Fatalf("placed over %dx%d cells, want 40x20 with square cells", img.cols, img.rows)
+	}
+}
+
 func TestImageThatCannotBeReadKeepsItsMarker(t *testing.T) {
 	m, src := newImageModel(t, true)
 	src.png = []byte("not an image")
@@ -118,15 +173,22 @@ func TestImageThatCannotBeReadKeepsItsMarker(t *testing.T) {
 }
 
 func TestImageCells(t *testing.T) {
-	for _, c := range []struct{ w, h, max, cols, rows int }{
-		{800, 400, 200, 80, 20}, // held to maxImageRows
-		{1000, 200, 60, 60, 6},  // held to the width
-		{64, 32, 200, 8, 2},     // not blown up past pixelsPerCell
-		{100, 2000, 80, 2, 20},  // tall and thin
-		{2000, 10, 100, 100, 1}, // a sliver is still a row
+	for _, c := range []struct {
+		w, h, max  int
+		cell       image.Point
+		cols, rows int
+	}{
+		{800, 400, 200, image.Point{}, 80, 20}, // held to maxImageRows
+		{1000, 200, 60, image.Point{}, 60, 6},  // held to the width
+		{64, 32, 200, image.Point{}, 8, 2},     // not blown up past pixelsPerCell
+		{100, 2000, 80, image.Point{}, 2, 20},  // tall and thin
+		{2000, 10, 100, image.Point{}, 100, 1}, // a sliver is still a row
+		{800, 400, 200, image.Pt(9, 18), 80, 20},
+		{800, 400, 200, image.Pt(10, 10), 40, 20}, // square cells
+		{800, 400, 60, image.Pt(8, 20), 60, 12},   // tall cells
 	} {
-		if cols, rows := imageCells(c.w, c.h, c.max); cols != c.cols || rows != c.rows {
-			t.Errorf("imageCells(%d, %d, %d) = %d, %d, want %d, %d", c.w, c.h, c.max, cols, rows, c.cols, c.rows)
+		if cols, rows := imageCells(c.w, c.h, c.max, c.cell); cols != c.cols || rows != c.rows {
+			t.Errorf("imageCells(%d, %d, %d, %v) = %d, %d, want %d, %d", c.w, c.h, c.max, c.cell, cols, rows, c.cols, c.rows)
 		}
 	}
 }
