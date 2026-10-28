@@ -1,5 +1,15 @@
 # Changelog
 
+## [v1.13.0](https://github.com/babarot/claude-recall/compare/v1.12.0...v1.13.0) - 2026-10-28
+### New Features
+- Add a button to jump to the end or the start of a conversation in the web UI by @babarot in https://github.com/babarot/claude-recall/pull/113
+- Show the web UI in English unless the browser prefers Japanese by @babarot in https://github.com/babarot/claude-recall/pull/115
+### Improvements
+- Reword unclear TUI toasts and call the spread conversation the reading view by @babarot in https://github.com/babarot/claude-recall/pull/116
+- Run the tasks with mise instead of make by @babarot in https://github.com/babarot/claude-recall/pull/117
+- Add mise run dev, the web UI and its API on a copy of the archive by @babarot in https://github.com/babarot/claude-recall/pull/118
+- Show images in the TUI when the terminal draws Kitty graphics by @babarot in https://github.com/babarot/claude-recall/pull/121
+
 ## [v1.12.0](https://github.com/babarot/claude-recall/compare/v1.11.0...v1.12.0) - 2026-10-13
 ### New Features
 - Store whether a tool result was an error by @babarot in https://github.com/babarot/claude-recall/pull/104
