@@ -162,14 +162,31 @@ type TUI struct {
 	ScrollbarColor string `toml:"scrollbar_color"`
 	// Images shows the images pasted into a session where they were
 	// pasted, in the reading view, through the Kitty graphics
-	// protocol's Unicode placeholders.
-	Images bool `toml:"images"`
+	// protocol's Unicode placeholders: ImagesAuto, true or false. It
+	// takes a string or a bool, so read it with ImagesMode.
+	Images any `toml:"images"`
+}
+
+// ImagesAuto shows images when the terminal says it draws Kitty graphics.
+const ImagesAuto = "auto"
+
+// ImagesMode is tui.images as ImagesAuto, "on" or "off".
+func (t TUI) ImagesMode() string {
+	switch v := t.Images; v {
+	case true:
+		return "on"
+	case false:
+		return "off"
+	case ImagesAuto:
+		return ImagesAuto
+	}
+	return ""
 }
 
 // Default returns the settings used when the config file is absent.
 func Default() File {
 	return File{Core: Core{UpdateCheck: true}, UI: UI{Port: DefaultPort}, TUI: TUI{DetailPosition: DetailBottom, DetailAutoWidth: 160, Theme: theme.Auto, DetailHeight: 16, Scope: ScopeFolder,
-		AskModel: "sonnet-5.5", AskShowCost: true, AskReasons: true, ScrollbarThumb: ThumbHeavy}}
+		AskModel: "sonnet-5.5", AskShowCost: true, AskReasons: true, ScrollbarThumb: ThumbHeavy, Images: ImagesAuto}}
 }
 
 // DBPath is the archive database the file names, with ~/ expanded, or
@@ -283,10 +300,11 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # scrollbar_thumb = "heavy"
 # scrollbar_color = ""
 # Show the images pasted into a session in the reading view (Space),
-# where they were pasted. Needs a terminal that draws Kitty graphics with
-# Unicode placeholders, such as Ghostty or Kitty; elsewhere they come out as
-# stray characters, so it is off by default.
-# images = false
+# where they were pasted, drawn with the Kitty graphics protocol's Unicode
+# placeholders, as Ghostty and Kitty can: "auto" (default) asks the
+# terminal when recall starts and shows them if it says it draws them, true
+# shows them without asking, and false never does.
+# images = "auto"
 
 [keys]
 # Which keys do what in the TUI, by operation: a key or a list of keys,
@@ -515,10 +533,21 @@ func (t TUI) check() Problems {
 	default:
 		add("tui.scrollbar_thumb", "tui.scrollbar_thumb must be %q, %q or %q, got %q", ThumbThin, ThumbHeavy, ThumbBlock, t.ScrollbarThumb)
 	}
+	if t.ImagesMode() == "" {
+		add("tui.images", "tui.images must be %q, true or false, got %s", ImagesAuto, imagesWords(t.Images))
+	}
 	if c := t.ScrollbarColor; c != "" && !hexColor.MatchString(c) && !ansiColor(c) {
 		add("tui.scrollbar_color", "tui.scrollbar_color must be a hex color such as \"#f5a3b5\" or an ANSI color number (0-255), got %q", c)
 	}
 	return ps
+}
+
+// imagesWords says what a wrong tui.images is.
+func imagesWords(v any) string {
+	if s, ok := v.(string); ok {
+		return strconv.Quote(s)
+	}
+	return tomlTypeWords(map[string]string{"int64": "integer", "float64": "float", "[]interface {}": "array", "map[string]interface {}": "table"}[fmt.Sprintf("%T", v)])
 }
 
 var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)

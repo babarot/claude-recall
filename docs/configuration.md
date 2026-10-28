@@ -80,10 +80,11 @@ ask_reasons = true
 scrollbar_thumb = "heavy"
 scrollbar_color = ""
 # Show the images pasted into a session in the reading view (Space),
-# where they were pasted. Needs a terminal that draws Kitty graphics with
-# Unicode placeholders, such as Ghostty or Kitty; elsewhere they come out as
-# stray characters, so it is off by default.
-images = false
+# where they were pasted, drawn with the Kitty graphics protocol's Unicode
+# placeholders, as Ghostty and Kitty can: "auto" (default) asks the
+# terminal when recall starts and shows them if it says it draws them, true
+# shows them without asking, and false never does.
+images = "auto"
 
 [keys]
 # Which keys do what in the TUI, by operation: a key or a list of keys,
