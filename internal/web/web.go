@@ -140,7 +140,9 @@ func New(d *db.DB, projectsDirs ...string) *Server {
 // Serve accepts connections on ln until ctx is canceled, then shuts down
 // gracefully.
 func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
-	s.port = ln.Addr().(*net.TCPAddr).Port
+	if a, ok := ln.Addr().(*net.TCPAddr); ok {
+		s.port = a.Port
+	}
 	srv := &http.Server{Handler: s}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -192,13 +194,13 @@ func writeJSON(w http.ResponseWriter, v any) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	_, _ = w.Write(b) // the client went away; nothing to tell it
 }
 
 func text(w http.ResponseWriter, code int, body string) {
 	w.Header().Set("Content-Type", "text/plain;charset=UTF-8")
 	w.WriteHeader(code)
-	io.WriteString(w, body)
+	_, _ = io.WriteString(w, body)
 }
 
 func internalError(w http.ResponseWriter) {
@@ -383,7 +385,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request, path string) error 
 		}
 		w.Header().Set("Content-Type", mediaType)
 		w.Header().Set("Cache-Control", "public, max-age=86400")
-		w.Write(data)
+		_, _ = w.Write(data)
 		return nil
 
 	case "/api/file":
@@ -440,19 +442,19 @@ func serveFile(w http.ResponseWriter, q map[string][]string) {
 	}
 	w.Header().Set("Content-Type", typ)
 	w.Header().Set("Cache-Control", "public, max-age=86400")
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 func serveAsset(w http.ResponseWriter, path string) {
 	if b, ok := webui.Get(path); ok {
 		w.Header().Set("Content-Type", webui.ContentType(path))
-		w.Write(b)
+		_, _ = w.Write(b)
 		return
 	}
 	// Single-page app: any other path gets index.html.
 	if b, ok := webui.Get("/index.html"); ok {
 		w.Header().Set("Content-Type", webui.ContentType("/index.html"))
-		w.Write(b)
+		_, _ = w.Write(b)
 		return
 	}
 	if !webui.Embedded {

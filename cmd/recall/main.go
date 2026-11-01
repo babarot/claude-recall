@@ -636,7 +636,11 @@ func serveUI(o *options, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "recall UI: http://localhost:%d\n", ln.Addr().(*net.TCPAddr).Port)
+	port := o.port
+	if a, ok := ln.Addr().(*net.TCPAddr); ok {
+		port = a.Port // the one the system chose for --port 0
+	}
+	fmt.Fprintf(stdout, "recall UI: http://localhost:%d\n", port)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -729,7 +733,8 @@ func startBackground(exe string, port int, db string, stdout, stderr io.Writer) 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	cmd.Process.Release()
+	// Release only frees the handle; the child runs on whatever it returns.
+	_ = cmd.Process.Release()
 
 	for range 20 {
 		time.Sleep(250 * time.Millisecond)

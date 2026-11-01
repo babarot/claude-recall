@@ -124,11 +124,11 @@ func (d *DB) migrate() error {
 			return err
 		}
 		if _, err := tx.Exec(migrations[i]); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback() // the Exec error is the one to report
 			return fmt.Errorf("migration %d: %w", i+1, err)
 		}
 		if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, i+1)); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {

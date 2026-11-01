@@ -94,7 +94,7 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, ch
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback() // err is the one to report
 		}
 	}()
 	if check != nil {

@@ -121,7 +121,7 @@ func decode(dec *json.Decoder) (any, error) {
 				if err != nil {
 					return nil, err
 				}
-				k := kt.(string)
+				k, _ := kt.(string) // encoding/json gives an object key as a string
 				v, err := decode(dec)
 				if err != nil {
 					return nil, err

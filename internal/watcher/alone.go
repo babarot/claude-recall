@@ -109,7 +109,7 @@ func takeSlot(base string) (*flock.Lock, int, error) {
 			continue // stopped
 		}
 		if watchingAfter(base, i) {
-			l.Unlock()
+			_ = l.Unlock() // closing the file releases the lock all the same
 			return nil, 0, nil
 		}
 		return l, i, nil
@@ -131,7 +131,7 @@ func watchingAfter(base string, i int) bool {
 			return false
 		}
 		if l != nil {
-			l.Unlock()
+			_ = l.Unlock()
 			continue
 		}
 		if fresh(path) {
@@ -149,7 +149,9 @@ func hold(ctx context.Context, l *flock.Lock, base string, i int, run func(conte
 	path := slotPath(base, i)
 	touch := func() {
 		now := time.Now()
-		os.Chtimes(path, now, now)
+		// A missed beat only makes the slot look stopped sooner; the next
+		// tick tries again.
+		_ = os.Chtimes(path, now, now)
 	}
 	touch()
 
@@ -175,6 +177,6 @@ func hold(ctx context.Context, l *flock.Lock, base string, i int, run func(conte
 	run(runCtx)
 	cancel()
 	wg.Wait()
-	l.Unlock()
+	_ = l.Unlock()
 	return yielded && ctx.Err() == nil
 }
