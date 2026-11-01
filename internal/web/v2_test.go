@@ -223,7 +223,9 @@ func TestV2ConversationRanges(t *testing.T) {
 	transcript(t, projects, "-long", "44444444-long", "/work/long", texts...)
 	f := filepath.Join(projects, "-long", "44444444-long.jsonl")
 	b, _ := os.ReadFile(f)
-	os.WriteFile(f, []byte(strings.ReplaceAll(string(b), `"44444444-long-`, `"x-`)), 0o644)
+	if err := os.WriteFile(f, []byte(strings.ReplaceAll(string(b), `"44444444-long-`, `"x-`)), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := importer.ImportFile(s.DB, f, nil, s.trees); err != nil {
 		t.Fatal(err)
 	}

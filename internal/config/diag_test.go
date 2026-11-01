@@ -45,7 +45,9 @@ func TestLocate(t *testing.T) {
 // and a mark under the mistake.
 func TestReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte(diagDoc), 0o644)
+	if err := os.WriteFile(path, []byte(diagDoc), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	err := Report(path, Problems{
 		{Key: []string{"keys", "read"}, Index: 1, Message: `"shift+y" is never read; write "Y"`},
 		{Key: []string{"ui", "port"}, Index: -1, Message: "ui.port must be between 1 and 65535, got 70000"},
@@ -83,7 +85,9 @@ func TestLoadReportsWhere(t *testing.T) {
 		"[web]\nx = 1\n":             `:1:2: unknown table [web]`,
 		"[tui\n":                     `:1:5: expected ']' to close table name`,
 	} {
-		os.WriteFile(path, []byte(body), 0o644)
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		_, err := Load(path)
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: got %v, want %q", body, err, want)

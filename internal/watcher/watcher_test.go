@@ -71,17 +71,21 @@ func TestWatcherImportsNewAndChangedTranscripts(t *testing.T) {
 
 	// A project directory that did not exist when the watcher started.
 	dir := filepath.Join(projects, "-home-user-new")
-	os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(dir, "s1.jsonl")
-	os.WriteFile(path, []byte(userLine("s1", "u1", "hello")), 0o644)
+	if err := os.WriteFile(path, []byte(userLine("s1", "u1", "hello")), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	got := rec.wait(t, 1)
 	if got[0].Status != importer.New || got[0].SessionID != "s1" || got[0].Project != "-home-user-new" {
 		t.Fatalf("%+v", got[0])
 	}
 
-	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
-	f.WriteString(userLine("s1", "u2", "more"))
-	f.Close()
+	if err := appendTo(path, userLine("s1", "u2", "more")); err != nil {
+		t.Fatal(err)
+	}
 	got = rec.wait(t, 2)
 	if got[1].Status != importer.Resynced || got[1].TotalMessages != 2 || got[1].AddedMessages != 1 {
 		t.Fatalf("%+v", got[1])
@@ -123,9 +127,13 @@ func TestWatcherTellsOfChangesImportedElsewhere(t *testing.T) {
 	}
 
 	dir := filepath.Join(projects, "-p")
-	os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	transcript := filepath.Join(dir, "s1.jsonl")
-	os.WriteFile(transcript, []byte(userLine("s1", "u1", "hello")), 0o644)
+	if err := os.WriteFile(transcript, []byte(userLine("s1", "u1", "hello")), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	// The other process imports it within the watcher's debounce.
 	if r, err := importer.ImportFile(other, transcript, nil, []string{projects}); err != nil || r == nil || r.Status != importer.New {
 		t.Fatalf("other import: %+v %v", r, err)
@@ -174,8 +182,12 @@ func TestWatcherTrees(t *testing.T) {
 	}
 
 	dir := filepath.Join(extra, "-workspace")
-	os.MkdirAll(dir, 0o755)
-	os.WriteFile(filepath.Join(dir, "s1.jsonl"), []byte(userLine("s1", "u1", "in the container")), 0o644)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "s1.jsonl"), []byte(userLine("s1", "u1", "in the container")), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if got := rec.wait(t, 1); got[0].SessionID != "s1" || got[0].Status != importer.New {
 		t.Fatalf("%+v", got[0])
 	}
@@ -186,10 +198,16 @@ func TestWatcherTrees(t *testing.T) {
 	// An older copy of s1 in the primary tree changing does not replace the
 	// newer one in the archive.
 	stale := filepath.Join(primary, "-workspace", "s1.jsonl")
-	os.MkdirAll(filepath.Dir(stale), 0o755)
-	os.WriteFile(stale, []byte(userLine("s1", "u0", "stale")), 0o644)
+	if err := os.MkdirAll(filepath.Dir(stale), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stale, []byte(userLine("s1", "u0", "stale")), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	past := time.Now().Add(-time.Hour)
-	os.Chtimes(stale, past, past)
+	if err := os.Chtimes(stale, past, past); err != nil {
+		t.Fatal(err)
+	}
 	time.Sleep(400 * time.Millisecond)
 	msgs, err := d.SessionMessages("s1")
 	if err != nil || len(msgs) != 1 || msgs[0].Content != "in the container" {
@@ -212,9 +230,13 @@ func TestWatcherNoTrees(t *testing.T) {
 func TestWatcherStartedAfterSnapshot(t *testing.T) {
 	projects := t.TempDir()
 	dir := filepath.Join(projects, "-p")
-	os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(dir, "s1.jsonl")
-	os.WriteFile(path, []byte(userLine("s1", "u1", "hello")), 0o644)
+	if err := os.WriteFile(path, []byte(userLine("s1", "u1", "hello")), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	d, err := db.Open(filepath.Join(t.TempDir(), "vault.db"), db.Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -223,12 +245,17 @@ func TestWatcherStartedAfterSnapshot(t *testing.T) {
 
 	rec := &recorder{}
 	w := &Watcher{DB: d, ProjectsDirs: []string{projects}, Debounce: 50 * time.Millisecond, OnImport: rec.add,
+		// Started runs on the watcher's goroutine, where the test can
+		// report an error but not stop.
 		Started: func() {
-			f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
-			f.WriteString(userLine("s1", "u2", "more"))
-			f.Close()
+			if err := appendTo(path, userLine("s1", "u2", "more")); err != nil {
+				t.Error(err)
+				return
+			}
 			later := time.Now().Add(time.Second)
-			os.Chtimes(path, later, later)
+			if err := os.Chtimes(path, later, later); err != nil {
+				t.Error(err)
+			}
 		}}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -249,4 +276,17 @@ func TestWatcherStartedWithoutTree(t *testing.T) {
 	if !called {
 		t.Fatal("Started was not called")
 	}
+}
+
+// appendTo appends s to the file at path.
+func appendTo(path, s string) error {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	if _, err := f.WriteString(s); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }

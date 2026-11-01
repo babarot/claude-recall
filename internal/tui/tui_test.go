@@ -106,7 +106,17 @@ func newTestModel(t *testing.T, cfg config.TUI, w, h int) (Model, *fakePreview) 
 func update(t *testing.T, m Model, msg tea.Msg) Model {
 	t.Helper()
 	next, _ := m.Update(msg)
-	return next.(Model)
+	return asModel(t, next)
+}
+
+// asModel is the Model that Update returned as a tea.Model.
+func asModel(t *testing.T, next tea.Model) Model {
+	t.Helper()
+	m, ok := next.(Model)
+	if !ok {
+		t.Fatalf("Update returned %T, not a Model", next)
+	}
+	return m
 }
 
 func press(t *testing.T, m Model, keys ...string) Model {
@@ -674,7 +684,7 @@ func TestDetailHeightIsRemembered(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 120, 40)
 	m = m.RememberIn(path)
 	next, cmd := m.Update(tea.KeyPressMsg{Code: '+', Text: "+"})
-	m = next.(Model)
+	m = asModel(t, next)
 	if cmd == nil {
 		t.Fatal("resizing should save the state")
 	}
@@ -1071,7 +1081,7 @@ func TestCtrlCQuitsFromAnywhere(t *testing.T) {
 		if _, ok := cmd().(tea.QuitMsg); !ok {
 			t.Errorf("%s: ctrl+c did not quit", name)
 		}
-		if next.(Model).ask.stage != askClosed {
+		if asModel(t, next).ask.stage != askClosed {
 			t.Errorf("%s: the ask is still open", name)
 		}
 	}
@@ -1144,7 +1154,9 @@ func TestTranscriptInTwoTrees(t *testing.T) {
 			older = primary
 		}
 		past := time.Now().Add(-time.Hour)
-		os.Chtimes(filepath.Join(older, "-test", "aaaaaaaa-1111.jsonl"), past, past)
+		if err := os.Chtimes(filepath.Join(older, "-test", "aaaaaaaa-1111.jsonl"), past, past); err != nil {
+			t.Fatal(err)
+		}
 
 		r := press(t, m.TranscriptsIn(primary, extra), "down", "enter")
 		if resumed := r.Result != nil; resumed != primaryNewer {

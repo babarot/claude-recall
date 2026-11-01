@@ -155,13 +155,13 @@ func TestConfigPort(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	port := srv.Listener.Addr().(*net.TCPAddr).Port
+	port := serverPort(t, srv)
 	writeConfig(t, fmt.Sprintf("[ui]\nport = %d\n", port))
 	if out, err := runArgs("ui", "status"); err != nil || out != "UI server is running (pid: 42, port: 1).\n" {
 		t.Errorf("config port: got %q, %v", out, err)
 	}
 	closed := httptest.NewServer(http.NotFoundHandler())
-	closedPort := closed.Listener.Addr().(*net.TCPAddr).Port
+	closedPort := serverPort(t, closed)
 	closed.Close()
 	if out, err := runArgs("ui", "status", "--port", strconv.Itoa(closedPort)); err != nil || out != "UI server is not running.\n" {
 		t.Errorf("--port: got %q, %v", out, err)
@@ -239,7 +239,7 @@ func TestUIStop(t *testing.T) {
 				w.WriteHeader(tc.status)
 			}
 		}))
-		port := srv.Listener.Addr().(*net.TCPAddr).Port
+		port := serverPort(t, srv)
 		want := tc.want
 		if strings.Contains(want, "%d") {
 			want = fmt.Sprintf(want, port)
@@ -250,7 +250,7 @@ func TestUIStop(t *testing.T) {
 		srv.Close()
 	}
 	closed := httptest.NewServer(http.NotFoundHandler())
-	port := closed.Listener.Addr().(*net.TCPAddr).Port
+	port := serverPort(t, closed)
 	closed.Close()
 	if out, err := runArgs("ui", "stop", "--port", strconv.Itoa(port)); err != nil || out != "UI server is not running.\n" {
 		t.Errorf("not running: got %q, %v", out, err)
@@ -270,7 +270,7 @@ func TestServeUILoopbackOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go io.Copy(io.Discard, pr)
+	go func() { _, _ = io.Copy(io.Discard, pr) }()
 	port := strings.TrimSpace(line[strings.LastIndex(line, ":")+1:])
 	if !strings.HasPrefix(line, "recall UI: http://localhost:") {
 		t.Fatalf("got %q", line)
@@ -372,7 +372,7 @@ func fakeReleases(t *testing.T, latest string) {
 		case "/releases/download/" + latest + "/checksums.txt":
 			fmt.Fprintf(w, "%x  %s\n", sum, asset)
 		case "/releases/download/" + latest + "/" + asset:
-			w.Write(bin)
+			_, _ = w.Write(bin)
 		default:
 			http.NotFound(w, r)
 		}
@@ -402,7 +402,7 @@ func installedAs(t *testing.T, source string) string {
 func noUI(t *testing.T) {
 	t.Helper()
 	closed := httptest.NewServer(http.NotFoundHandler())
-	port := closed.Listener.Addr().(*net.TCPAddr).Port
+	port := serverPort(t, closed)
 	closed.Close()
 	writeConfig(t, fmt.Sprintf("[ui]\nport = %d\n", port))
 }
@@ -464,7 +464,7 @@ func TestUILeavesCurrentServer(t *testing.T) {
 			}
 			t.Errorf("%s: %s %s", v, r.Method, r.URL.Path)
 		}))
-		port := srv.Listener.Addr().(*net.TCPAddr).Port
+		port := serverPort(t, srv)
 		want := fmt.Sprintf("recall UI: http://localhost:%d (pid: 42)\n", port)
 		if out, err := runArgs("ui", "--port", strconv.Itoa(port)); err != nil || out != want {
 			t.Errorf("%s: got %q, %v", v, out, err)
@@ -517,7 +517,9 @@ func TestVersionNotice(t *testing.T) {
 	// From the cache, without asking again, until it is a day old.
 	releases = &update.Client{BaseURL: "http://127.0.0.1:1"}
 	stderr.Reset()
-	run([]string{"version"}, &stdout, &stderr)
+	if err := run([]string{"version"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
 	if stderr.String() != want {
 		t.Errorf("from the cache: %q", stderr.String())
 	}
@@ -525,7 +527,9 @@ func TestVersionNotice(t *testing.T) {
 	// Off in the config file.
 	writeConfig(t, "[core]\nupdate_check = false\n")
 	stderr.Reset()
-	run([]string{"version"}, &stdout, &stderr)
+	if err := run([]string{"version"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
 	if stderr.Len() != 0 {
 		t.Errorf("update_check = false: %q", stderr.String())
 	}
@@ -537,12 +541,16 @@ func TestReleaseNotice(t *testing.T) {
 	fakeReleases(t, "99.0.0")
 	installedAs(t, "release")
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
-	update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now(), Latest: "98.0.0"})
+	if err := update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now(), Latest: "98.0.0"}); err != nil {
+		t.Fatal(err)
+	}
 	r, ok := releaseNotice(true)
 	if !ok || r.Version != "98.0.0" || r.How != "recall update" || !r.Command || r.Check != nil {
 		t.Errorf("fresh cache: %+v, %v", r, ok)
 	}
-	update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now().Add(-48 * time.Hour), Latest: "98.0.0"})
+	if err := update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now().Add(-48 * time.Hour), Latest: "98.0.0"}); err != nil {
+		t.Fatal(err)
+	}
 	r, _ = releaseNotice(true)
 	if r.Check == nil || r.Check() != "99.0.0" {
 		t.Errorf("stale cache: %+v", r)
@@ -554,4 +562,14 @@ func TestReleaseNotice(t *testing.T) {
 	if _, ok := releaseNotice(true); ok {
 		t.Error("a build from source")
 	}
+}
+
+// serverPort is the port srv listens on.
+func serverPort(t *testing.T, srv *httptest.Server) int {
+	t.Helper()
+	a, ok := srv.Listener.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("%s is not a TCP address", srv.Listener.Addr())
+	}
+	return a.Port
 }

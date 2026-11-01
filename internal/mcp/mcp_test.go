@@ -23,7 +23,9 @@ func golden(t *testing.T, name, got string) {
 	t.Helper()
 	path := filepath.Join("testdata", name+".golden")
 	if *update {
-		os.MkdirAll("testdata", 0o755)
+		if err := os.MkdirAll("testdata", 0o755); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -157,8 +159,12 @@ func TestLimit(t *testing.T) {
 			"timestamp": fmt.Sprintf("2026-01-%02dT00:00:00.000Z", i+1), "cwd": "/work/many",
 			"message": map[string]any{"role": "user", "content": "deploy the widget"}})
 		f := filepath.Join(dir, "-work-many", id+".jsonl")
-		os.MkdirAll(filepath.Dir(f), 0o755)
-		os.WriteFile(f, append(line, '\n'), 0o644)
+		if err := os.MkdirAll(filepath.Dir(f), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(f, append(line, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := importer.Run(w, importer.Options{ProjectsDirs: []string{dir}}, &strings.Builder{}); err != nil {
 		t.Fatal(err)

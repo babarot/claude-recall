@@ -37,8 +37,12 @@ func newFolderFixture(t *testing.T) folderFixture {
 			t.Fatal(err)
 		}
 	}
-	os.WriteFile(filepath.Join(f.wt, ".git"), []byte("gitdir: "+admin+"\n"), 0o644)
-	os.WriteFile(filepath.Join(admin, "commondir"), []byte("../..\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(f.wt, ".git"), []byte("gitdir: "+admin+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(admin, "commondir"), []byte("../..\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	return f
 }
 
@@ -206,8 +210,7 @@ func TestSidebarIsRemembered(t *testing.T) {
 	f := newFolderFixture(t)
 	path := filepath.Join(t.TempDir(), "state.json")
 	m := folderModel(t, config.Default().TUI, f, 140, 40).RememberIn(path)
-	next, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
-	m = next.(Model)
+	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
 	if cmd != nil {
 		cmd()
 	}
@@ -299,7 +302,9 @@ func namedFolders(t *testing.T) Model {
 	var ss []db.Session
 	for i, name := range []string{"dotfiles", "infrastructure", "stailer", "stailer-server"} {
 		dir := filepath.Join(base, name)
-		os.MkdirAll(dir, 0o755)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 		ss = append(ss, db.Session{ID: name, ProjectPath: dir, Title: name, EndedAt: now.Add(time.Duration(-i) * time.Hour)})
 	}
 	m := New(ss, &fakePreview{}, config.Default().TUI)

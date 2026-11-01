@@ -152,7 +152,9 @@ func TestRunAloneYieldsWhenWatchedAround(t *testing.T) {
 		t.Fatal("the runner watched again while the other was watching")
 	}
 	// It waits with the others, and takes over when the other exits.
-	other.Unlock()
+	if err := other.Unlock(); err != nil {
+		t.Fatal(err)
+	}
 	if !within(a.starts, aloneStale/2) {
 		t.Fatal("the runner did not take over when the other exited")
 	}
@@ -204,7 +206,7 @@ func holdSlot(t *testing.T, path string, mtime time.Time) *flock.Lock {
 	if err := os.Chtimes(path, mtime, mtime); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { l.Unlock() })
+	t.Cleanup(func() { _ = l.Unlock() })
 	return l
 }
 
@@ -214,7 +216,9 @@ func TestRunAloneAfterCrashedHolder(t *testing.T) {
 	lock := filepath.Join(t.TempDir(), "vault.db.watch.lock")
 
 	// A crash releases the lock but leaves the file touched a moment ago.
-	holdSlot(t, lock, time.Now()).Unlock()
+	if err := holdSlot(t, lock, time.Now()).Unlock(); err != nil {
+		t.Fatal(err)
+	}
 	if !startRunner(t, lock).runs(time.Second) {
 		t.Fatal("a runner waited on the freshly touched file of a crashed holder")
 	}
@@ -225,7 +229,9 @@ func TestRunAloneLeavesFreedSlotBelowWatcher(t *testing.T) {
 	lock := filepath.Join(t.TempDir(), "vault.db.watch.lock")
 
 	// Slot 0's holder exited after slot 1's watched around it.
-	holdSlot(t, lock, time.Now()).Unlock()
+	if err := holdSlot(t, lock, time.Now()).Unlock(); err != nil {
+		t.Fatal(err)
+	}
 	holdSlot(t, slotPath(lock, 1), time.Now().Add(time.Hour))
 	if startRunner(t, lock).runs(aloneStale / 2) {
 		t.Fatal("a runner took slot 0 while slot 1's holder was watching")

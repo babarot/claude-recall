@@ -165,7 +165,9 @@ func manyFolders(t *testing.T) Model {
 	var ss []db.Session
 	for i := range 12 {
 		dir := filepath.Join(base, fmt.Sprintf("proj-%02d", i))
-		os.MkdirAll(dir, 0o755)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 		ss = append(ss, db.Session{ID: fmt.Sprintf("s%02d", i), ProjectPath: dir, Title: "t", EndedAt: now.Add(time.Duration(-i) * time.Hour)})
 	}
 	m := New(ss, &fakePreview{}, config.Default().TUI)

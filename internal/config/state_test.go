@@ -25,8 +25,12 @@ func TestState(t *testing.T) {
 	if got := LoadState(path); got != (State{}) {
 		t.Errorf("missing: got %+v", got)
 	}
-	os.MkdirAll(filepath.Dir(path), 0o755)
-	os.WriteFile(path, []byte("{nope"), 0o644)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{nope"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if got := LoadState(path); got != (State{}) {
 		t.Errorf("broken: got %+v", got)
 	}

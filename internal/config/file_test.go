@@ -22,7 +22,9 @@ func TestLoadMissingFileUsesDefaults(t *testing.T) {
 
 func TestLoadKeepsDefaultsForMissingKeys(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte("[tui]\ndetail_position = \"auto\"\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[tui]\ndetail_position = \"auto\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	got, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +36,9 @@ func TestLoadKeepsDefaultsForMissingKeys(t *testing.T) {
 
 func TestLoadRejectsUnknownPosition(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte("[tui]\ndetail_position = \"top\"\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[tui]\ndetail_position = \"top\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := Load(path); err == nil {
 		t.Fatal("expected an error")
 	}
@@ -42,11 +46,15 @@ func TestLoadRejectsUnknownPosition(t *testing.T) {
 
 func TestLoadScope(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte("[tui]\nscope = \"all\"\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[tui]\nscope = \"all\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if got, err := Load(path); err != nil || got.TUI.Scope != ScopeAll {
 		t.Fatalf("got %+v, %v", got, err)
 	}
-	os.WriteFile(path, []byte("[tui]\nscope = \"repo\"\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[tui]\nscope = \"repo\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := Load(path); err == nil {
 		t.Fatal("expected an error for an unknown scope")
 	}
@@ -62,7 +70,9 @@ func TestLoadScrollbar(t *testing.T) {
 		"scrollbar_color = \"256\"\n":                                 false,
 		"scrollbar_color = \"#fff\"\n":                                false,
 	} {
-		os.WriteFile(path, []byte("[tui]\n"+body), 0o644)
+		if err := os.WriteFile(path, []byte("[tui]\n"+body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := Load(path); (err == nil) != ok {
 			t.Errorf("%q: got %v", body, err)
 		}
@@ -77,7 +87,9 @@ func TestLoadImages(t *testing.T) {
 		"images = true\n":     "on", // as before auto was there
 		"images = false\n":    "off",
 	} {
-		os.WriteFile(path, []byte("[tui]\n"+body), 0o644)
+		if err := os.WriteFile(path, []byte("[tui]\n"+body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		if got, err := Load(path); err != nil || got.TUI.ImagesMode() != want {
 			t.Errorf("%q: got %q, %v, want %q", body, got.TUI.ImagesMode(), err, want)
 		}
@@ -86,7 +98,9 @@ func TestLoadImages(t *testing.T) {
 		"images = \"on\"\n": `tui.images must be "auto", true or false, got "on"`,
 		"images = 1\n":      `tui.images must be "auto", true or false, got a number`,
 	} {
-		os.WriteFile(path, []byte("[tui]\n"+body), 0o644)
+		if err := os.WriteFile(path, []byte("[tui]\n"+body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := Load(path); err == nil || !strings.Contains(err.Error(), msg) {
 			t.Errorf("%q: got %v, want %s", body, err, msg)
 		}
@@ -104,7 +118,9 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 		"[web]\nport = 8080\n":     `unknown table [web] (known: [core], [ui], [tui], [keys])`,
 	}
 	for body, want := range cases {
-		os.WriteFile(path, []byte(body), 0o644)
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		_, err := Load(path)
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: got %v, want %q", body, err, want)
@@ -122,7 +138,9 @@ func TestTemplateLoadsAsTheDefaults(t *testing.T) {
 		t.Fatalf("got %+v, %v", got, err)
 	}
 	// It never replaces a file that is there.
-	os.WriteFile(path, []byte("[tui]\nscope = \"all\"\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[tui]\nscope = \"all\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if err := WriteTemplate(path); err == nil {
 		t.Fatal("expected an error for an existing file")
 	}
@@ -154,7 +172,9 @@ func uncommented(tmpl string) string {
 // The template uncommented sets everything to its default.
 func TestUncommentedTemplate(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte(uncommented(Template)), 0o644)
+	if err := os.WriteFile(path, []byte(uncommented(Template)), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	got, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
@@ -201,7 +221,9 @@ func TestDBPath(t *testing.T) {
 
 func TestLoadCoreAndUI(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte("[core]\ndb = \"~/v.db\"\n\n[ui]\nport = 8080\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[core]\ndb = \"~/v.db\"\n\n[ui]\nport = 8080\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	got, err := Load(path)
 	if err != nil || got.Core.DB != "~/v.db" || got.UI.Port != 8080 {
 		t.Fatalf("got %+v, %v", got, err)
@@ -211,7 +233,9 @@ func TestLoadCoreAndUI(t *testing.T) {
 		"[ui]\nport = 0\n":            "ui.port must be between 1 and 65535",
 		"[ui]\nport = 70000\n":        "ui.port must be between 1 and 65535",
 	} {
-		os.WriteFile(path, []byte(body), 0o644)
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := LoadCore(path); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: got %v, want %q", body, err, want)
 		}
@@ -222,7 +246,9 @@ func TestLoadCoreAndUI(t *testing.T) {
 // file that does not parse or has an unknown key stops them all.
 func TestLoadCoreLeavesTUIValuesToTheTUI(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte("[core]\ndb = \"/srv/v.db\"\n\n[tui]\ntheme = \"nope\"\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[core]\ndb = \"/srv/v.db\"\n\n[tui]\ntheme = \"nope\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if got, err := LoadCore(path); err != nil || got.DBPath() != "/srv/v.db" {
 		t.Fatalf("got %+v, %v", got, err)
 	}
@@ -230,7 +256,9 @@ func TestLoadCoreLeavesTUIValuesToTheTUI(t *testing.T) {
 		t.Fatal("Load should reject the theme")
 	}
 	for _, body := range []string{"[core\n", "[tui]\nthem = \"nord\"\n"} {
-		os.WriteFile(path, []byte(body), 0o644)
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := LoadCore(path); err == nil {
 			t.Errorf("%q: expected an error", body)
 		}
@@ -257,7 +285,9 @@ func TestClaudeConfigDir(t *testing.T) {
 // type is kept for the TUI to report and stops no other command.
 func TestLoadKeys(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte("[keys]\nresume = \"space\"\nread = [\"enter\", \"o\"]\nsort = []\nask = 3\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[keys]\nresume = \"space\"\nread = [\"enter\", \"o\"]\nsort = []\nask = 3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	got, err := LoadCore(path)
 	if err != nil {
 		t.Fatal(err)
@@ -279,7 +309,9 @@ func TestLoadKeys(t *testing.T) {
 // A pane's table under [keys] names its operations after the pane.
 func TestLoadPaneKeys(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte("[keys]\nresume = \"space\"\n\n[keys.list]\nfolders_open = \"o\"\n\n[keys.folders]\nback = [\"b\"]\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[keys]\nresume = \"space\"\n\n[keys.list]\nfolders_open = \"o\"\n\n[keys.folders]\nback = [\"b\"]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	got, err := LoadCore(path)
 	if err != nil {
 		t.Fatal(err)
@@ -293,7 +325,9 @@ func TestLoadPaneKeys(t *testing.T) {
 // Each mistake in extra_projects_dirs is shown at its element.
 func TestExtraProjectsDirsMistakes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	os.WriteFile(path, []byte("[core]\nextra_projects_dirs = [\"~/c/projects\", \"rel/projects\", \"\", \"~/c/projects/\"]\n"), 0o644)
+	if err := os.WriteFile(path, []byte("[core]\nextra_projects_dirs = [\"~/c/projects\", \"rel/projects\", \"\", \"~/c/projects/\"]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	_, err := LoadCore(path)
 	for _, want := range []string{
 		`:2:40: core.extra_projects_dirs[1] must be an absolute path or start with ~/, got "rel/projects"`,
@@ -313,8 +347,12 @@ func TestProjectsDirs(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
 	primary := filepath.Join(home, ".claude", "projects")
-	os.MkdirAll(primary, 0o755)
-	os.Symlink(primary, filepath.Join(home, "link"))
+	if err := os.MkdirAll(primary, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(primary, filepath.Join(home, "link")); err != nil {
+		t.Fatal(err)
+	}
 	f := Default()
 	f.Core.ExtraProjectsDirs = []string{"~/.claude/projects", "~/link", "~/c/projects", "/srv/projects"}
 	want := []string{primary, filepath.Join(home, "c", "projects"), "/srv/projects"}

@@ -89,7 +89,12 @@ func TestStreamSendsHelloAndEvents(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error)
 	go func() { done <- s.Serve(ctx, ln) }()
-	defer func() { cancel(); <-done }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	}()
 
 	resp, err := http.Get("http://" + ln.Addr().String() + "/api/stream")
 	if err != nil {
@@ -104,7 +109,9 @@ func TestStreamSendsHelloAndEvents(t *testing.T) {
 	if !strings.HasPrefix(hello, `data: {"type":"connected","timestamp":`) {
 		t.Fatalf("hello %q", hello)
 	}
-	r.ReadString('\n') // blank line ending the frame
+	if _, err := r.ReadString('\n'); err != nil { // blank line ending the frame
+		t.Fatal(err)
+	}
 
 	for s.Broadcaster.Count() == 0 {
 		time.Sleep(10 * time.Millisecond)
@@ -130,9 +137,15 @@ func TestFileServesOnlyImages(t *testing.T) {
 	png := filepath.Join(dir, "shot.png")
 	secret := filepath.Join(dir, "id_ed25519")
 	link := filepath.Join(dir, "sneaky.png")
-	os.WriteFile(png, []byte("PNG"), 0o644)
-	os.WriteFile(secret, []byte("PRIVATE KEY"), 0o600)
-	os.Symlink(secret, link)
+	if err := os.WriteFile(png, []byte("PNG"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secret, []byte("PRIVATE KEY"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(secret, link); err != nil {
+		t.Fatal(err)
+	}
 
 	cases := []struct {
 		path string

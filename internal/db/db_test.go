@@ -202,12 +202,24 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	old.sql.Exec(`ALTER TABLE messages DROP COLUMN is_error`)
-	old.sql.Exec(`ALTER TABLE messages DROP COLUMN tool_use_id`)
-	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN import_version`)
-	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN remote`)
-	old.sql.Exec(`ALTER TABLE sessions DROP COLUMN title`)
-	old.sql.Exec(`PRAGMA user_version = 0`)
+	if _, err := old.sql.Exec(`ALTER TABLE messages DROP COLUMN is_error`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.sql.Exec(`ALTER TABLE messages DROP COLUMN tool_use_id`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.sql.Exec(`ALTER TABLE sessions DROP COLUMN import_version`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.sql.Exec(`ALTER TABLE sessions DROP COLUMN remote`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.sql.Exec(`ALTER TABLE sessions DROP COLUMN title`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.sql.Exec(`PRAGMA user_version = 0`); err != nil {
+		t.Fatal(err)
+	}
 	seedSession(t, old, "s1", "p", "/p")
 	old.Close()
 
@@ -217,7 +229,9 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	}
 	defer d.Close()
 	var version int
-	d.sql.QueryRow(`PRAGMA user_version`).Scan(&version)
+	if err := d.sql.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		t.Fatal(err)
+	}
 	if version != len(migrations) {
 		t.Fatalf("user_version %d", version)
 	}
@@ -326,7 +340,9 @@ func TestDetailCountsUseACoveringIndex(t *testing.T) {
 		for rows.Next() {
 			var id, parent, notused int
 			var detail string
-			rows.Scan(&id, &parent, &notused, &detail)
+			if err := rows.Scan(&id, &parent, &notused, &detail); err != nil {
+				t.Fatal(err)
+			}
 			plan.WriteString(detail + "\n")
 		}
 		rows.Close()

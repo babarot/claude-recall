@@ -25,5 +25,7 @@ func TestTryLock(t *testing.T) {
 	if err != nil || c == nil {
 		t.Fatalf("TryLock after Unlock = %v, %v; want the lock", c, err)
 	}
-	c.Unlock()
+	if err := c.Unlock(); err != nil {
+		t.Error(err)
+	}
 }
