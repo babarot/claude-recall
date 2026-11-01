@@ -200,7 +200,7 @@ func gitRepo(home, repo string) error {
 		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=Demo", "-c", "user.email=demo@example.com",
 			"-c", "commit.gpgsign=false"}, args...)...)
 		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("git %s in %s: %v: %s", strings.Join(args, " "), repo, err, out)
+			return fmt.Errorf("git %s in %s: %w: %s", strings.Join(args, " "), repo, err, out)
 		}
 	}
 	return nil

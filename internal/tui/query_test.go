@@ -34,7 +34,7 @@ func TestInNarrowsToFolders(t *testing.T) {
 	if got := visibleIDs(m); got != "other-1,other-2" {
 		t.Fatalf("in:note shows %s", got)
 	}
-	if head := strings.Split(screen(m), "\n")[0]; !strings.Contains(head, "2 / 6 sessions · in ") || !strings.Contains(head, "notes · sort") {
+	if head, _, _ := strings.Cut(screen(m), "\n"); !strings.Contains(head, "2 / 6 sessions · in ") || !strings.Contains(head, "notes · sort") {
 		t.Errorf("header should name the folder: %q", head)
 	}
 	// Words and in: combine; several in: are any of them.

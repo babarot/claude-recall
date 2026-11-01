@@ -234,9 +234,11 @@ func TestMigrationAddsTitleToAnExistingArchive(t *testing.T) {
 	}
 	// Opening again must not run the migration twice.
 	d.Close()
-	if d, err = Open(path, Options{}); err != nil {
+	again, err := Open(path, Options{})
+	if err != nil {
 		t.Fatal(err)
 	}
+	again.Close()
 }
 
 func TestSessionDetail(t *testing.T) {

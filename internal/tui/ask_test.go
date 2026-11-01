@@ -155,9 +155,9 @@ func TestAskCancelAndFail(t *testing.T) {
 	if m.ask.stage != askClosed {
 		t.Fatal("esc should cancel")
 	}
-	// The cancelled run's answer comes too late to matter.
+	// The canceled run's answer comes too late to matter.
 	if m = settleAsk(t, m, cmd); m.ask.stage != askClosed {
-		t.Fatalf("a cancelled run reopened the box: %v", m.ask.stage)
+		t.Fatalf("a canceled run reopened the box: %v", m.ask.stage)
 	}
 	// q cancels too, as it closes the other boxes.
 	m = press(t, m, "a", "x")

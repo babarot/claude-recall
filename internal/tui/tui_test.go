@@ -453,7 +453,7 @@ func TestRelativeDate(t *testing.T) {
 
 func TestHeaderKeepsCountsAndSort(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 120, 30)
-	first := strings.Split(screen(m), "\n")[0]
+	first, _, _ := strings.Cut(screen(m), "\n")
 	if !strings.Contains(first, "recall // claude-recall") || !strings.Contains(first, "3 / 3 sessions · sort: Ended") {
 		t.Fatalf("header %q", first)
 	}
@@ -583,8 +583,8 @@ func TestFolderPathKeepsTheName(t *testing.T) {
 	r := &row{folder: "me/app"}
 	path := "~/src/github.com/me/app"
 	out := m.folderPath(path, r, "", 40)
-	i := strings.Index(out, "me/app")
-	if ansi.Strip(out) != path || i < 0 || !strings.HasPrefix(out[strings.LastIndex(out[:i], "\x1b["):], "\x1b[1") {
+	before, _, ok := strings.Cut(out, "me/app")
+	if ansi.Strip(out) != path || !ok || !strings.HasPrefix(out[strings.LastIndex(before, "\x1b["):], "\x1b[1") {
 		t.Fatalf("%q should show the whole path with the name bold", out)
 	}
 	if got := ansi.Strip(m.folderPath(path, r, "⌥ wt", 19)); got != "~/src/…/me/app ⌥ wt" {
@@ -906,7 +906,7 @@ func TestReadingBoldsTheUser(t *testing.T) {
 	m = press(t, m, "space")
 	out := m.render()
 	bold := func(text string) bool {
-		for _, l := range strings.Split(out, "\n") {
+		for l := range strings.SplitSeq(out, "\n") {
 			if strings.Contains(ansi.Strip(l), text) {
 				// The style right before the text decides.
 				i := strings.Index(l, text)

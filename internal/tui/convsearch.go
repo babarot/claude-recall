@@ -82,10 +82,6 @@ func newConvSearchInput() textinput.Model {
 	return in
 }
 
-// convSearching reports whether / and n reach the conversation search: the
-// reading view has the keys.
-func (m Model) convSearching() bool { return m.expanded && m.focus == focusConv }
-
 // convQuery is the search the frame is built for.
 func (m Model) convQuery() string { return m.conv.applied }
 

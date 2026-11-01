@@ -168,7 +168,7 @@ func (h Handlers) Call(name string, a args) (any, error) {
 		}
 		return api.Stats(s), nil
 	}
-	return nil, fmt.Errorf("Unknown tool: %s", name)
+	return nil, fmt.Errorf("unknown tool: %s", name)
 }
 
 func (h Handlers) handler(name string) mcp.ToolHandler {

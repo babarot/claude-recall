@@ -137,7 +137,7 @@ func TestErrorResult(t *testing.T) {
 	if !r.IsError || !strings.HasPrefix(text(r), "Error: ") {
 		t.Errorf("got %v %q", r.IsError, text(r))
 	}
-	if _, err := (Handlers{}).Call("recall_nope", nil); err == nil || err.Error() != "Unknown tool: recall_nope" {
+	if _, err := (Handlers{}).Call("recall_nope", nil); err == nil || err.Error() != "unknown tool: recall_nope" {
 		t.Errorf("unknown tool: %v", err)
 	}
 }

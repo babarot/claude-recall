@@ -194,7 +194,7 @@ func TestTemplateListsEveryKey(t *testing.T) {
 	b.WriteString("[keys]\n")
 	// A setting, or a pane's table.
 	setting := regexp.MustCompile(`^# ([a-z_]+ = (".*"|\[.*\])|\[keys\.[a-z]+\])$`)
-	for _, l := range strings.Split(section, "\n") {
+	for l := range strings.SplitSeq(section, "\n") {
 		if m := setting.FindStringSubmatch(l); m != nil {
 			b.WriteString(m[1] + "\n")
 		}

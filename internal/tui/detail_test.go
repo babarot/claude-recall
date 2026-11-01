@@ -5,9 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
-	"github.com/charmbracelet/x/ansi"
 )
 
 func TestMiddleEllipsis(t *testing.T) {

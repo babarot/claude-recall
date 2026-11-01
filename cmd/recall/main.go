@@ -66,8 +66,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	root.SetOut(stdout)
 	root.SetErr(stderr)
 	err := root.Execute()
-	var na noArchive
-	if errors.As(err, &na) {
+	if na, ok := errors.AsType[noArchive](err); ok {
 		fmt.Fprintf(stderr, `No archive yet at %s.
 
   1. Import your sessions:  recall import
@@ -120,7 +119,7 @@ Run without a command, it opens the TUI.`,
 	}
 	root.SetVersionTemplate("recall {{.Version}}\n")
 	root.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
-		return fmt.Errorf("%w\nRun '%s --help' for usage.", err, c.CommandPath())
+		return fmt.Errorf("%w\nRun '%s --help' for usage.", err, c.CommandPath()) //nolint:staticcheck // ST1005: printed to the user as a full sentence
 	})
 	root.PersistentFlags().StringVar(&o.db, "db", "", "database path (default: db under [core] in the config file, or ~/.claude/vault.db)")
 	// The config file gives the defaults of --db and --port. Every command
@@ -957,8 +956,7 @@ func runTUI(o *options, c *cobra.Command) error {
 
 	model, err := tui.New(sessions, d, cfg.TUI).WithKeys(cfg.Keys)
 	if err != nil {
-		var ps config.Problems
-		if errors.As(err, &ps) {
+		if ps, ok := errors.AsType[config.Problems](err); ok {
 			return config.Report(config.FilePath(), ps)
 		}
 		return err
