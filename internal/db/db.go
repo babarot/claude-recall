@@ -111,6 +111,25 @@ var migrations = []string{
 	// says, NULL when it does not say or the session was stored before
 	// (importer.importVersion 2).
 	`ALTER TABLE messages ADD COLUMN is_error INTEGER`,
+	// 5: the tokens of each API response, by message id, the session's own
+	// and those of its subagents (agent is the subagent's transcript, '' for
+	// the session's). Rows are only ever added or corrected, never deleted
+	// with the session's messages, so they outlive the transcripts. A
+	// response copied into another transcript (a subagent's, which repeats
+	// the session's) is the same response and is counted once.
+	`CREATE TABLE IF NOT EXISTS usage (
+	   session_id     TEXT NOT NULL,
+	   message_id     TEXT NOT NULL,
+	   agent          TEXT NOT NULL DEFAULT '',
+	   model          TEXT NOT NULL,
+	   timestamp      TEXT,
+	   input          INTEGER NOT NULL,
+	   output         INTEGER NOT NULL,
+	   cache_read     INTEGER NOT NULL,
+	   cache_write_5m INTEGER NOT NULL,
+	   cache_write_1h INTEGER NOT NULL,
+	   PRIMARY KEY (session_id, message_id)
+	 )`,
 }
 
 func (d *DB) migrate() error {

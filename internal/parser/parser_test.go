@@ -329,3 +329,49 @@ func TestParseIsError(t *testing.T) {
 		t.Fatalf("a text block has IsError %v", *s.Messages[0].IsError)
 	}
 }
+
+func usageLine(id, model, ts string, out int64, sidechain bool, split bool) string {
+	usage := map[string]any{"input_tokens": 3, "output_tokens": out, "cache_read_input_tokens": 100, "cache_creation_input_tokens": 50}
+	if split {
+		usage["cache_creation"] = map[string]any{"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 30}
+	}
+	return line(map[string]any{
+		"type": "assistant", "uuid": "a-" + id + "-" + strconv.FormatInt(out, 10), "sessionId": "sess-001", "timestamp": ts, "isSidechain": sidechain,
+		"message": map[string]any{"role": "assistant", "id": id, "model": model, "usage": usage, "content": []any{text("x")}},
+	})
+}
+
+func TestParseUsage(t *testing.T) {
+	s := mustParse(t, jsonl(
+		userMsg("hi", "u1", "2026-01-01T00:00:00Z"),
+		// One response over three lines; the first was written while it
+		// streamed, with a lower output count.
+		usageLine("msg_1", "claude-opus-5-5", "2026-01-01T00:00:01Z", 17, false, true),
+		usageLine("msg_1", "claude-opus-5-5", "2026-01-01T00:00:02Z", 811, false, true),
+		usageLine("msg_1", "claude-opus-5-5", "2026-01-01T00:00:03Z", 811, false, true),
+		usageLine("msg_2", "claude-sonnet-5-5", "2026-01-01T00:00:04Z", 40, false, false),
+		usageLine("msg_3", "<synthetic>", "2026-01-01T00:00:05Z", 0, false, false),
+		usageLine("msg_4", "claude-opus-5-5", "2026-01-01T00:00:06Z", 9, true, false),
+	))
+	want := []Usage{
+		{MessageID: "msg_1", Model: "claude-opus-5-5", Timestamp: "2026-01-01T00:00:01Z", Input: 3, Output: 811, CacheRead: 100, CacheWrite5m: 20, CacheWrite1h: 30},
+		{MessageID: "msg_2", Model: "claude-sonnet-5-5", Timestamp: "2026-01-01T00:00:04Z", Input: 3, Output: 40, CacheRead: 100, CacheWrite5m: 50},
+	}
+	if len(s.Usage) != len(want) {
+		t.Fatalf("usage %+v, want %+v", s.Usage, want)
+	}
+	for i := range want {
+		if s.Usage[i] != want[i] {
+			t.Errorf("usage[%d] = %+v, want %+v", i, s.Usage[i], want[i])
+		}
+	}
+
+	// A subagent's transcript is all sidechain lines, which ParseUsage reads.
+	sub := ParseUsage(jsonl(
+		usageLine("msg_9", "claude-opus-5-5", "2026-01-01T00:00:01Z", 17, true, false),
+		usageLine("msg_9", "claude-opus-5-5", "2026-01-01T00:00:02Z", 811, true, false),
+	))
+	if len(sub) != 1 || sub[0].Output != 811 {
+		t.Errorf("ParseUsage of a sidechain = %+v, want one response with output 811", sub)
+	}
+}

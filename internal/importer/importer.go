@@ -64,7 +64,8 @@ var (
 //
 //	1: the tool_use_id of tool_use and tool_result blocks
 //	2: whether a tool_result was an error
-const importVersion = 2
+//	3: the tokens and model of each response, the subagents' too
+const importVersion = 3
 
 // ImportFile imports <projects>/<project>/<session>.jsonl, a transcript of
 // the trees dirs. It returns nil, nil when the file cannot be read or holds
@@ -157,6 +158,8 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 			Content: m.Content, ToolName: m.ToolName, ToolInput: m.ToolInput, ToolUseID: m.ToolUseID, IsError: m.IsError, Timestamp: m.Timestamp,
 			TurnIndex: m.TurnIndex}
 	}
+	usage := usageRows(parsed.Usage, "")
+	usage = append(usage, subagentUsage(path)...)
 	var imgs []db.ImageRow
 	for _, img := range parsed.Images {
 		data, err := atob(img.Data)
@@ -183,7 +186,7 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 		}
 		return nil
 	}
-	if err := d.ReplaceSession(row, msgs, imgs, check); err != nil {
+	if err := d.ReplaceSession(row, msgs, imgs, usage, check); err != nil {
 		return nil, err
 	}
 	status, added := New, len(msgs)
@@ -191,6 +194,31 @@ func importOnce(d *db.DB, path string, index *parser.IndexEntry, dirs []string) 
 		status, added = Resynced, max(0, len(msgs)-existing.MessageCount)
 	}
 	return &Result{Status: status, SessionID: sessionID, Project: project, TotalMessages: len(msgs), AddedMessages: added}, nil
+}
+
+func usageRows(us []parser.Usage, agent string) []db.UsageRow {
+	out := make([]db.UsageRow, len(us))
+	for i, u := range us {
+		out[i] = db.UsageRow{MessageID: u.MessageID, Agent: agent, Model: u.Model, Timestamp: u.Timestamp,
+			Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite5m: u.CacheWrite5m, CacheWrite1h: u.CacheWrite1h}
+	}
+	return out
+}
+
+// subagentUsage reads the usage of the subagents a session ran, whose
+// transcripts Claude Code writes to <project>/<session>/subagents/. Their
+// conversations are not imported.
+func subagentUsage(path string) []db.UsageRow {
+	files, _ := filepath.Glob(filepath.Join(strings.TrimSuffix(path, ".jsonl"), "subagents", "*.jsonl"))
+	var out []db.UsageRow
+	for _, f := range files {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		out = append(out, usageRows(parser.ParseUsage(decodeText(raw)), strings.TrimSuffix(filepath.Base(f), ".jsonl"))...)
+	}
+	return out
 }
 
 // FillRemotes stores the remote of the sessions imported before remotes

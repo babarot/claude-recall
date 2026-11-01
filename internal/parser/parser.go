@@ -56,11 +56,29 @@ type Meta struct {
 	Title string
 }
 
+// Usage is what one API response used, as the transcript reports it.
+// Claude Code writes a response as one line per content block, all with the
+// same message id; Usage is one per id.
+type Usage struct {
+	MessageID string
+	Model     string
+	Timestamp string // of the response's first line
+	Input     int64
+	Output    int64
+	CacheRead int64
+	// CacheWrite5m and CacheWrite1h are the tokens written to the cache for
+	// 5 minutes and for an hour. A line without the split counts them all
+	// as 5 minutes.
+	CacheWrite5m int64
+	CacheWrite1h int64
+}
+
 // Session is a parsed transcript.
 type Session struct {
 	Meta     Meta
 	Messages []Message
 	Images   []Image
+	Usage    []Usage
 }
 
 // IndexEntry is an entry of the sessions-index.json Claude Code wrote until
@@ -93,7 +111,75 @@ type journalLine struct {
 	Message     *struct {
 		Role    string          `json:"role"`
 		Content json.RawMessage `json:"content"`
+		ID      string          `json:"id"`
+		Model   string          `json:"model"`
+		Usage   *usageField     `json:"usage"`
 	} `json:"message"`
+}
+
+type usageField struct {
+	Input         int64 `json:"input_tokens"`
+	Output        int64 `json:"output_tokens"`
+	CacheRead     int64 `json:"cache_read_input_tokens"`
+	CacheCreation int64 `json:"cache_creation_input_tokens"`
+	Split         *struct {
+		FiveMinutes int64 `json:"ephemeral_5m_input_tokens"`
+		OneHour     int64 `json:"ephemeral_1h_input_tokens"`
+	} `json:"cache_creation"`
+}
+
+// usages collects the Usage of a transcript's responses, one per message id.
+type usages struct {
+	list []Usage
+	at   map[string]int
+}
+
+// add records the usage of an assistant line. Lines of one response repeat
+// it, but one written while the response was still streaming can have a
+// lower output count, so the last line's values win and the output is the
+// highest seen. Responses Claude Code made up itself (model <synthetic>)
+// are not counted.
+func (u *usages) add(p *journalLine) {
+	m := p.Message
+	if p.Type != "assistant" || m == nil || m.ID == "" || m.Usage == nil || m.Model == "" || m.Model == "<synthetic>" {
+		return
+	}
+	v := Usage{MessageID: m.ID, Model: m.Model, Timestamp: p.Timestamp,
+		Input: m.Usage.Input, Output: m.Usage.Output, CacheRead: m.Usage.CacheRead, CacheWrite5m: m.Usage.CacheCreation}
+	if sp := m.Usage.Split; sp != nil && sp.FiveMinutes+sp.OneHour == m.Usage.CacheCreation {
+		v.CacheWrite5m, v.CacheWrite1h = sp.FiveMinutes, sp.OneHour
+	}
+	if u.at == nil {
+		u.at = map[string]int{}
+	}
+	i, ok := u.at[m.ID]
+	if !ok {
+		u.at[m.ID] = len(u.list)
+		u.list = append(u.list, v)
+		return
+	}
+	prev := u.list[i]
+	v.Timestamp = cmp.Or(prev.Timestamp, v.Timestamp)
+	v.Output = max(prev.Output, v.Output)
+	u.list[i] = v
+}
+
+// ParseUsage reads the usage of every response of a transcript, sidechain
+// lines included: the transcripts of subagents are written as sidechains,
+// and only their usage is kept.
+func ParseUsage(content string) []Usage {
+	var u usages
+	for line := range strings.SplitSeq(content, "\n") {
+		if !strings.Contains(line, `"usage"`) {
+			continue
+		}
+		var p journalLine
+		if json.Unmarshal([]byte(line), &p) != nil {
+			continue
+		}
+		u.add(&p)
+	}
+	return u.list
 }
 
 type block struct {
@@ -157,6 +243,7 @@ type parsedLines struct {
 	lastTimestamp string
 	customTitle   string
 	aiTitle       string
+	usage         usages
 }
 
 func parseLines(content string, startTurn int) parsedLines {
@@ -190,6 +277,7 @@ func parseLines(content string, startTurn int) parsedLines {
 		if p.IsSidechain {
 			continue
 		}
+		out.usage.add(&p)
 		if out.header == nil && p.SessionID != "" {
 			out.header = &header{
 				sessionID:     p.SessionID,
@@ -367,7 +455,7 @@ func Parse(content, project string, index *IndexEntry) *Session {
 			meta.ProjectPath = index.ProjectPath
 		}
 	}
-	return &Session{Meta: meta, Messages: r.messages, Images: r.images}
+	return &Session{Meta: meta, Messages: r.messages, Images: r.images, Usage: r.usage.list}
 }
 
 // LoadIndex reads <projectDir>/sessions-index.json. A missing or broken file

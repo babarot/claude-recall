@@ -73,6 +73,19 @@ type MessageRow struct {
 	TurnIndex  int
 }
 
+// UsageRow is a row of the usage table: the tokens of one API response.
+type UsageRow struct {
+	MessageID    string
+	Agent        string // the subagent's transcript, "" for the session's own
+	Model        string
+	Timestamp    string
+	Input        int64
+	Output       int64
+	CacheRead    int64
+	CacheWrite5m int64
+	CacheWrite1h int64
+}
+
 // ImageRow is a row of the images table.
 type ImageRow struct {
 	MessageUUID string
@@ -82,12 +95,13 @@ type ImageRow struct {
 }
 
 // ReplaceSession deletes everything stored for a session and inserts the
-// given rows, in one transaction, so a reader or a concurrent import never
+// given rows, in one transaction, except usage, which it adds to what is
+// stored (see addUsage), so a reader or a concurrent import never
 // sees the session half written. check, when not nil, is called once the
 // transaction holds the write lock, so no other import can commit before
 // this one; an error from it rolls the transaction back and is returned as
 // it is.
-func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, check func() error) (err error) {
+func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, usage []UsageRow, check func() error) (err error) {
 	tx, err := d.sql.Begin()
 	if err != nil {
 		return fmt.Errorf("replace session: %w", err)
@@ -155,10 +169,49 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, ch
 		}
 	}
 
+	if err = addUsage(tx, s.SessionID, usage); err != nil {
+		return err
+	}
+
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("replace session: %w", err)
 	}
 	return nil
+}
+
+// addUsage stores the usage of a session's responses. A response already
+// stored is updated rather than added again: a subagent's transcript read
+// while the response was still being written has a lower output count, put
+// right by the next import, so the output kept is the highest seen. Nothing
+// is deleted, so the usage of a transcript that is gone stays.
+func addUsage(tx *sql.Tx, sessionID string, usage []UsageRow) error {
+	if len(usage) == 0 {
+		return nil
+	}
+	stmt, err := tx.Prepare(`INSERT INTO usage (session_id, message_id, agent, model, timestamp, input, output, cache_read, cache_write_5m, cache_write_1h)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (session_id, message_id) DO UPDATE SET
+         model = excluded.model, timestamp = COALESCE(usage.timestamp, excluded.timestamp),
+         input = excluded.input, output = max(usage.output, excluded.output), cache_read = excluded.cache_read,
+         cache_write_5m = excluded.cache_write_5m, cache_write_1h = excluded.cache_write_1h`)
+	if err != nil {
+		return fmt.Errorf("insert usage: %w", err)
+	}
+	defer stmt.Close()
+	for _, u := range usage {
+		if _, err := stmt.Exec(sessionID, u.MessageID, u.Agent, u.Model, nullIfEmpty(u.Timestamp), u.Input, u.Output,
+			u.CacheRead, u.CacheWrite5m, u.CacheWrite1h); err != nil {
+			return fmt.Errorf("insert usage: %w", err)
+		}
+	}
+	return nil
+}
+
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // ProjectPathsWithoutRemote returns the directories of the sessions whose
@@ -192,3 +245,22 @@ func (d *DB) SetRemote(projectPath, remote string) error {
 
 // Exec runs a statement. It exists for tests and maintenance.
 func (d *DB) Exec(query string, args ...any) (sql.Result, error) { return d.sql.Exec(query, args...) }
+
+// Usage returns the usage stored for a session, ordered by message id.
+func (d *DB) Usage(sessionID string) ([]UsageRow, error) {
+	rows, err := d.sql.Query(`SELECT message_id, agent, model, COALESCE(timestamp, ''), input, output, cache_read, cache_write_5m, cache_write_1h
+      FROM usage WHERE session_id = ? ORDER BY message_id`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("usage: %w", err)
+	}
+	defer rows.Close()
+	var out []UsageRow
+	for rows.Next() {
+		var u UsageRow
+		if err := rows.Scan(&u.MessageID, &u.Agent, &u.Model, &u.Timestamp, &u.Input, &u.Output, &u.CacheRead, &u.CacheWrite5m, &u.CacheWrite1h); err != nil {
+			return nil, fmt.Errorf("usage: %w", err)
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
