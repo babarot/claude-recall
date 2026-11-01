@@ -1,6 +1,10 @@
 # Tasks for developing recall: mise tasks lists them, mise run <task> runs one.
 # Go and Node.js come from wherever you have them.
 
+# golangci-lint is pinned, so mise run lint finds the same here and in CI.
+[tools]
+golangci-lint = "2.15.0"
+
 [tasks.ui]
 description = "Build the web UI into internal/webui/dist, where the binary embeds it from"
 dir = "ui"
@@ -52,8 +56,11 @@ run = [
 ]
 
 [tasks.lint]
-description = "Check that go.mod and go.sum are tidy"
-run = "go mod tidy -diff"
+description = "Run golangci-lint and check that go.mod and go.sum are tidy"
+run = [
+  "golangci-lint run ./...",
+  "go mod tidy -diff",
+]
 
 [tasks.vuln]
 description = "Check the dependencies and the standard library for known vulnerabilities"
