@@ -22,8 +22,8 @@ depends = ["build"]
 run = 'install -m 755 -v recall "${RECALL_INSTALL_DIR:-$HOME/.local/bin}/recall"'
 
 [tasks.clean]
-description = "Remove ./recall and the built UI"
-run = "rm -rf recall ui/dist internal/webui/dist"
+description = "Remove ./recall, the built UI and coverage.out"
+run = "rm -rf recall ui/dist internal/webui/dist coverage.out"
 
 [tasks.dev]
 description = "Run the API (restarted when Go code changes) and the web UI with hot reload, on a copy of the archive and this worktree's own ports"
@@ -44,12 +44,20 @@ run = [
 ]
 
 [tasks."test:go"]
-description = "Check formatting, vet, and run the Go tests"
+description = "Check formatting, vet, and run the Go tests with the race detector, writing coverage.out"
 run = [
   'test -z "$(gofmt -l .)" || { gofmt -l .; echo "gofmt: the files above are not formatted"; exit 1; }',
   "go vet ./...",
-  "go test ./...",
+  "go test -race ./... -coverprofile=coverage.out -covermode=atomic",
 ]
+
+[tasks.lint]
+description = "Check that go.mod and go.sum are tidy"
+run = "go mod tidy -diff"
+
+[tasks.vuln]
+description = "Check the dependencies and the standard library for known vulnerabilities"
+run = "go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./..."
 
 [tasks."test:ui"]
 description = "Type-check and test the web UI"

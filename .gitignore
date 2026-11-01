@@ -9,3 +9,4 @@ ui/node_modules/
 /.release/
 # mise run dev's copy of the archive and its build
 /.dev/
+/coverage.out
