@@ -282,6 +282,8 @@ Each command's flags are in [docs/cli.md](docs/cli.md) and `recall <command> --h
 ```bash
 mise tasks                     # every task
 mise run test                  # gofmt, go vet, go test, the UI's types and tests, the plugin's tests
+mise run lint                  # go mod tidy
+mise run vuln                  # govulncheck
 mise run build                 # recall with the web UI embedded
 mise run dev                   # the web UI with hot reload and its API, on a copy of the archive
 mise run dev:db                # copy the archive afresh for mise run dev
