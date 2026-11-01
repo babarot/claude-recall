@@ -108,7 +108,7 @@ func release(t *testing.T, asset, sums []byte) *httptest.Server {
 			http.NotFound(w, r)
 			return
 		}
-		w.Write(body)
+		_, _ = w.Write(body)
 	}))
 	t.Cleanup(srv.Close)
 	return srv
@@ -217,8 +217,14 @@ func TestApplyUnwritableDir(t *testing.T) {
 	srv := release(t, bin, []byte(sum(bin)+"  "+asset+"\n"))
 	target := installed(t)
 	dir := filepath.Dir(target)
-	os.Chmod(dir, 0o555)
-	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chmod(dir, 0o755); err != nil {
+			t.Error(err)
+		}
+	})
 	err := (&Client{BaseURL: srv.URL}).Apply(context.Background(), "1.8.0", asset, target, func(string) error { return nil })
 	if err == nil || !strings.Contains(err.Error(), "cannot write to "+dir) {
 		t.Fatalf("err %v", err)

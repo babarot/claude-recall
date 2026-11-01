@@ -147,8 +147,6 @@ func extractText(content json.RawMessage) string {
 	return jscompat.Trim(strings.Join(parts, "\n"))
 }
 
-func ptr(s string) *string { return &s }
-
 const toolResultLimit = 10000
 
 type parsedLines struct {
@@ -165,7 +163,7 @@ func parseLines(content string, startTurn int) parsedLines {
 	var out parsedLines
 	turn := startTurn
 
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		if jscompat.Trim(line) == "" {
 			continue
 		}
@@ -279,7 +277,7 @@ func parseLines(content string, startTurn int) parsedLines {
 						input = s
 					}
 				}
-				msg.BlockType, msg.Content, msg.ToolName, msg.ToolInput = "tool_use", name, ptr(name), ptr(input)
+				msg.BlockType, msg.Content, msg.ToolName, msg.ToolInput = "tool_use", name, new(name), new(input)
 				msg.ToolUseID = nonEmpty(b.ID)
 			case "tool_result":
 				text := toolResultText(b.Content)
@@ -360,7 +358,7 @@ func Parse(content, project string, index *IndexEntry) *Session {
 			meta.FirstPrompt = index.FirstPrompt
 		}
 		if index.Summary != "" {
-			meta.Summary = ptr(index.Summary)
+			meta.Summary = new(index.Summary)
 		}
 		if index.GitBranch != "" && meta.GitBranch == "" {
 			meta.GitBranch = index.GitBranch

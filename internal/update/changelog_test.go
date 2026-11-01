@@ -66,7 +66,7 @@ func TestChangelog(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		w.Write([]byte("## [1.7.2](x) - 2026-10-07\n### Bug fixes\n- Fix it by @a in https://x/pull/1\n"))
+		_, _ = w.Write([]byte("## [1.7.2](x) - 2026-10-07\n### Bug fixes\n- Fix it by @a in https://x/pull/1\n"))
 	}))
 	defer srv.Close()
 	c := &Client{}

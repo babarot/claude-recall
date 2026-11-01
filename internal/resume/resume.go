@@ -53,13 +53,16 @@ func RecallCommand(self []string, id string) string {
 
 // ShellQuote quotes s for a POSIX shell, leaving a plain path as it is.
 func ShellQuote(s string) string {
-	if s != "" && strings.IndexFunc(s, func(c rune) bool {
-		return !(c == '/' || c == '.' || c == '-' || c == '_' || c == '~' ||
-			c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9')
-	}) < 0 {
+	if s != "" && strings.IndexFunc(s, func(c rune) bool { return !plainPathRune(c) }) < 0 {
 		return s
 	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// plainPathRune reports whether c needs no quoting in a shell word.
+func plainPathRune(c rune) bool {
+	return c == '/' || c == '.' || c == '-' || c == '_' || c == '~' ||
+		c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
 }
 
 // Where tells whether claude -r can read a session's transcript, given f,

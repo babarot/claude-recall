@@ -72,10 +72,10 @@ func TestQuitClosesTheReadingView(t *testing.T) {
 		t.Helper()
 		next, cmd := m.Update(tea.KeyPressMsg{Code: []rune(k)[0], Text: k})
 		if cmd == nil {
-			return next.(Model), false
+			return asModel(t, next), false
 		}
 		_, ok := cmd().(tea.QuitMsg)
-		return next.(Model), ok
+		return asModel(t, next), ok
 	}
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	m, q := quits(press(t, m, "space"), "q")
@@ -128,7 +128,7 @@ func TestReadingViewResizes(t *testing.T) {
 	m = update(t, m, tea.MouseClickMsg{X: 10, Y: top, Button: tea.MouseLeft})
 	m = update(t, m, tea.MouseMotionMsg{X: 10, Y: top + 4})
 	next, cmd := m.Update(tea.MouseReleaseMsg{X: 10, Y: top + 4})
-	m = next.(Model)
+	m = asModel(t, next)
 	if cmd != nil {
 		cmd()
 	}

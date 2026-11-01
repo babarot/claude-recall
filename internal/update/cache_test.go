@@ -57,7 +57,9 @@ func TestLoadCache(t *testing.T) {
 		t.Errorf("missing: %+v", c)
 	}
 	bad := filepath.Join(dir, "bad.json")
-	os.WriteFile(bad, []byte("{"), 0o644)
+	if err := os.WriteFile(bad, []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if c := LoadCache(bad); !c.CheckedAt.IsZero() {
 		t.Errorf("unreadable: %+v", c)
 	}
@@ -90,7 +92,9 @@ func TestRefresh(t *testing.T) {
 	}
 
 	// A failed look keeps what was known and is not tried again for a day.
-	SaveCache(path, Cache{CheckedAt: time.Now().Add(-48 * time.Hour), Latest: "1.8.0"})
+	if err := SaveCache(path, Cache{CheckedAt: time.Now().Add(-48 * time.Hour), Latest: "1.8.0"}); err != nil {
+		t.Fatal(err)
+	}
 	up = false
 	got, err = c.Refresh(context.Background(), path)
 	if err == nil {

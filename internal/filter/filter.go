@@ -6,7 +6,10 @@
 // case in Match.
 package filter
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // The keys, with their colon.
 const (
@@ -142,10 +145,5 @@ func anyOf(vs []string, test func(v string) bool) bool {
 	if len(vs) == 0 {
 		return true
 	}
-	for _, v := range vs {
-		if test(v) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(vs, test)
 }

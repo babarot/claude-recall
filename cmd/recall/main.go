@@ -66,8 +66,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	root.SetOut(stdout)
 	root.SetErr(stderr)
 	err := root.Execute()
-	var na noArchive
-	if errors.As(err, &na) {
+	if na, ok := errors.AsType[noArchive](err); ok {
 		fmt.Fprintf(stderr, `No archive yet at %s.
 
   1. Import your sessions:  recall import
@@ -120,7 +119,7 @@ Run without a command, it opens the TUI.`,
 	}
 	root.SetVersionTemplate("recall {{.Version}}\n")
 	root.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
-		return fmt.Errorf("%w\nRun '%s --help' for usage.", err, c.CommandPath())
+		return fmt.Errorf("%w\nRun '%s --help' for usage.", err, c.CommandPath()) //nolint:staticcheck // ST1005: printed to the user as a full sentence
 	})
 	root.PersistentFlags().StringVar(&o.db, "db", "", "database path (default: db under [core] in the config file, or ~/.claude/vault.db)")
 	// The config file gives the defaults of --db and --port. Every command
@@ -637,7 +636,11 @@ func serveUI(o *options, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "recall UI: http://localhost:%d\n", ln.Addr().(*net.TCPAddr).Port)
+	port := o.port
+	if a, ok := ln.Addr().(*net.TCPAddr); ok {
+		port = a.Port // the one the system chose for --port 0
+	}
+	fmt.Fprintf(stdout, "recall UI: http://localhost:%d\n", port)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -730,7 +733,8 @@ func startBackground(exe string, port int, db string, stdout, stderr io.Writer) 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	cmd.Process.Release()
+	// Release only frees the handle; the child runs on whatever it returns.
+	_ = cmd.Process.Release()
 
 	for range 20 {
 		time.Sleep(250 * time.Millisecond)
@@ -957,8 +961,7 @@ func runTUI(o *options, c *cobra.Command) error {
 
 	model, err := tui.New(sessions, d, cfg.TUI).WithKeys(cfg.Keys)
 	if err != nil {
-		var ps config.Problems
-		if errors.As(err, &ps) {
+		if ps, ok := errors.AsType[config.Problems](err); ok {
 			return config.Report(config.FilePath(), ps)
 		}
 		return err

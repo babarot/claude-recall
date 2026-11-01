@@ -80,7 +80,7 @@ func TestKeyHints(t *testing.T) {
 		b.WriteString("== " + name + "\n" + s + "\n")
 	}
 	topLine := func(name string, m Model, has string) {
-		for _, l := range strings.Split(m.render(), "\n") {
+		for l := range strings.SplitSeq(m.render(), "\n") {
 			if strings.Contains(ansi.Strip(l), has) {
 				add(name, l)
 				return

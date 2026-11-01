@@ -260,7 +260,7 @@ func (m Model) renderTable() []string {
 func wrap(s string, w int) []string {
 	w = max(1, w)
 	var out []string
-	for _, l := range strings.Split(ansi.Wrap(s, w, ""), "\n") {
+	for l := range strings.SplitSeq(ansi.Wrap(s, w, ""), "\n") {
 		// Wrap can leave the space it broke at on the line, and a break at
 		// a hyphen can overshoot; trim, then hard-wrap what is still wide.
 		l = strings.TrimRight(l, " ")
@@ -279,7 +279,7 @@ var listMarker = regexp.MustCompile(`^(\s*)([-*+]|\d+[.)])\s+`)
 // wraps continues under where its text starts, past any list marker.
 func wrapText(s string, w int) []string {
 	var out []string
-	for _, line := range strings.Split(s, "\n") {
+	for line := range strings.SplitSeq(s, "\n") {
 		indent := len(line) - len(strings.TrimLeft(line, " \t"))
 		if m := listMarker.FindString(line); m != "" {
 			indent = len(m)

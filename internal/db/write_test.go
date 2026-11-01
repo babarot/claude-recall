@@ -26,7 +26,9 @@ func TestReplaceSessionCheckRollsBack(t *testing.T) {
 		t.Fatalf("after a failed check: %+v, %v; want the stored session untouched", fi, err)
 	}
 	var n int
-	d.sql.QueryRow(`SELECT count(*) FROM messages WHERE session_id = 's1'`).Scan(&n)
+	if err := d.sql.QueryRow(`SELECT count(*) FROM messages WHERE session_id = 's1'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
 	if n != 1 {
 		t.Errorf("%d messages stored after a failed check; want 1", n)
 	}

@@ -86,7 +86,7 @@ func claudeRunner(recall []string, model, dir string) askRunner {
 			if i := strings.LastIndex(msg, "\n"); i >= 0 {
 				msg = msg[i+1:]
 			}
-			return askAnswer{}, fmt.Errorf("claude: %v %s", waitErr, msg)
+			return askAnswer{}, fmt.Errorf("claude: %w %s", waitErr, msg)
 		}
 		return answer, nil
 	}

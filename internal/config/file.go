@@ -452,8 +452,7 @@ func problem(setting, format string, args ...any) Problem {
 // wrong section, or a file that does not parse or has a value of the wrong
 // type, where the decoder says it is.
 func decodeProblems(err error) Problems {
-	var strict *toml.StrictMissingError
-	if errors.As(err, &strict) {
+	if strict, ok := errors.AsType[*toml.StrictMissingError](err); ok {
 		var ps Problems
 		for _, e := range strict.Errors {
 			key := []string(e.Key())
@@ -461,8 +460,7 @@ func decodeProblems(err error) Problems {
 		}
 		return ps
 	}
-	var de *toml.DecodeError
-	if errors.As(err, &de) {
+	if de, ok := errors.AsType[*toml.DecodeError](err); ok {
 		msg := strings.TrimPrefix(de.Error(), "toml: ")
 		if m := wrongType.FindStringSubmatch(msg); m != nil && len(de.Key()) > 0 {
 			setting := strings.Join(de.Key(), ".")
@@ -575,15 +573,15 @@ func unknownKey(key string) string {
 // knownKeys lists every setting as section.key.
 func knownKeys() []string {
 	var out []string
-	f := reflect.TypeOf(File{})
-	for i := range f.NumField() {
-		section := f.Field(i).Tag.Get("toml")
-		t := f.Field(i).Type
+	f := reflect.TypeFor[File]()
+	for field := range f.Fields() {
+		section := field.Tag.Get("toml")
+		t := field.Type
 		if t.Kind() != reflect.Struct {
 			continue // [keys], whose names the TUI knows
 		}
-		for j := range t.NumField() {
-			out = append(out, section+"."+t.Field(j).Tag.Get("toml"))
+		for key := range t.Fields() {
+			out = append(out, section+"."+key.Tag.Get("toml"))
 		}
 	}
 	return out

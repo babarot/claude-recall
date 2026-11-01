@@ -175,7 +175,9 @@ func TestUpdatedToast(t *testing.T) {
 	} {
 		path := filepath.Join(t.TempDir(), "last_version")
 		if c.last != "" {
-			config.SaveLastVersion(path, c.last)
+			if err := config.SaveLastVersion(path, c.last); err != nil {
+				t.Fatal(err)
+			}
 		}
 		m, _ := newTestModel(t, config.Default().TUI, 110, 24)
 		m.version = "1.8.0"

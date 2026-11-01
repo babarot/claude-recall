@@ -35,8 +35,12 @@ func TestDiscoverTrees(t *testing.T) {
 	a, b := t.TempDir(), t.TempDir()
 	put(t, a, "-p", "s1")
 	put(t, b, "-q", "s2")
-	os.WriteFile(filepath.Join(a, "-p", "notes.txt"), nil, 0o644)
-	os.WriteFile(filepath.Join(a, "stray.jsonl"), nil, 0o644) // not in a project directory
+	if err := os.WriteFile(filepath.Join(a, "-p", "notes.txt"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a, "stray.jsonl"), nil, 0o644); err != nil { // not in a project directory
+		t.Fatal(err)
+	}
 	got := ids(Discover(a, b, filepath.Join(a, "missing")))
 	want := []string{a + "|-p|s1", b + "|-q|s2"}
 	if !slices.Equal(got, want) {
@@ -55,12 +59,20 @@ func TestDiscoverFollowsSymlinks(t *testing.T) {
 	if err := os.Symlink(filepath.Join(elsewhere, "-linked"), filepath.Join(tree, "-linked")); err != nil {
 		t.Fatal(err)
 	}
-	os.MkdirAll(filepath.Join(tree, "-own"), 0o755)
-	os.Symlink(file, filepath.Join(tree, "-own", "s2.jsonl"))
-	os.Symlink(filepath.Join(elsewhere, "nowhere"), filepath.Join(tree, "-own", "s3.jsonl")) // dangling
+	if err := os.MkdirAll(filepath.Join(tree, "-own"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(file, filepath.Join(tree, "-own", "s2.jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(elsewhere, "nowhere"), filepath.Join(tree, "-own", "s3.jsonl")); err != nil { // dangling
+		t.Fatal(err)
+	}
 
 	root := filepath.Join(t.TempDir(), "root")
-	os.Symlink(tree, root)
+	if err := os.Symlink(tree, root); err != nil {
+		t.Fatal(err)
+	}
 
 	got := ids(Discover(root))
 	want := []string{root + "|-linked|s1", root + "|-own|s2"}
@@ -103,11 +115,19 @@ func TestFindSessionMatchesDiscover(t *testing.T) {
 	put(t, elsewhere, "-other", "s1")
 	file := put(t, elsewhere, "-files", "s2")
 	tree := t.TempDir()
-	os.Symlink(filepath.Join(elsewhere, "-linked"), filepath.Join(tree, "-linked"))
-	os.MkdirAll(filepath.Join(tree, "-own"), 0o755)
-	os.Symlink(file, filepath.Join(tree, "-own", "s2.jsonl"))
+	if err := os.Symlink(filepath.Join(elsewhere, "-linked"), filepath.Join(tree, "-linked")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(tree, "-own"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(file, filepath.Join(tree, "-own", "s2.jsonl")); err != nil {
+		t.Fatal(err)
+	}
 	put(t, tree, "-own", "s1")
-	os.WriteFile(filepath.Join(tree, "s1.jsonl"), nil, 0o644) // not in a project directory
+	if err := os.WriteFile(filepath.Join(tree, "s1.jsonl"), nil, 0o644); err != nil { // not in a project directory
+		t.Fatal(err)
+	}
 
 	dirs := []string{tree, elsewhere, filepath.Join(tree, "missing")}
 	all := Discover(dirs...)

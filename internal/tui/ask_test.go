@@ -50,7 +50,7 @@ func settleAsk(t *testing.T, m Model, cmd tea.Cmd) Model {
 			}
 		case askStepMsg, askDoneMsg:
 			next, more := m.Update(msg)
-			m = next.(Model)
+			m = asModel(t, next)
 			run(more)
 		}
 	}
@@ -72,7 +72,7 @@ func ask(t *testing.T, m Model, q string) Model {
 		m = update(t, m, tea.KeyPressMsg{Code: r, Text: string(r)})
 	}
 	next, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	return settleAsk(t, next.(Model), cmd)
+	return settleAsk(t, asModel(t, next), cmd)
 }
 
 func TestAskFindsSessions(t *testing.T) {
@@ -147,7 +147,7 @@ func TestAskCancelAndFail(t *testing.T) {
 	m := askModel(t, f, config.Default().TUI)
 	m = press(t, m, "a", "x")
 	next, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	m = next.(Model)
+	m = asModel(t, next)
 	if m.ask.stage != askRunning || !strings.Contains(screen(m), "searching…") {
 		t.Fatalf("running:\n%s", screen(m))
 	}
@@ -155,14 +155,14 @@ func TestAskCancelAndFail(t *testing.T) {
 	if m.ask.stage != askClosed {
 		t.Fatal("esc should cancel")
 	}
-	// The cancelled run's answer comes too late to matter.
+	// The canceled run's answer comes too late to matter.
 	if m = settleAsk(t, m, cmd); m.ask.stage != askClosed {
-		t.Fatalf("a cancelled run reopened the box: %v", m.ask.stage)
+		t.Fatalf("a canceled run reopened the box: %v", m.ask.stage)
 	}
 	// q cancels too, as it closes the other boxes.
 	m = press(t, m, "a", "x")
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m = press(t, next.(Model), "q"); m.ask.stage != askClosed {
+	if m = press(t, asModel(t, next), "q"); m.ask.stage != askClosed {
 		t.Fatalf("q should cancel: %v", m.ask.stage)
 	}
 

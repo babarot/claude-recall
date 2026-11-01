@@ -39,7 +39,9 @@ type env struct {
 func newEnv(t *testing.T, lines ...string) *env {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "my-project")
-	os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	d, err := db.Open(filepath.Join(t.TempDir(), "vault.db"), db.Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +61,9 @@ func (e *env) write(lines ...string) {
 	}
 	if fi, err := os.Stat(e.path); err == nil {
 		next := fi.ModTime().Add(time.Second)
-		os.Chtimes(e.path, next, next)
+		if err := os.Chtimes(e.path, next, next); err != nil {
+			e.t.Fatal(err)
+		}
 	}
 }
 
@@ -132,7 +136,9 @@ func TestImportMissingFile(t *testing.T) {
 func TestRunSummary(t *testing.T) {
 	e := newEnv(t, userLine("hello", "u1", "2026-01-01T00:00:00Z"))
 	projects := filepath.Dir(filepath.Dir(e.path))
-	os.WriteFile(filepath.Join(filepath.Dir(e.path), "broken.jsonl"), []byte("nope\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(filepath.Dir(e.path), "broken.jsonl"), []byte("nope\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	var out bytes.Buffer
 	if err := Run(e.db, Options{ProjectsDirs: []string{projects}}, &out); err != nil {
@@ -183,7 +189,9 @@ func TestConcurrentImportsFromSeparateConnections(t *testing.T) {
 	projects := t.TempDir()
 	for p := range 4 {
 		dir := filepath.Join(projects, "project-"+string(rune('a'+p)))
-		os.MkdirAll(dir, 0o755)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 		for s := range 15 {
 			var lines []string
 			for m := range 200 {
@@ -191,7 +199,9 @@ func TestConcurrentImportsFromSeparateConnections(t *testing.T) {
 			}
 			id := "sess-" + string(rune('a'+p)) + "-" + string(rune('a'+s))
 			body := strings.ReplaceAll(strings.Join(lines, "\n"), "sess-001", id)
-			os.WriteFile(filepath.Join(dir, id+".jsonl"), []byte(body+"\n"), 0o644)
+			if err := os.WriteFile(filepath.Join(dir, id+".jsonl"), []byte(body+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	path := filepath.Join(t.TempDir(), "vault.db")
@@ -234,7 +244,9 @@ type tree string
 func (tr tree) put(t *testing.T, project, id, text string, mtime time.Time) {
 	t.Helper()
 	dir := filepath.Join(string(tr), project)
-	os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	b, _ := json.Marshal(map[string]any{
 		"type": "user", "uuid": id + "-u", "sessionId": id, "timestamp": "2026-01-01T00:00:00Z", "cwd": "/w",
 		"message": map[string]any{"role": "user", "content": text},
@@ -243,13 +255,17 @@ func (tr tree) put(t *testing.T, project, id, text string, mtime time.Time) {
 	if err := os.WriteFile(path, append(b, '\n'), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	os.Chtimes(path, mtime, mtime)
+	if err := os.Chtimes(path, mtime, mtime); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (tr tree) index(t *testing.T, project string, entries ...map[string]any) {
 	t.Helper()
 	b, _ := json.Marshal(map[string]any{"entries": entries})
-	os.WriteFile(filepath.Join(string(tr), project, "sessions-index.json"), b, 0o644)
+	if err := os.WriteFile(filepath.Join(string(tr), project, "sessions-index.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func firstPrompts(t *testing.T, d *db.DB) map[string]string {
@@ -306,7 +322,9 @@ func TestRunTrees(t *testing.T) {
 	}
 
 	out.Reset()
-	Run(nil, Options{ProjectsDirs: dirs, DryRun: true}, &out)
+	if err := Run(nil, Options{ProjectsDirs: dirs, DryRun: true}, &out); err != nil {
+		t.Fatal(err)
+	}
 	for _, line := range []string{"  s1 (-p)\n", "  s2 (-p)  in ~/extra\n", "  s3 (-p)  in ~/extra, chosen over the copy in ~/primary\n"} {
 		if !strings.Contains(out.String(), line) {
 			t.Errorf("dry run lacks %q:\n%s", line, out.String())
@@ -350,11 +368,17 @@ func TestImportKeepsNewerCopyFromAnotherTree(t *testing.T) {
 			return
 		}
 		done = true
-		os.MkdirAll(filepath.Dir(newer), 0o755)
-		os.WriteFile(newer, []byte(userLine("hello", "u1", "2026-01-01T00:00:00Z")+"\n"+
-			assistantLine("hi", "a1", "2026-01-01T00:00:01Z")+"\n"), 0o644)
+		if err := os.MkdirAll(filepath.Dir(newer), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(newer, []byte(userLine("hello", "u1", "2026-01-01T00:00:00Z")+"\n"+
+			assistantLine("hi", "a1", "2026-01-01T00:00:01Z")+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
 		later := time.Now().Add(time.Hour)
-		os.Chtimes(newer, later, later)
+		if err := os.Chtimes(newer, later, later); err != nil {
+			t.Fatal(err)
+		}
 		if r, err := ImportFile(e.db, newer, nil, dirs); err != nil || r == nil {
 			t.Fatalf("import of the newer copy = %v, %v", r, err)
 		}

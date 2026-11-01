@@ -8,8 +8,6 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 )
 
-func ptr[T any](v T) *T { return &v }
-
 func TestDisplayProject(t *testing.T) {
 	t.Setenv("HOME", "/home/me")
 	cases := []struct {
@@ -17,10 +15,10 @@ func TestDisplayProject(t *testing.T) {
 		project string
 		want    string
 	}{
-		{ptr("/home/me/src/app"), "-home-me-src-app", "~/src/app"},
-		{ptr("/work/app"), "-work-app", "/work/app"},
+		{new("/home/me/src/app"), "-home-me-src-app", "~/src/app"},
+		{new("/work/app"), "-work-app", "/work/app"},
 		{nil, "-home-me-src-app", "~/src/app"}, // the dir name turned back into a path
-		{ptr(""), "-work-app", "/work/app"},
+		{new(""), "-work-app", "/work/app"},
 	}
 	for _, c := range cases {
 		if got := DisplayProject(c.path, c.project); got != c.want {
@@ -50,11 +48,11 @@ func TestTruncation(t *testing.T) {
 	List(&b, []db.ListedSession{{
 		SessionID:    "abcdef0123456789",
 		Project:      "-x",
-		ProjectPath:  ptr("/work/" + strings.Repeat("p", 40)),
-		GitBranch:    ptr("feature/" + strings.Repeat("b", 40)),
-		FirstPrompt:  ptr(strings.Repeat("あ", 70)),
-		MessageCount: ptr(int64(3)),
-		StartedAt:    ptr("2026-03-01T10:00:00.000Z"),
+		ProjectPath:  new("/work/" + strings.Repeat("p", 40)),
+		GitBranch:    new("feature/" + strings.Repeat("b", 40)),
+		FirstPrompt:  new(strings.Repeat("あ", 70)),
+		MessageCount: new(int64(3)),
+		StartedAt:    new("2026-03-01T10:00:00.000Z"),
 	}})
 	row := strings.Split(b.String(), "\n")[2]
 	for _, want := range []string{
@@ -79,7 +77,7 @@ func TestTruncation(t *testing.T) {
 func TestListPrefersTitle(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	var b bytes.Buffer
-	List(&b, []db.ListedSession{{SessionID: "abcdef01", Project: "-x", Title: ptr("Fix login"), FirstPrompt: ptr("hello")}})
+	List(&b, []db.ListedSession{{SessionID: "abcdef01", Project: "-x", Title: new("Fix login"), FirstPrompt: new("hello")}})
 	if !strings.Contains(b.String(), " Fix login") || strings.Contains(b.String(), "hello") {
 		t.Errorf("got %q", b.String())
 	}

@@ -200,7 +200,7 @@ func gitRepo(home, repo string) error {
 		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=Demo", "-c", "user.email=demo@example.com",
 			"-c", "commit.gpgsign=false"}, args...)...)
 		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("git %s in %s: %v: %s", strings.Join(args, " "), repo, err, out)
+			return fmt.Errorf("git %s in %s: %w: %s", strings.Join(args, " "), repo, err, out)
 		}
 	}
 	return nil
@@ -328,9 +328,11 @@ func (l language) narrate(tool string, input obj, step int) string {
 	pick := func(forms []string) string { return forms[step%len(forms)] }
 	switch tool {
 	case "Read":
-		return fmt.Sprintf(pick(l.read), filepath.Base(input["file_path"].(string)))
+		path, _ := input["file_path"].(string) // toolStep sets a string
+		return fmt.Sprintf(pick(l.read), filepath.Base(path))
 	case "Edit":
-		return fmt.Sprintf(pick(l.edit), filepath.Base(input["file_path"].(string)))
+		path, _ := input["file_path"].(string)
+		return fmt.Sprintf(pick(l.edit), filepath.Base(path))
 	case "Bash":
 		return fmt.Sprintf(pick(l.bash), input["command"])
 	}
