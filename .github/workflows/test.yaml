@@ -9,6 +9,9 @@ on:
       - CHANGELOG.md
       - internal/version/version.go
       - plugin/.claude-plugin/plugin.json
+  schedule:
+    # Weekly, to catch newly published vulnerabilities with govulncheck
+    - cron: '0 0 * * 1'
   workflow_call:
 
 jobs:
