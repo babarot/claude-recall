@@ -33,7 +33,7 @@ recall search <query> [options]
   --limit <n>         Max results (default: 20)
   --from <date>       Start date (YYYY-MM-DD)
   --to <date>         End date (YYYY-MM-DD)
-  --repo <dir>        Only the repository <dir> is in, its worktrees included
+  --repo <dir|remote> Only one repository, by a directory in it or its remote
   --format text|json  Output format (default: text)
   --substring         Match anywhere in the text, newest first
 ```
@@ -42,7 +42,11 @@ Supports FTS5 query syntax: `"exact phrase"`, `term1 AND term2`, `term1 OR term2
 
 The full-text index splits words at spaces and punctuation, so it cannot find a word inside Japanese or other text written without spaces: `ロード` would not match `ロード時間`. A query in such a script (Japanese, Chinese, Korean) is therefore matched as plain text anywhere in a message, newest first, unless it uses `AND`, `OR` or `NOT`. `--substring` asks for the same with any query. Matching as plain text reads every message, so on an archive of a few hundred thousand messages it takes about a second where the index answers at once.
 
-`--repo` takes the repository the way the TUI groups sessions: a linked worktree belongs to its main checkout, a removed Claude Code worktree (`<repo>/.claude/worktrees/<name>`) to the `<repo>` its path names, and a removed herdr worktree (`~/.herdr/worktrees/<name>/...`), whose path names the repository but not its owner, to the one checkout in the archive with that directory name; with none or several, it stays a repository of its own. `<dir>` may be the checkout, a worktree, a directory inside either, or a worktree since removed.
+`--repo` takes a repository as a directory in it or as its git remote. A remote may be written as a URL (`https://github.com/owner/repo`, `ssh://git@github.com/owner/repo`), as `git@github.com:owner/repo.git`, or as `github.com/owner/repo`; a directory of that name on disk is taken as the directory. Remotes are compared as host and path, ignoring case, so a host other than github.com is matched the same way.
+
+A session belongs to the repository by the origin recorded when it was imported, wherever it ran, so every checkout and worktree of one repository is one. A session that recorded no origin (outside git, or in a checkout with none) belongs to it by its directory, the way the TUI groups sessions: a linked worktree belongs to its main checkout, a removed Claude Code worktree (`<repo>/.claude/worktrees/<name>`) to the `<repo>` its path names, and a removed herdr worktree (`~/.herdr/worktrees/<name>/...`), whose path names the repository but not its owner, to the one checkout in the archive with that directory name; with none or several, it stays a repository of its own. A session that recorded another origin is left out even when it ran in the same directory, as when a path was used again for another repository.
+
+`<dir>` may be the checkout, a worktree, a directory inside either, or a worktree since removed. Its origin is read from disk; for a directory since removed, it is the one its sessions recorded. An origin, once recorded for a session, is kept when the session is imported again.
 
 With `--format json`, each result also has its session's `title`, `messageCount`, `firstPrompt`, `displayTitle` (the title, or else the first prompt made readable, as the TUI shows it), `recallOnly` (the session called recall's MCP tools and no other tool, so it was only a look back), `repository`, in a worktree `worktree`, and `remote`, the origin of the repository recorded when the session was imported (`github.com/owner/repo` whether the URL is https or ssh), when there is one.
 
@@ -52,7 +56,7 @@ With `--format json`, each result also has its session's `title`, `messageCount`
 recall list [options]
 
   --project <name>    Filter by project
-  --repo <dir>        Only the repository <dir> is in, its worktrees included
+  --repo <dir|remote> Only one repository, by a directory in it or its remote
   --limit <n>         Max sessions (default: 50)
   --format text|json  Output format (default: text)
 ```

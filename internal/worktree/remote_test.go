@@ -109,3 +109,36 @@ func TestRemote(t *testing.T) {
 		t.Errorf("Remote(%q) not known", plain)
 	}
 }
+
+func TestRemoteArg(t *testing.T) {
+	dir := t.TempDir()
+	// A directory on disk named like a host/path is a directory.
+	named := filepath.Join(dir, "github.com", "acme", "api")
+	if err := os.MkdirAll(named, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	for _, tt := range []struct {
+		in, want string
+		ok       bool
+	}{
+		{"https://github.com/acme/api", "github.com/acme/api", true},
+		{"https://github.com/acme/api.git", "github.com/acme/api", true},
+		{"git@github.com:acme/api.git", "github.com/acme/api", true},
+		{"ssh://git@github.com/acme/api", "github.com/acme/api", true},
+		{"github.com/acme/web", "github.com/acme/web", true},
+		{"GitHub.com/acme/web.git", "github.com/acme/web", true},
+		{"git.example.com/team/tool", "git.example.com/team/tool", true},
+		{"github.com/acme/api", "", false}, // the directory above
+		{".", "", false},
+		{dir, "", false},
+		{"/gone/.herdr/worktrees/api/worktree-old", "", false},
+		{"src/api", "", false},
+		{"", "", false},
+	} {
+		got, ok := RemoteArg(tt.in)
+		if got != tt.want || ok != tt.ok {
+			t.Errorf("RemoteArg(%q) = %q, %v, want %q, %v", tt.in, got, ok, tt.want, tt.ok)
+		}
+	}
+}

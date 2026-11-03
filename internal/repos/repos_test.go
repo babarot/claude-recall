@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
+
+	"github.com/babarot/claude-recall/internal/db"
 )
 
 // A checkout and a removed herdr worktree of it are one repository, so
@@ -53,5 +56,74 @@ func TestIndex(t *testing.T) {
 	// A session with no directory has no repository, not a placeholder name.
 	if r := x.Of(""); r.Name != "" || r.Key != "" {
 		t.Errorf(`Of("") = %+v`, r)
+	}
+}
+
+func writeOrigin(t *testing.T, gitDir, url string) {
+	t.Helper()
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "[remote \"origin\"]\n\turl = " + url + "\n"
+	if err := os.WriteFile(filepath.Join(gitDir, "config"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A directory names its repository by its origin as well: a worktree of
+// another clone, with no sessions of its own yet, reaches the sessions of
+// the user's checkout. A remote names it directly, and a directory since
+// removed by the remote its sessions recorded.
+func TestScope(t *testing.T) {
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkout := filepath.Join(home, "src/github.com/acme/api")
+	writeOrigin(t, filepath.Join(checkout, ".git"), "git@github.com:acme/api.git")
+	clone := filepath.Join(home, ".cache/triage/repos/acme/api")
+	writeOrigin(t, filepath.Join(clone, ".git"), "https://github.com/acme/api.git")
+	wt := filepath.Join(home, ".cache/triage/worktrees/acme/api/42")
+	admin := filepath.Join(clone, ".git/worktrees/42")
+	if err := os.MkdirAll(admin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(wt, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for f, body := range map[string]string{filepath.Join(wt, ".git"): "gitdir: " + admin + "\n", filepath.Join(admin, "commondir"): "../..\n"} {
+		if err := os.WriteFile(f, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	plain := filepath.Join(home, "notes")
+	if err := os.MkdirAll(plain, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gone := filepath.Join(home, "src/github.com/acme/web")
+
+	x := New([]string{checkout, plain, gone}, home)
+	x.setRemotes([]db.PathRemote{
+		{Path: checkout, Remote: "github.com/acme/api", Ended: time.Unix(1, 0)},
+		{Path: gone, Remote: "github.com/acme/web-old", Ended: time.Unix(1, 0)},
+		{Path: gone, Remote: "github.com/acme/web", Ended: time.Unix(2, 0)},
+		{Path: plain, Remote: "", Ended: time.Unix(1, 0)},
+	})
+
+	for _, tt := range []struct {
+		value string
+		want  db.Scope
+	}{
+		{wt, db.Scope{Remote: "github.com/acme/api", Paths: []string{}}},
+		{checkout, db.Scope{Remote: "github.com/acme/api", Paths: []string{checkout}}},
+		{"https://github.com/acme/api", db.Scope{Remote: "github.com/acme/api"}},
+		{"github.com/acme/api", db.Scope{Remote: "github.com/acme/api"}},
+		{gone, db.Scope{Remote: "github.com/acme/web", Paths: []string{gone}}},
+		{plain, db.Scope{Paths: []string{plain}}},
+	} {
+		got := x.Scope(tt.value)
+		if got.Remote != tt.want.Remote || !slices.Equal(got.Paths, tt.want.Paths) || (got.Paths == nil) != (tt.want.Paths == nil) {
+			t.Errorf("Scope(%s) = %+v, want %+v", tt.value, got, tt.want)
+		}
 	}
 }
