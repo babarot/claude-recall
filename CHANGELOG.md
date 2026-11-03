@@ -1,5 +1,7 @@
 # Changelog
 
+## [v1.14.1](https://github.com/babarot/claude-recall/compare/v1.14.0...v1.14.1) - 2026-11-03
+
 ## [v1.14.0](https://github.com/babarot/claude-recall/compare/v1.13.0...v1.14.0) - 2026-11-03
 ### New Features
 - Store the tokens and model of each response by @babarot in https://github.com/babarot/claude-recall/pull/125
