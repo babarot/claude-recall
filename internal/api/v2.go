@@ -298,3 +298,57 @@ type V2Theme struct {
 	Dark   bool              `json:"dark,omitempty"`
 	Colors map[string]string `json:"colors,omitempty"`
 }
+
+// V2Stats is /api/v2/stats: the sessions started since a time, each with
+// what the Stats page sums, filters and charts in the browser.
+type V2Stats struct {
+	Sessions []V2StatSession `json:"sessions"`
+	// Categories is the kind of work each tool of the sessions does:
+	// explore, run, edit, subagent, web or other.
+	Categories map[string]string `json:"categories"`
+	// Prices are the rates of the models of the sessions whose price is
+	// known, in dollars per token: input, output, cache read, cache written
+	// for 5 minutes and for an hour. They are the usual ones; responses in
+	// fast mode or with a long prompt can cost more, which Cost counts.
+	Prices map[string][5]float64 `json:"prices"`
+	// UnknownTokens is how many of the sessions have no usage: stored
+	// before it was, with their transcript gone since.
+	UnknownTokens int `json:"unknownTokens"`
+}
+
+// V2StatSession is a session as the Stats page reads it.
+type V2StatSession struct {
+	ID        string  `json:"id"`
+	Title     string  `json:"title"`
+	StartedAt *string `json:"startedAt"`
+	GroupKey  string  `json:"groupKey"`
+	GroupName string  `json:"groupName"`
+	// ActiveMinutes is the time the session was worked in: the gaps
+	// between its messages, leaving out those over 15 minutes.
+	ActiveMinutes float64 `json:"activeMinutes"`
+	Messages      int     `json:"messages"`
+	// Model is the model that wrote the most output tokens, absent without
+	// usage; Tokens are input, output, cache read, cache written for 5
+	// minutes and for an hour, by model, its subagents' included.
+	Model  string              `json:"model,omitempty"`
+	Tokens map[string][5]int64 `json:"tokens"`
+	// Cost is the estimate for the models whose price is known;
+	// CostPartial is set when a model's is not.
+	Cost        float64 `json:"cost"`
+	CostPartial bool    `json:"costPartial,omitempty"`
+	// Tools are calls, failed and with a known outcome, by tool name.
+	Tools map[string][3]int `json:"tools"`
+	// Programs are the most run programs of its Bash commands; Files the
+	// files it read or edited most.
+	Programs    []V2Count    `json:"programs"`
+	Files       []V2StatFile `json:"files"`
+	Interrupted bool         `json:"interrupted,omitempty"`
+}
+
+// V2StatFile is a file a session read or edited: its path relative to the
+// session's folder, or with ~/ or absolute outside it, and how often.
+type V2StatFile struct {
+	Path   string `json:"path"`
+	Read   int    `json:"read"`
+	Edited int    `json:"edited"`
+}

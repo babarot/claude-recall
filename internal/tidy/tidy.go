@@ -25,6 +25,10 @@ var (
 	subcommandWord = regexp.MustCompile(`^[a-z][a-z0-9_:-]*$`)
 )
 
+// IsTemp is whether a file is a temporary one: under /tmp or a Claude Code
+// scratchpad.
+func IsTemp(path string) bool { return tempPath.MatchString(path) }
+
 // FileGroup is the edited files under one place: the session's own
 // folder, another repository, a herdr worktree, or elsewhere.
 type FileGroup struct {

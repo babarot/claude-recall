@@ -32,6 +32,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/mcp"
+	"github.com/babarot/claude-recall/internal/pricing"
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/title"
@@ -91,6 +92,8 @@ type options struct {
 	limitSet                      bool
 	// theme is [tui] theme, which the web UI is drawn in too.
 	theme string
+	// prices are [ui.prices], what the Stats page estimates costs with.
+	prices map[string]pricing.Price
 }
 
 // limitArg is the --limit given, or nil to use the command's default.
@@ -136,6 +139,7 @@ Run without a command, it opens the TUI.`,
 		o.trees = cfg.ProjectsDirs()
 		o.updateCheck = cfg.Core.UpdateCheck
 		o.theme = cfg.TUI.Theme
+		o.prices = cfg.UI.Prices
 		// recall update has no --port, and restarts the UI on this one.
 		if f := c.Flags().Lookup("port"); f == nil || !f.Changed {
 			o.port = cfg.UI.Port
@@ -649,6 +653,7 @@ func serveUI(o *options, stdout io.Writer) error {
 	// A session recalled in a new claude gets this recall's MCP server on
 	// the same database, as from the TUI.
 	s.Theme = o.theme
+	s.Prices = pricing.New(o.prices)
 	s.Self = []string{"recall", "mcp", "--db", o.db}
 	if exe, err := os.Executable(); err == nil {
 		s.Self[0] = exe

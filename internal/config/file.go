@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/babarot/claude-recall/internal/pricing"
 	"github.com/babarot/claude-recall/internal/theme"
 )
 
@@ -128,6 +130,9 @@ type Core struct {
 type UI struct {
 	// Port is where recall ui listens, and where ui stop and ui status look.
 	Port int `toml:"port"`
+	// Prices are the list prices, by model ID, the Stats page estimates
+	// costs with, over pricing's price list.
+	Prices map[string]pricing.Price `toml:"prices"`
 }
 
 // TUI configures the interactive session list.
@@ -269,6 +274,14 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # Where the web UI (recall ui) listens, and where recall ui stop and
 # recall ui status look for it, unless --port says otherwise.
 # port = 6276
+# The Stats page estimates what the tokens cost at the Claude API's list
+# prices, which recall knows for the models released when it was. Set the
+# price of a newer model, or a newer price, by its model ID in US dollars per
+# million tokens, such as { "claude-opus-5-5" = { input = 4, output = 20 } }.
+# Cache writes are priced at 1.25 times input (5 minutes) or twice (an hour),
+# and cache reads at the model's share of input (a tenth unless the price list
+# says otherwise).
+# prices = {}
 
 [tui]
 # Where the detail pane goes: "bottom" (default), "right", or "auto" to put it
@@ -412,6 +425,9 @@ func LoadCore(path string) (File, error) {
 	if len(cfg.Core.ExtraProjectsDirs) == 0 {
 		cfg.Core.ExtraProjectsDirs = nil // [] is the default, no trees
 	}
+	if len(cfg.UI.Prices) == 0 {
+		cfg.UI.Prices = nil // {} is the default, the families' prices
+	}
 	var ps Problems
 	if db := cfg.Core.DB; db != "" && !strings.HasPrefix(db, "~/") && !filepath.IsAbs(db) {
 		ps = append(ps, problem("core.db", "core.db must be an absolute path or start with ~/, got %q", db))
@@ -435,6 +451,12 @@ func LoadCore(path string) (File, error) {
 	}
 	if p := cfg.UI.Port; p < 1 || p > 65535 {
 		ps = append(ps, problem("ui.port", "ui.port must be between 1 and 65535, got %d", p))
+	}
+	for _, model := range slices.Sorted(maps.Keys(cfg.UI.Prices)) {
+		if p := cfg.UI.Prices[model]; p.Input < 0 || p.Output < 0 {
+			ps = append(ps, Problem{Key: []string{"ui", "prices", model}, Index: -1,
+				Message: fmt.Sprintf("ui.prices.%q must not be negative, got input %v and output %v", model, p.Input, p.Output)})
+		}
 	}
 	if len(ps) > 0 {
 		return File{}, Report(path, ps)
