@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/babarot/claude-recall/internal/pricing"
 )
 
 func TestLoadMissingFileUsesDefaults(t *testing.T) {
@@ -358,5 +360,22 @@ func TestProjectsDirs(t *testing.T) {
 	want := []string{primary, filepath.Join(home, "c", "projects"), "/srv/projects"}
 	if got := f.ProjectsDirs(); !slices.Equal(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestLoadPrices(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("[ui.prices]\n\"claude-fable-5-1\" = { input = 10, output = 50 }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil || cfg.UI.Prices["claude-fable-5-1"] != (pricing.Price{Input: 10, Output: 50}) {
+		t.Fatalf("got %+v, %v", cfg.UI.Prices, err)
+	}
+	if err := os.WriteFile(path, []byte("[ui]\nprices = { \"claude-opus-5-5\" = { input = -1, output = 25 } }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), `ui.prices."claude-opus-5-5" must not be negative`) {
+		t.Errorf("a negative price: %v", err)
 	}
 }

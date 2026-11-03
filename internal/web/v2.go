@@ -32,9 +32,10 @@ const (
 )
 
 // v2 holds what the API keeps between requests. What is kept per session
-// (whether it was only a look back through recall, its activity) is
-// stamped with the session's end, message count and transcript size, and
-// computed again when they change, as they do when it is imported again. The sessions each searched word is in are dropped when
+// (whether it was only a look back through recall, its activity, what the
+// Stats page reads of it) is stamped with the session's end, message count,
+// transcript size and the importer's version that stored it, and computed
+// again when they change, as they do when it is imported again. The sessions each searched word is in are dropped when
 // the archive changes: through the watcher (changed), or by another
 // connection's commit, which changes the data version.
 type v2 struct {
@@ -43,6 +44,7 @@ type v2 struct {
 	recall   map[string]bool
 	activity map[string][]int
 	mentions map[string]map[string]db.Mention
+	facts    map[string]statFacts
 	version  int64
 	changed  bool
 	repos    *repos.Index
@@ -51,7 +53,7 @@ type v2 struct {
 
 func newV2() *v2 {
 	return &v2{stamps: map[string]string{}, recall: map[string]bool{}, activity: map[string][]int{},
-		mentions: map[string]map[string]db.Mention{}}
+		mentions: map[string]map[string]db.Mention{}, facts: map[string]statFacts{}}
 }
 
 // Changed tells the server the archive changed, as an import in this
@@ -157,10 +159,12 @@ func (s *Server) rows(id string) ([]row, error) {
 		if g, ok := byRemote[repo.Key]; ok {
 			group, isRepo = g, true
 		}
-		stamp := ses.EndedAt.String() + "/" + strconv.Itoa(ses.MessageCount) + "/" + strconv.FormatInt(ses.FileSize, 10)
+		stamp := ses.EndedAt.String() + "/" + strconv.Itoa(ses.MessageCount) + "/" + strconv.FormatInt(ses.FileSize, 10) +
+			"/" + strconv.Itoa(ses.ImportVersion)
 		if s.v2.stamps[ses.ID] != stamp {
 			stale = append(stale, ses.ID)
 			s.v2.stamps[ses.ID] = stamp
+			delete(s.v2.facts, ses.ID)
 		}
 		out[i] = row{s: ses, repo: repo, out: api.V2Session{ID: ses.ID, Title: title.Display(ses.Title, ses.FirstPrompt),
 			Folder: repo.Folder, GroupKey: group.Key, GroupName: group.Name, Repository: isRepo, Worktree: repo.Worktree, Gone: !repo.Exists,
@@ -210,6 +214,8 @@ func (s *Server) v2API(w http.ResponseWriter, r *http.Request, path string) erro
 		return s.v2Sessions(w, q.Get("id"))
 	case rest == "find":
 		return s.v2Find(w, q.Get("q"), q.Get("text") == "1")
+	case rest == "stats":
+		return s.v2Stats(w, q.Get("since"))
 	case rest == "theme":
 		name := s.Theme
 		if !theme.Valid(name) {

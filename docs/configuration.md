@@ -49,6 +49,13 @@ update_check = true
 # Where the web UI (recall ui) listens, and where recall ui stop and
 # recall ui status look for it, unless --port says otherwise.
 port = 6276
+# The Stats page estimates what the tokens cost at the Claude API's list
+# prices, in US dollars per million tokens. Opus, Sonnet and Haiku have
+# defaults; set the price of a model that has none, or a newer price, by its
+# model ID, such as { "claude-opus-5-5" = { input = 5, output = 25 } }.
+# Cache reads are priced at a tenth of input, cache writes at 1.25 times input
+# (5 minutes) or twice (an hour).
+prices = {}
 
 [tui]
 # Where the detail pane goes: "bottom" (default), "right", or "auto" to put it

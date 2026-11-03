@@ -20,6 +20,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/internal/pricing"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/watcher"
 	"github.com/babarot/claude-recall/internal/webui"
@@ -115,6 +116,8 @@ type Server struct {
 	// Theme is the TUI's color scheme ([tui] theme), which the web UI is
 	// drawn in too; empty or not a scheme is auto.
 	Theme string
+	// Prices estimate what the tokens of a session cost.
+	Prices pricing.Table
 
 	trees []string
 	port  int
