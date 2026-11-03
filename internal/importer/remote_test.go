@@ -81,7 +81,7 @@ func TestRunFillsRemotesOfStoredSessions(t *testing.T) {
 	// Stored before remotes were, and their transcripts are gone: one ran
 	// in a directory still on disk, one in a directory since removed.
 	for _, s := range []struct{ id, path string }{{"kept", repo}, {"gone", filepath.Join(repo, "..", "gone")}} {
-		if err := d.ReplaceSession(db.SessionRow{SessionID: s.id, Project: "p", ProjectPath: s.path, Title: ""}, nil, nil, nil); err != nil {
+		if err := d.ReplaceSession(db.SessionRow{SessionID: s.id, Project: "p", ProjectPath: s.path, Title: ""}, nil, nil, nil, nil); err != nil {
 			t.Fatal(err)
 		}
 	}

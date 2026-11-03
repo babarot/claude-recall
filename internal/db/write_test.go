@@ -12,12 +12,12 @@ func TestReplaceSessionCheckRollsBack(t *testing.T) {
 	msg := func(uuid string) MessageRow {
 		return MessageRow{UUID: uuid, Role: "user", BlockType: "text", Content: uuid}
 	}
-	if err := d.ReplaceSession(row(1), []MessageRow{msg("u1")}, nil, nil); err != nil {
+	if err := d.ReplaceSession(row(1), []MessageRow{msg("u1")}, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
 	stale := errors.New("stale")
-	err := d.ReplaceSession(row(2), []MessageRow{msg("u1"), msg("u2")}, nil, func() error { return stale })
+	err := d.ReplaceSession(row(2), []MessageRow{msg("u1"), msg("u2")}, nil, nil, func() error { return stale })
 	if !errors.Is(err, stale) {
 		t.Fatalf("ReplaceSession = %v, want the check's error", err)
 	}
@@ -31,5 +31,41 @@ func TestReplaceSessionCheckRollsBack(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("%d messages stored after a failed check; want 1", n)
+	}
+}
+
+// Usage is added to, not replaced: a response stored again is updated in
+// place, a lower output count does not lower it, and a later import without
+// the response keeps it.
+func TestReplaceSessionKeepsUsage(t *testing.T) {
+	d := newTestDB(t)
+	row := SessionRow{SessionID: "s1", Project: "p"}
+	u := func(id string, out int64) UsageRow {
+		return UsageRow{MessageID: id, Model: "claude-opus-5-5", Timestamp: "2026-01-01T00:00:00Z", Input: 1, Output: out, CacheRead: 3}
+	}
+	steps := []struct {
+		usage []UsageRow
+		want  map[string]int64
+	}{
+		{[]UsageRow{u("m1", 10), u("m2", 5)}, map[string]int64{"m1": 10, "m2": 5}},
+		{[]UsageRow{u("m1", 10), u("m2", 800)}, map[string]int64{"m1": 10, "m2": 800}},
+		{[]UsageRow{u("m2", 17)}, map[string]int64{"m1": 10, "m2": 800}},
+		{nil, map[string]int64{"m1": 10, "m2": 800}},
+	}
+	for i, s := range steps {
+		if err := d.ReplaceSession(row, nil, nil, s.usage, nil); err != nil {
+			t.Fatal(err)
+		}
+		got, err := d.Usage("s1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]int64{}
+		for _, g := range got {
+			out[g.MessageID] = g.Output
+		}
+		if len(out) != len(s.want) || out["m1"] != s.want["m1"] || out["m2"] != s.want["m2"] {
+			t.Errorf("step %d: output by response %v, want %v", i, out, s.want)
+		}
 	}
 }

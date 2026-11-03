@@ -468,3 +468,51 @@ func TestImportStoresToolFieldsOfOlderRows(t *testing.T) {
 		t.Fatalf("a session stored at an older version must be imported again: %+v", r)
 	}
 }
+
+func usageLine(id, ts string, out int64, sidechain bool) string {
+	b, _ := json.Marshal(map[string]any{
+		"type": "assistant", "uuid": "a-" + id, "sessionId": "sess-001", "timestamp": ts, "isSidechain": sidechain,
+		"message": map[string]any{"role": "assistant", "id": id, "model": "claude-opus-5-5",
+			"usage":   map[string]any{"input_tokens": 1, "output_tokens": out, "cache_read_input_tokens": 2, "cache_creation_input_tokens": 3},
+			"content": []any{map[string]any{"type": "text", "text": "ok"}}},
+	})
+	return string(b)
+}
+
+// The usage of the session and of its subagents is stored; a session stored
+// by an older importer gets it from one more import.
+func TestImportStoresUsage(t *testing.T) {
+	e := newEnv(t, userLine("hello", "u1", "2026-01-01T00:00:00Z"), usageLine("msg_1", "2026-01-01T00:00:01Z", 10, false))
+	sub := filepath.Join(strings.TrimSuffix(e.path, ".jsonl"), "subagents")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// The subagent repeats one of the session's responses.
+	if err := os.WriteFile(filepath.Join(sub, "agent-a1.jsonl"), []byte(strings.Join([]string{
+		usageLine("msg_1", "2026-01-01T00:00:01Z", 10, true),
+		usageLine("msg_2", "2026-01-01T00:00:02Z", 5, true),
+	}, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e.importFile()
+	if _, err := e.db.Exec(`DELETE FROM usage`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(`UPDATE sessions SET import_version = 2`); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.importFile(); r.Status != Resynced {
+		t.Fatalf("a session stored by importer version 2 must be imported again: %+v", r)
+	}
+	if r := e.importFile(); r.Status != Unchanged {
+		t.Fatalf("second import: %+v", r)
+	}
+	got, err := e.db.Usage("sess-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].MessageID != "msg_1" || got[0].Agent != "" || got[0].Output != 10 ||
+		got[1].MessageID != "msg_2" || got[1].Agent != "agent-a1" || got[1].Output != 5 {
+		t.Fatalf("usage %+v, want msg_1 of the session and msg_2 of agent-a1", got)
+	}
+}
