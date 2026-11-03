@@ -246,12 +246,19 @@ export function App() {
   const openSession = (id: string) => {
     history.pushState(null, "", `/session/${encodeURIComponent(id)}`);
     setStats(false);
+    // A list narrowed to another folder or search would put its first
+    // session in place of this one.
+    if (!visible.peek().some((x) => x.id === id)) {
+      setQuery("", 0);
+      pick(null, null);
+    }
     selected.value = id;
     reading.value = true;
   };
   const openFolder = (key: string) => {
     history.pushState(null, "", "/");
     setStats(false);
+    setQuery("", 0);
     pick(key, null);
   };
 

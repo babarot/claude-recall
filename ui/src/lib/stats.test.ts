@@ -87,6 +87,9 @@ describe("stats", () => {
     expect(bs[5].parts).toEqual([0, 0]);
     const weeks = buckets(cur, prev, 7, "week", now, "sessions", "none", seriesOf("none", ranked, {} as never, ""));
     expect(weeks.map((b) => [b.parts[0], b.prev])).toEqual([[2, 1]]);
+    const month = buckets(cur, prev, 30, "week", now, "sessions", "none", seriesOf("none", ranked, {} as never, ""));
+    expect(month).toHaveLength(5);
+    expect(month[0].from).toEqual(range(30, now)[0]);
   });
 
   it("tells the share of each kind of work", () => {

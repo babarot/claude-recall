@@ -194,11 +194,12 @@ export interface Bucket {
 export function buckets(rows: Row[], prevRows: Row[], days: number, grain: Grain, now: Date, m: Metric, g: Group, series: Series[]): Bucket[] {
   const step = grain === "day" ? 1 : 7;
   const n = Math.ceil(days / step);
-  const end = range(days, now)[1];
+  const [start, end] = range(days, now);
   const out: Bucket[] = [];
   for (let i = n - 1; i >= 0; i--) {
     const to = addDays(end, -i * step);
-    const from = addDays(to, -step);
+    // The first week starts with the period, however many days it has.
+    const from = new Date(Math.max(addDays(to, -step).getTime(), start.getTime()));
     const inB = rows.filter((r) => r.start >= from && r.start < to);
     const prevB = prevRows.filter((r) => r.start >= addDays(from, -days) && r.start < addDays(to, -days));
     const parts = m === "failRate" || g === "none" ? [total(inB, m)] : split(inB, m, g, series);
