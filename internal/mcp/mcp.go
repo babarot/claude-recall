@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -153,12 +154,35 @@ type Handlers struct {
 
 // scopes is the repositories a call narrows to: the pinned one, if any,
 // and the one its repo input names.
+// On a held server "." is the held repository: the server's own directory
+// says nothing of the client's, and a client that passes "." as the repo
+// description used to suggest means the repository it works in.
 func (h Handlers) scopes(idx *repos.Index, a args) []db.Scope {
-	var out []db.Scope
-	if h.Pin != nil {
-		out = append(out, idx.PinScope(*h.Pin))
+	if h.Pin == nil {
+		return a.repoScopes(idx)
+	}
+	out := []db.Scope{idx.PinScope(*h.Pin)}
+	if strings.TrimSpace(a.str("repo")) == "." {
+		return out
 	}
 	return append(out, a.repoScopes(idx)...)
+}
+
+// pinnedTool is t as a server held to pin describes it: the repository it
+// holds, and a repo input that is there only to narrow within it.
+func pinnedTool(t *mcp.Tool, pin repos.Pin) *mcp.Tool {
+	out := *t
+	out.Description += " This server holds only the sessions of the repository " + pin.String() + "."
+	if in, ok := t.InputSchema.(schema); ok {
+		if _, ok := in.Properties["repo"]; ok {
+			props := maps.Clone(in.Properties)
+			props["repo"] = prop{"string", "Leave this out: this server already holds only the sessions of " + pin.String() +
+				". Give a git remote or a directory only to narrow within it; any other repository returns nothing"}
+			in.Properties = props
+			out.InputSchema = in
+		}
+	}
+	return &out
 }
 
 // index resolves the archive's repositories, for a call that narrows to
@@ -288,9 +312,7 @@ func NewServer(d *db.DB, pin *repos.Pin) *mcp.Server {
 	h := Handlers{DB: d, Pin: pin}
 	for _, t := range []*mcp.Tool{searchTool, listTool, exportTool, statsTool} {
 		if pin != nil {
-			pinned := *t
-			pinned.Description += " This server holds only the sessions of the repository " + pin.String() + "."
-			t = &pinned
+			t = pinnedTool(t, *pin)
 		}
 		s.AddTool(t, h.handler(t.Name))
 	}

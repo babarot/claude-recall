@@ -333,5 +333,22 @@ func TestPinnedServer(t *testing.T) {
 		if !strings.Contains(tool.Description, "github.com/acme/api") {
 			t.Errorf("%s does not name the pinned repository: %q", tool.Name, tool.Description)
 		}
+		b, _ := json.Marshal(tool.InputSchema)
+		if strings.Contains(string(b), `\".\" is the directory`) {
+			t.Errorf("%s still suggests repo \".\" on a held server: %s", tool.Name, b)
+		}
+	}
+
+	// A held server runs in a directory of its own, outside the repository:
+	// "." is the held repository, not that directory.
+	t.Chdir(t.TempDir())
+	for _, tool := range []string{"recall_search", "recall_list"} {
+		args := map[string]any{"repo": "."}
+		if tool == "recall_search" {
+			args["query"] = "the"
+		}
+		if got := sessions(tool, args); !only(got) {
+			t.Errorf(`%s repo "." from outside the repository = %v, want the pinned session`, tool, got)
+		}
 	}
 }

@@ -108,7 +108,7 @@ recall mcp [options]
   --repo <remote|dir> Hold every tool to one repository
 ```
 
-Serves the MCP tools over stdio; Claude Code starts it. With `--repo`, every tool sees only the sessions of that repository: `repo` from the client narrows within it, `recall_export` does not find a session outside it, and `recall_stats` counts only it. The repository is a git remote, written as `--repo` of `search` takes one, or a directory on disk whose origin is read when the server starts; a directory that is gone, or whose git config cannot be read, is refused. Held to a remote, the server matches sessions by the origin they recorded and nothing else (see [ADR-005](adr/005-repository-by-remote.md)).
+Serves the MCP tools over stdio; Claude Code starts it. With `--repo`, every tool sees only the sessions of that repository: `repo` from the client narrows within it (`.` is the held repository, since the server's own directory says nothing of the client's), `recall_export` does not find a session outside it, and `recall_stats` counts only it. The repository is a git remote, written as `--repo` of `search` takes one, or a directory on disk whose origin is read when the server starts; a directory that is gone, or whose git config cannot be read, is refused. Held to a remote, the server matches sessions by the origin they recorded and nothing else (see [ADR-005](adr/005-repository-by-remote.md)).
 
 ## Global options
 
