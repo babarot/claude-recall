@@ -1,6 +1,7 @@
 package db
 
 import (
+	"cmp"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -84,6 +85,7 @@ type UsageRow struct {
 	CacheRead    int64
 	CacheWrite5m int64
 	CacheWrite1h int64
+	Speed        string // "fast" or "standard"
 }
 
 // ImageRow is a row of the images table.
@@ -188,19 +190,19 @@ func addUsage(tx *sql.Tx, sessionID string, usage []UsageRow) error {
 	if len(usage) == 0 {
 		return nil
 	}
-	stmt, err := tx.Prepare(`INSERT INTO usage (session_id, message_id, agent, model, timestamp, input, output, cache_read, cache_write_5m, cache_write_1h)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	stmt, err := tx.Prepare(`INSERT INTO usage (session_id, message_id, agent, model, timestamp, input, output, cache_read, cache_write_5m, cache_write_1h, speed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (session_id, message_id) DO UPDATE SET
          model = excluded.model, timestamp = COALESCE(usage.timestamp, excluded.timestamp),
          input = excluded.input, output = max(usage.output, excluded.output), cache_read = excluded.cache_read,
-         cache_write_5m = excluded.cache_write_5m, cache_write_1h = excluded.cache_write_1h`)
+         cache_write_5m = excluded.cache_write_5m, cache_write_1h = excluded.cache_write_1h, speed = excluded.speed`)
 	if err != nil {
 		return fmt.Errorf("insert usage: %w", err)
 	}
 	defer stmt.Close()
 	for _, u := range usage {
 		if _, err := stmt.Exec(sessionID, u.MessageID, u.Agent, u.Model, nullIfEmpty(u.Timestamp), u.Input, u.Output,
-			u.CacheRead, u.CacheWrite5m, u.CacheWrite1h); err != nil {
+			u.CacheRead, u.CacheWrite5m, u.CacheWrite1h, cmp.Or(u.Speed, "standard")); err != nil {
 			return fmt.Errorf("insert usage: %w", err)
 		}
 	}
@@ -248,7 +250,7 @@ func (d *DB) Exec(query string, args ...any) (sql.Result, error) { return d.sql.
 
 // Usage returns the usage stored for a session, ordered by message id.
 func (d *DB) Usage(sessionID string) ([]UsageRow, error) {
-	rows, err := d.sql.Query(`SELECT message_id, agent, model, COALESCE(timestamp, ''), input, output, cache_read, cache_write_5m, cache_write_1h
+	rows, err := d.sql.Query(`SELECT message_id, agent, model, COALESCE(timestamp, ''), input, output, cache_read, cache_write_5m, cache_write_1h, speed
       FROM usage WHERE session_id = ? ORDER BY message_id`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("usage: %w", err)
@@ -257,7 +259,7 @@ func (d *DB) Usage(sessionID string) ([]UsageRow, error) {
 	var out []UsageRow
 	for rows.Next() {
 		var u UsageRow
-		if err := rows.Scan(&u.MessageID, &u.Agent, &u.Model, &u.Timestamp, &u.Input, &u.Output, &u.CacheRead, &u.CacheWrite5m, &u.CacheWrite1h); err != nil {
+		if err := rows.Scan(&u.MessageID, &u.Agent, &u.Model, &u.Timestamp, &u.Input, &u.Output, &u.CacheRead, &u.CacheWrite5m, &u.CacheWrite1h, &u.Speed); err != nil {
 			return nil, fmt.Errorf("usage: %w", err)
 		}
 		out = append(out, u)

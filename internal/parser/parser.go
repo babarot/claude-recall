@@ -71,6 +71,9 @@ type Usage struct {
 	// as 5 minutes.
 	CacheWrite5m int64
 	CacheWrite1h int64
+	// Speed is "fast" for a response of fast mode, which is priced higher,
+	// and "standard" otherwise.
+	Speed string
 }
 
 // Session is a parsed transcript.
@@ -118,10 +121,11 @@ type journalLine struct {
 }
 
 type usageField struct {
-	Input         int64 `json:"input_tokens"`
-	Output        int64 `json:"output_tokens"`
-	CacheRead     int64 `json:"cache_read_input_tokens"`
-	CacheCreation int64 `json:"cache_creation_input_tokens"`
+	Input         int64  `json:"input_tokens"`
+	Output        int64  `json:"output_tokens"`
+	CacheRead     int64  `json:"cache_read_input_tokens"`
+	CacheCreation int64  `json:"cache_creation_input_tokens"`
+	Speed         string `json:"speed"`
 	Split         *struct {
 		FiveMinutes int64 `json:"ephemeral_5m_input_tokens"`
 		OneHour     int64 `json:"ephemeral_1h_input_tokens"`
@@ -145,7 +149,8 @@ func (u *usages) add(p *journalLine) {
 		return
 	}
 	v := Usage{MessageID: m.ID, Model: m.Model, Timestamp: p.Timestamp,
-		Input: m.Usage.Input, Output: m.Usage.Output, CacheRead: m.Usage.CacheRead, CacheWrite5m: m.Usage.CacheCreation}
+		Input: m.Usage.Input, Output: m.Usage.Output, CacheRead: m.Usage.CacheRead, CacheWrite5m: m.Usage.CacheCreation,
+		Speed: cmp.Or(m.Usage.Speed, "standard")}
 	if sp := m.Usage.Split; sp != nil && sp.FiveMinutes+sp.OneHour == m.Usage.CacheCreation {
 		v.CacheWrite5m, v.CacheWrite1h = sp.FiveMinutes, sp.OneHour
 	}

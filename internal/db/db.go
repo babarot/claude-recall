@@ -116,7 +116,8 @@ var migrations = []string{
 	// the session's). Rows are only ever added or corrected, never deleted
 	// with the session's messages, so they outlive the transcripts. A
 	// response copied into another transcript (a subagent's, which repeats
-	// the session's) is the same response and is counted once.
+	// the session's) is the same response and is counted once. speed is
+	// "fast" for a response of fast mode, which is priced higher.
 	`CREATE TABLE IF NOT EXISTS usage (
 	   session_id     TEXT NOT NULL,
 	   message_id     TEXT NOT NULL,
@@ -128,6 +129,7 @@ var migrations = []string{
 	   cache_read     INTEGER NOT NULL,
 	   cache_write_5m INTEGER NOT NULL,
 	   cache_write_1h INTEGER NOT NULL,
+	   speed          TEXT NOT NULL DEFAULT 'standard',
 	   PRIMARY KEY (session_id, message_id)
 	 )`,
 }

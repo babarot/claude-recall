@@ -334,6 +334,7 @@ func usageLine(id, model, ts string, out int64, sidechain bool, split bool) stri
 	usage := map[string]any{"input_tokens": 3, "output_tokens": out, "cache_read_input_tokens": 100, "cache_creation_input_tokens": 50}
 	if split {
 		usage["cache_creation"] = map[string]any{"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 30}
+		usage["speed"] = "fast"
 	}
 	return line(map[string]any{
 		"type": "assistant", "uuid": "a-" + id + "-" + strconv.FormatInt(out, 10), "sessionId": "sess-001", "timestamp": ts, "isSidechain": sidechain,
@@ -354,8 +355,8 @@ func TestParseUsage(t *testing.T) {
 		usageLine("msg_4", "claude-opus-5-5", "2026-01-01T00:00:06Z", 9, true, false),
 	))
 	want := []Usage{
-		{MessageID: "msg_1", Model: "claude-opus-5-5", Timestamp: "2026-01-01T00:00:01Z", Input: 3, Output: 811, CacheRead: 100, CacheWrite5m: 20, CacheWrite1h: 30},
-		{MessageID: "msg_2", Model: "claude-sonnet-5-5", Timestamp: "2026-01-01T00:00:04Z", Input: 3, Output: 40, CacheRead: 100, CacheWrite5m: 50},
+		{MessageID: "msg_1", Model: "claude-opus-5-5", Timestamp: "2026-01-01T00:00:01Z", Input: 3, Output: 811, CacheRead: 100, CacheWrite5m: 20, CacheWrite1h: 30, Speed: "fast"},
+		{MessageID: "msg_2", Model: "claude-sonnet-5-5", Timestamp: "2026-01-01T00:00:04Z", Input: 3, Output: 40, CacheRead: 100, CacheWrite5m: 50, Speed: "standard"},
 	}
 	if len(s.Usage) != len(want) {
 		t.Fatalf("usage %+v, want %+v", s.Usage, want)

@@ -200,7 +200,7 @@ func usageRows(us []parser.Usage, agent string) []db.UsageRow {
 	out := make([]db.UsageRow, len(us))
 	for i, u := range us {
 		out[i] = db.UsageRow{MessageID: u.MessageID, Agent: agent, Model: u.Model, Timestamp: u.Timestamp,
-			Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite5m: u.CacheWrite5m, CacheWrite1h: u.CacheWrite1h}
+			Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite5m: u.CacheWrite5m, CacheWrite1h: u.CacheWrite1h, Speed: u.Speed}
 	}
 	return out
 }
