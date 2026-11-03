@@ -17,6 +17,7 @@ import (
 	"github.com/babarot/claude-recall/internal/jscompat"
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/version"
+	"github.com/babarot/claude-recall/internal/worktree"
 )
 
 type prop struct {
@@ -125,44 +126,95 @@ func repoOf(idx *repos.Index) func(string) (string, string) {
 	}
 }
 
+// repoOf names the repository of a session the way repoOf does, but on a
+// server held to a remote names every one by that remote: the index
+// guesses at a removed worktree's repository from every directory of the
+// archive, and its guess could name a directory outside the pin.
+func (h Handlers) repoOf(idx *repos.Index) func(string) (string, string) {
+	names := repoOf(idx)
+	if h.Pin == nil || h.Pin.Remote == "" {
+		return names
+	}
+	name := worktree.RemoteName(h.Pin.Remote)
+	return func(path string) (string, string) {
+		_, wt := names(path)
+		return name, wt
+	}
+}
+
 // Handlers holds the tool implementations, separate from the transport so
 // they can be tested directly.
-type Handlers struct{ DB *db.DB }
+type Handlers struct {
+	DB *db.DB
+	// Pin, when not nil, holds every tool to one repository: what a
+	// client asks for narrows within it and never widens it.
+	Pin *repos.Pin
+}
+
+// scopes is the repositories a call narrows to: the pinned one, if any,
+// and the one its repo input names.
+func (h Handlers) scopes(idx *repos.Index, a args) []db.Scope {
+	var out []db.Scope
+	if h.Pin != nil {
+		out = append(out, idx.PinScope(*h.Pin))
+	}
+	return append(out, a.repoScopes(idx)...)
+}
+
+// index resolves the archive's repositories, for a call that narrows to
+// one, or that shows them.
+func (h Handlers) index() (*repos.Index, error) { return repos.Load(h.DB) }
 
 // Call runs one tool and returns its result value.
 func (h Handlers) Call(name string, a args) (any, error) {
 	switch name {
 	case "recall_search":
-		idx, err := repos.Load(h.DB)
+		idx, err := h.index()
 		if err != nil {
 			return nil, err
 		}
 		r, err := h.DB.Search(a.str("query"), db.SearchOptions{Project: a.str("project"), Limit: a.num("limit", 10),
-			From: a.str("from"), To: a.str("to"), Substring: a.flag("substring"), Scopes: a.repoScopes(idx)})
+			From: a.str("from"), To: a.str("to"), Substring: a.flag("substring"), Scopes: h.scopes(idx, a)})
 		if err != nil {
 			return nil, err
 		}
-		return api.SearchHits(r, true, repoOf(idx)), nil
+		return api.SearchHits(r, true, h.repoOf(idx)), nil
 	case "recall_list":
-		idx, err := repos.Load(h.DB)
+		idx, err := h.index()
 		if err != nil {
 			return nil, err
 		}
 		s, err := h.DB.ListSessions(db.ListOptions{Project: a.str("project"), Limit: a.num("limit", 20),
-			Scopes: a.repoScopes(idx)})
+			Scopes: h.scopes(idx, a)})
 		if err != nil {
 			return nil, err
 		}
-		return api.List(s, repoOf(idx)), nil
+		return api.List(s, h.repoOf(idx)), nil
 	case "recall_export":
+		var scopes []db.Scope
+		if h.Pin != nil {
+			idx, err := h.index()
+			if err != nil {
+				return nil, err
+			}
+			scopes = []db.Scope{idx.PinScope(*h.Pin)}
+		}
 		id := a.str("session_id")
-		s, msgs, err := h.DB.ExportSession(id)
+		s, msgs, err := h.DB.ExportSessionIn(id, scopes)
 		if err != nil {
 			return nil, err
 		}
 		return api.ExportResult(id, s, msgs, *a.num("tail", 0)), nil
 	case "recall_stats":
-		s, err := h.DB.Stats(a.str("project"))
+		var scopes []db.Scope
+		if h.Pin != nil {
+			idx, err := h.index()
+			if err != nil {
+				return nil, err
+			}
+			scopes = []db.Scope{idx.PinScope(*h.Pin)}
+		}
+		s, err := h.DB.StatsIn(a.str("project"), scopes)
 		if err != nil {
 			return nil, err
 		}
@@ -229,18 +281,25 @@ func handleRecap(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptRe
 	}, nil
 }
 
-// NewServer returns the MCP server with the four tools and the prompt.
-func NewServer(d *db.DB) *mcp.Server {
+// NewServer returns the MCP server with the four tools and the prompt,
+// held to one repository when pin is not nil.
+func NewServer(d *db.DB, pin *repos.Pin) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "claude-recall", Version: version.Version}, nil)
-	h := Handlers{DB: d}
+	h := Handlers{DB: d, Pin: pin}
 	for _, t := range []*mcp.Tool{searchTool, listTool, exportTool, statsTool} {
+		if pin != nil {
+			pinned := *t
+			pinned.Description += " This server holds only the sessions of the repository " + pin.String() + "."
+			t = &pinned
+		}
 		s.AddTool(t, h.handler(t.Name))
 	}
 	s.AddPrompt(recapPrompt, handleRecap)
 	return s
 }
 
-// Run serves MCP over stdin and stdout until the client disconnects.
-func Run(ctx context.Context, d *db.DB) error {
-	return NewServer(d).Run(ctx, &mcp.StdioTransport{})
+// Run serves MCP over stdin and stdout until the client disconnects, held
+// to one repository when pin is not nil.
+func Run(ctx context.Context, d *db.DB, pin *repos.Pin) error {
+	return NewServer(d, pin).Run(ctx, &mcp.StdioTransport{})
 }

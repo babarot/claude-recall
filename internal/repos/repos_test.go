@@ -127,3 +127,51 @@ func TestScope(t *testing.T) {
 		}
 	}
 }
+
+// A pin is a remote, or a directory on disk whose origin is read now; one
+// with no origin holds to the directory's own repository, not to a removed
+// worktree only guessed to belong to it.
+func TestPin(t *testing.T) {
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	withOrigin := filepath.Join(home, "src/acme/api")
+	writeOrigin(t, filepath.Join(withOrigin, ".git"), "git@github.com:acme/api.git")
+	noOrigin := filepath.Join(home, "src/local/repo")
+	if err := os.MkdirAll(filepath.Join(noOrigin, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(noOrigin, ".git", "config"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range []struct {
+		value string
+		want  Pin
+	}{
+		{"https://github.com/acme/api", Pin{Remote: "github.com/acme/api"}},
+		{withOrigin, Pin{Remote: "github.com/acme/api"}},
+		{filepath.Join(withOrigin, ".git"), Pin{Remote: "github.com/acme/api"}},
+		{noOrigin, Pin{Dir: noOrigin}},
+	} {
+		if got, err := NewPin(tt.value); err != nil || got != tt.want {
+			t.Errorf("NewPin(%s) = %+v, %v, want %+v", tt.value, got, err, tt.want)
+		}
+	}
+	for _, bad := range []string{"", " ", filepath.Join(home, "gone"), filepath.Join(home, ".herdr/worktrees/repo/worktree-old")} {
+		if p, err := NewPin(bad); err == nil {
+			t.Errorf("NewPin(%q) = %+v, want an error", bad, p)
+		}
+	}
+
+	removed := filepath.Join(home, ".herdr/worktrees/repo/worktree-old")
+	x := New([]string{noOrigin, removed, withOrigin}, home)
+	got := x.PinScope(Pin{Dir: noOrigin})
+	if got.Remote != "" || !slices.Equal(got.Paths, []string{noOrigin}) {
+		t.Errorf("PinScope = %+v, want the checkout alone, not the removed worktree", got)
+	}
+	if x.Of(removed).Key != noOrigin {
+		t.Fatalf("the removed worktree should be guessed to be the checkout's for the test to mean anything: %+v", x.Of(removed))
+	}
+}

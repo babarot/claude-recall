@@ -125,6 +125,9 @@ func TestRejectsWhatACommandDoesNotTake(t *testing.T) {
 		{[]string{"export", "a1", "--format", "yaml"}, `--format must be markdown, json, text, got "yaml"`},
 		{[]string{"search"}, "Usage: recall search <query>"},
 		{[]string{"export"}, "Usage: recall export <session-id>"},
+		// An empty --repo would otherwise start a server held to nothing.
+		{[]string{"mcp", "--repo", ""}, "--repo: empty"},
+		{[]string{"mcp", "--repo", "/nonexistent/dir"}, "neither a directory nor a git remote"},
 	} {
 		_, err := runArgs(append(tc.args, "--db", path)...)
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
