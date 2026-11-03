@@ -22,6 +22,11 @@ export function themeCSS(t: Theme): string {
     `--user-bg: color-mix(in srgb, var(--prompt) ${t.dark ? 6 : 7}%, transparent);`,
     `--mark: color-mix(in srgb, var(--prompt) ${t.dark ? 28 : 25}%, transparent);`,
     `color-scheme: ${t.dark ? "dark" : "light"};`,
+    // The Stats page's series: the stylesheet's, for dark or light, since a
+    // scheme's own colors are not checked for telling series apart.
+    ...(t.dark
+      ? ["--s1: #3987e5;", "--s2: #d95926;", "--s3: #199e70;", "--s4: #c98500;", "--s5: #d55181;", "--s-other: #5c5b73;"]
+      : ["--s1: #2a78d6;", "--s2: #eb6834;", "--s3: #1baf7a;", "--s4: #eda100;", "--s5: #e87ba4;", "--s-other: #a3a7b6;"]),
   );
   return `:root:root:root { ${vars.join(" ")} }`;
 }

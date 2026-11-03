@@ -13,6 +13,8 @@ import { SessionList, SORTS } from "./components/SessionList";
 import { copyID, copyResume, findInput, Reader, stepHit } from "./components/Reader";
 import { atBottom, conversationEl, currentPrompt, goTo, scrollToEdge, zoom } from "./components/Conversation";
 import { StatsView } from "./components/StatsView";
+import * as st from "./store/stats";
+import { filtered, METRICS } from "./lib/stats";
 import { api } from "./api";
 import { applyTheme } from "./lib/theme";
 import { t } from "./lib/i18n";
@@ -36,7 +38,15 @@ const narrow = () => matchMedia("(max-width: 860px)").matches;
 const midWidth = () => matchMedia("(max-width: 1180px)").matches;
 
 export function App() {
-  const [stats, setStats] = useState(readURL().stats);
+  const [stats, setStatsState] = useState(() => {
+    const u = readURL();
+    if (u.stats) st.readURL(location.search);
+    return u.stats;
+  });
+  const setStats = (on: boolean) => {
+    setStatsState(on);
+    if (on) st.readURL(location.search);
+  };
   const [version, setVersion] = useState("");
   const [keysOpen, setKeysOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -62,7 +72,8 @@ export function App() {
     // Back and forward: the URL says what to show.
     const onPop = () => {
       const p = readURL();
-      setStats(p.stats);
+      setStatsState(p.stats);
+      if (p.stats) st.readURL(location.search);
       if (p.id) {
         selected.value = p.id;
         reading.value = true;
@@ -218,7 +229,37 @@ export function App() {
         break;
       case "tabConv": tab.value = "conv"; break;
       case "tabDone": tab.value = "done"; break;
+      case "periodPrev": st.stepPeriod(-1); break;
+      case "periodNext": st.stepPeriod(1); break;
+      case "group": st.nextGroup(); break;
+      case "clearFilters":
+        if (filtered(st.filter.value)) st.clear();
+        else toSessions();
+        break;
     }
+  };
+
+  const toSessions = () => {
+    history.pushState(null, "", "/");
+    setStats(false);
+  };
+  const openSession = (id: string) => {
+    history.pushState(null, "", `/session/${encodeURIComponent(id)}`);
+    setStats(false);
+    // A list narrowed to another folder or search would put its first
+    // session in place of this one.
+    if (!visible.peek().some((x) => x.id === id)) {
+      setQuery("", 0);
+      pick(null, null);
+    }
+    selected.value = id;
+    reading.value = true;
+  };
+  const openFolder = (key: string) => {
+    history.pushState(null, "", "/");
+    setStats(false);
+    setQuery("", 0);
+    pick(key, null);
   };
 
   useEffect(() => {
@@ -239,16 +280,16 @@ export function App() {
         setSortOpen(false);
         return;
       }
-      const a = lookup(focus.value, eventKey(e));
+      const pane = stats ? "stats" : focus.value;
+      const a = lookup(pane, eventKey(e));
       if (!a) return;
       e.preventDefault();
-      runAction(a, focus.value);
+      if (a === "metric") st.metric.value = METRICS[Number(e.key) - 1] ?? st.metric.value;
+      else runAction(a, pane);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
-
-  if (stats) return <StatsView onBack={() => { history.pushState(null, "", "/"); setStats(false); }} />;
 
   const mainClass = [
     !showFolders.value && "no-folders",
@@ -260,7 +301,13 @@ export function App() {
     <>
       <header>
         <div class="brand"><b>recall</b>{version && <span class="mono">{version}</span>}</div>
-        <label class="search">
+        {stats && (
+          <nav class="st-nav">
+            <button onClick={toSessions}>{t.stats.nav}</button>
+            <button class="on">{t.header.stats}</button>
+          </nav>
+        )}
+        {!stats && <label class="search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
           <input ref={searchRef} value={query.value} autocomplete="off"
             placeholder={t.header.search}
@@ -294,12 +341,12 @@ export function App() {
               </div>
             ))}
           </div>
-        </label>
+        </label>}
         <div class="hdr-right">
           <span class="live-pill" title={t.header.live}><span class="dot pulse" />live</span>
-          <button class="iconbtn" title={t.header.stats} onClick={() => { history.pushState(null, "", "/stats"); setStats(true); }}>
+          {!stats && <button class="iconbtn" title={t.header.stats} onClick={() => { history.pushState(null, "", "/stats"); setStats(true); }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
-          </button>
+          </button>}
           {fixedTheme.value === null && (
             <button class="iconbtn" title={t.header.theme} onClick={() => {
               theme.value = ({ auto: "dark", dark: "light", light: "auto" } as const)[theme.value];
@@ -313,7 +360,7 @@ export function App() {
         </div>
       </header>
 
-      <main class={mainClass}>
+      {stats ? <StatsView onOpenSession={openSession} onOpenFolder={openFolder} /> : <main class={mainClass}>
         <div onMouseDown={() => { focus.value = "folders"; }} style="display:contents">
           <Folders focused={focus.value === "folders"} />
         </div>
@@ -325,10 +372,10 @@ export function App() {
         <div onMouseDown={() => { focus.value = "reader"; }} style="display:contents">
           <Reader focused={focus.value === "reader"} />
         </div>
-      </main>
+      </main>}
 
       <footer>
-        {footer(focus.value).map((f) => <span key={f.keys}><span class="k">{f.keys}</span>{f.label}</span>)}
+        {footer(stats ? "stats" : focus.value).map((f) => <span key={f.keys}><span class="k">{f.keys}</span>{f.label}</span>)}
         <span class="right"><span class="k">?</span>{t.footer.allKeys}</span>
       </footer>
 
@@ -336,7 +383,7 @@ export function App() {
         <div class="modal">
           <h2>{t.keysTitle}</h2>
           <div class="keys">
-            {HELP_GROUPS.flatMap((g) => [
+            {HELP_GROUPS.filter((g) => g.where === "any" || (g.where === "stats") === stats).flatMap((g) => [
               <h4 key={g.where}>{g.title}</h4>,
               ...KEYMAP.filter((b) => b.where === g.where)
                 .map((b) => (

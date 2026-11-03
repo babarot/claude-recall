@@ -3,7 +3,7 @@ import { footer, HELP_GROUPS, KEYMAP, lookup } from "./keymap";
 import type { Pane } from "./keymap";
 import { t } from "./i18n";
 
-const PANES: Pane[] = ["folders", "list", "reader"];
+const PANES: Pane[] = ["folders", "list", "reader", "stats"];
 
 describe("keymap", () => {
   // As the TUI's uistate tests ask: every pane has a footer and a group in
@@ -40,5 +40,6 @@ describe("keymap", () => {
     expect(footer("list")[0]).toEqual({ keys: "j k", label: t.keys.move });
     expect(footer("reader").find((f) => f.label === t.keys.prompts)?.keys).toBe("[ ]");
     expect(footer("reader").find((f) => f.label === t.keys.toList)?.keys).toBe("Esc");
+    expect(footer("stats").map((f) => f.keys)).toEqual(["[ ]", "g", "1-6", "Esc"]);
   });
 });

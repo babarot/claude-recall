@@ -4,14 +4,14 @@
 
 import { t } from "./i18n";
 
-export type Pane = "folders" | "list" | "reader";
+export type Pane = "folders" | "list" | "reader" | "stats";
 export type Where = Pane | "any";
 
 export type Action =
   | "search" | "focusNext" | "focusPrev" | "folders" | "sort" | "back" | "help"
   | "down" | "up" | "top" | "bottom" | "open" | "copyId" | "copyResume"
   | "scrollDown" | "scrollUp" | "prevPrompt" | "nextPrompt" | "nextHit" | "prevHit" | "density" | "tabConv" | "tabDone"
-  | "pickFolder";
+  | "pickFolder" | "periodPrev" | "periodNext" | "group" | "metric" | "clearFilters";
 
 export interface Binding {
   where: Where;
@@ -63,6 +63,12 @@ export const KEYMAP: Binding[] = [
   { where: "folders", keys: ["k", "ArrowUp"], action: "up", label: t.keys.move },
   { where: "folders", keys: ["Enter"], action: "pickFolder", label: t.keys.pickFolder, footer: true },
   { where: "folders", keys: ["Escape"], action: "back", label: t.keys.toList, footer: true },
+
+  { where: "stats", keys: ["["], action: "periodPrev", label: t.keys.period, footer: true },
+  { where: "stats", keys: ["]"], action: "periodNext", label: t.keys.nextPeriod },
+  { where: "stats", keys: ["g"], action: "group", label: t.keys.group, footer: true },
+  { where: "stats", keys: ["1", "2", "3", "4", "5", "6"], action: "metric", label: t.keys.metric, footer: true },
+  { where: "stats", keys: ["Escape"], action: "clearFilters", label: t.keys.clearFilters, footer: true },
 ];
 
 /** The ? key list's groups, the pane's own first. */
@@ -71,6 +77,7 @@ export const HELP_GROUPS: { where: Where; title: string }[] = [
   { where: "list", title: t.keyGroups.list },
   { where: "reader", title: t.keyGroups.reader },
   { where: "folders", title: t.keyGroups.folders },
+  { where: "stats", title: t.keyGroups.stats },
 ];
 
 /** The key a keydown event names in the table: "S-Tab" for shift+tab. */
@@ -91,12 +98,14 @@ export function footer(pane: Pane): { keys: string; label: string }[] {
     if (b.where !== pane || !b.footer) continue;
     // Bindings with the same label read as one: "j k Move".
     const pair = KEYMAP.find((o) => o !== b && o.where === pane && !o.footer && isPair(b, o));
-    out.push({ keys: [b.keys[0], pair?.keys[0]].filter(Boolean).join(" ").replace("Escape", "Esc"), label: b.label });
+    // A run of keys reads as one: "1-6 Metric".
+    const keys = b.keys.length > 2 ? `${b.keys[0]}-${b.keys[b.keys.length - 1]}` : [b.keys[0], pair?.keys[0]].filter(Boolean).join(" ");
+    out.push({ keys: keys.replace("Escape", "Esc"), label: b.label });
   }
   return out;
 }
 
-const PAIRS: [Action, Action][] = [["down", "up"], ["scrollDown", "scrollUp"], ["nextPrompt", "prevPrompt"], ["nextHit", "prevHit"], ["tabConv", "tabDone"]];
+const PAIRS: [Action, Action][] = [["periodPrev", "periodNext"], ["down", "up"], ["scrollDown", "scrollUp"], ["nextPrompt", "prevPrompt"], ["nextHit", "prevHit"], ["tabConv", "tabDone"]];
 
 function isPair(a: Binding, b: Binding): boolean {
   return PAIRS.some(([x, y]) => (a.action === x && b.action === y) || (a.action === y && b.action === x));
