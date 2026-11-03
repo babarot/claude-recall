@@ -1,5 +1,15 @@
 # Changelog
 
+## [v1.14.0](https://github.com/babarot/claude-recall/compare/v1.13.0...v1.14.0) - 2026-11-03
+### New Features
+- Store the tokens and model of each response by @babarot in https://github.com/babarot/claude-recall/pull/125
+- Serve what the Stats page sums at /api/v2/stats by @babarot in https://github.com/babarot/claude-recall/pull/126
+- Rebuild the Stats page as a tool to dig into the sessions by @babarot in https://github.com/babarot/claude-recall/pull/127
+- Narrow --repo by the origin each session recorded by @babarot in https://github.com/babarot/claude-recall/pull/130
+- Hold recall mcp to one repository with --repo by @babarot in https://github.com/babarot/claude-recall/pull/131
+### Refactorings
+- Update UI dependencies to fix the Dependabot alerts by @babarot in https://github.com/babarot/claude-recall/pull/129
+
 ## [v1.13.0](https://github.com/babarot/claude-recall/compare/v1.12.0...v1.13.0) - 2026-11-01
 ### New Features
 - Add a button to jump to the end or the start of a conversation in the web UI by @babarot in https://github.com/babarot/claude-recall/pull/113
