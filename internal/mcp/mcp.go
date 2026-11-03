@@ -32,7 +32,7 @@ type schema struct {
 
 var (
 	projectProp = prop{"string", "Filter by project name (partial match)"}
-	repoProp    = prop{"string", `Only the sessions of the repository this directory is in, its worktrees included ("." is the directory the session runs in)`}
+	repoProp    = prop{"string", `Only the sessions of one repository, given as a directory in it ("." is the directory the session runs in) or as its git remote (https://github.com/owner/repo, git@github.com:owner/repo.git or github.com/owner/repo). Every checkout and worktree whose origin is that remote is included`}
 
 	searchTool = &mcp.Tool{
 		Name:        "recall_search",
@@ -90,11 +90,11 @@ func (a args) flag(key string) bool {
 	return false
 }
 
-// repoPaths is the repo input as the directories to narrow to, or nil when
-// it is not given.
-func (a args) repoPaths(idx *repos.Index) []string {
-	if dir := strings.TrimSpace(a.str("repo")); dir != "" {
-		return idx.PathsIn(dir)
+// repoScopes is the repo input as the repository to narrow to, or nil
+// when it is not given.
+func (a args) repoScopes(idx *repos.Index) []db.Scope {
+	if repo := strings.TrimSpace(a.str("repo")); repo != "" {
+		return []db.Scope{idx.Scope(repo)}
 	}
 	return nil
 }
@@ -138,7 +138,7 @@ func (h Handlers) Call(name string, a args) (any, error) {
 			return nil, err
 		}
 		r, err := h.DB.Search(a.str("query"), db.SearchOptions{Project: a.str("project"), Limit: a.num("limit", 10),
-			From: a.str("from"), To: a.str("to"), Substring: a.flag("substring"), ProjectPaths: a.repoPaths(idx)})
+			From: a.str("from"), To: a.str("to"), Substring: a.flag("substring"), Scopes: a.repoScopes(idx)})
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +149,7 @@ func (h Handlers) Call(name string, a args) (any, error) {
 			return nil, err
 		}
 		s, err := h.DB.ListSessions(db.ListOptions{Project: a.str("project"), Limit: a.num("limit", 20),
-			ProjectPaths: a.repoPaths(idx)})
+			Scopes: a.repoScopes(idx)})
 		if err != nil {
 			return nil, err
 		}

@@ -28,6 +28,18 @@ type Group struct{ Key, Name string }
 // repository is renamed. A folder no session of which recorded a remote
 // is left out and stays as it is.
 func RemoteGroups(members []Member) map[string]Group {
+	latest := LatestRemotes(members)
+	out := make(map[string]Group, len(latest))
+	for key, remote := range latest {
+		out[key] = Group{Key: remoteKey + remote, Name: RemoteName(remote)}
+	}
+	return out
+}
+
+// LatestRemotes maps the key of each folder whose sessions recorded a git
+// remote to the remote of its latest session that recorded one. A folder
+// none of whose sessions did is left out.
+func LatestRemotes(members []Member) map[string]string {
 	type pick struct {
 		remote string
 		ended  time.Time
@@ -41,9 +53,9 @@ func RemoteGroups(members []Member) map[string]Group {
 			latest[m.Key] = pick{m.Remote, m.Ended}
 		}
 	}
-	out := make(map[string]Group, len(latest))
+	out := make(map[string]string, len(latest))
 	for key, p := range latest {
-		out[key] = Group{Key: remoteKey + p.remote, Name: RemoteName(p.remote)}
+		out[key] = p.remote
 	}
 	return out
 }

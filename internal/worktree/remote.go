@@ -139,7 +139,35 @@ func configValue(s string) string {
 	return strings.TrimSpace(b.String())
 }
 
-var scpLike = regexp.MustCompile(`^(?:[^@/]+@)?([^:/]+):(.+)$`)
+var (
+	scpLike = regexp.MustCompile(`^(?:[^@/]+@)?([^:/]+):(.+)$`)
+	// scpWithUser is scpLike with the user written, as git@github.com:o/r.
+	scpWithUser = regexp.MustCompile(`^[^@/:]+@[^:/]+:.+$`)
+	// hostPath is a remote with no scheme, as github.com/o/r: a host with a
+	// dot in it, then a path.
+	hostPath = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+)+/[^/]`)
+)
+
+// RemoteArg reads a --repo value as a git remote, as NormalizeRemote
+// writes it. A URL (https://..., ssh://...) and git@host:path are
+// remotes; otherwise a directory on disk is a directory, and host/path
+// (github.com/owner/repo) a remote. Anything else, such as a worktree
+// since removed, is not a remote.
+func RemoteArg(value string) (string, bool) {
+	value = strings.TrimSpace(value)
+	if strings.Contains(value, "://") || scpWithUser.MatchString(value) {
+		r := NormalizeRemote(value)
+		return r, r != ""
+	}
+	if fi, err := os.Stat(value); err == nil && fi.IsDir() {
+		return "", false
+	}
+	if hostPath.MatchString(value) {
+		r := NormalizeRemote("https://" + value)
+		return r, r != ""
+	}
+	return "", false
+}
 
 // NormalizeRemote turns a git remote URL into host/path, the same for the
 // ways of writing one: https://github.com/owner/repo.git,

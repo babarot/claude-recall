@@ -63,6 +63,54 @@ func TestImportRecordsRemote(t *testing.T) {
 	}
 }
 
+// A remote recorded once holds when the directory becomes a checkout of
+// another repository; one recorded as none takes the origin added later.
+func TestReimportKeepsRecordedRemote(t *testing.T) {
+	repo := filepath.Join(t.TempDir(), "repo")
+	config := filepath.Join(repo, ".git", "config")
+	if err := os.MkdirAll(filepath.Dir(config), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	origin := func(url string) {
+		t.Helper()
+		body := ""
+		if url != "" {
+			body = "[remote \"origin\"]\n\turl = " + url + "\n"
+		}
+		if err := os.WriteFile(config, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	line := func(uuid, ts string) string {
+		b, _ := json.Marshal(map[string]any{
+			"type": "user", "uuid": uuid, "sessionId": "sess-001", "timestamp": ts, "cwd": repo,
+			"version": "2.1.87", "gitBranch": "main", "message": map[string]any{"role": "user", "content": "hello"},
+		})
+		return string(b)
+	}
+
+	origin("")
+	e := newEnv(t, line("u1", "2026-03-01T10:00:00.000Z"))
+	e.importFile()
+	if got := remoteOf(t, e.db, "sess-001"); got != nil {
+		t.Fatalf("remote with no origin = %q, want none", *got)
+	}
+
+	origin("https://github.com/acme/api.git")
+	e.write(line("u1", "2026-03-01T10:00:00.000Z"), line("u2", "2026-03-01T10:01:00.000Z"))
+	e.importFile()
+	if got := remoteOf(t, e.db, "sess-001"); got == nil || *got != "github.com/acme/api" {
+		t.Fatalf("remote after origin was added = %v, want github.com/acme/api", got)
+	}
+
+	origin("https://github.com/acme/other.git")
+	e.write(line("u1", "2026-03-01T10:00:00.000Z"), line("u2", "2026-03-01T10:01:00.000Z"), line("u3", "2026-03-01T10:02:00.000Z"))
+	e.importFile()
+	if got := remoteOf(t, e.db, "sess-001"); got == nil || *got != "github.com/acme/api" {
+		t.Fatalf("remote after the directory changed repository = %v, want it kept", got)
+	}
+}
+
 func TestRunFillsRemotesOfStoredSessions(t *testing.T) {
 	d, err := db.Open(filepath.Join(t.TempDir(), "vault.db"), db.Options{})
 	if err != nil {

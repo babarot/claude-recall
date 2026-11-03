@@ -15,19 +15,43 @@ import (
 // herdr worktree, which names only its repository, belongs to the checkout
 // of that name when the archive has exactly one.
 type Index struct {
-	byPath   map[string]worktree.Repo
-	settled  map[string]string // a removed herdr worktree's placeholder key to its checkout's
+	byPath  map[string]worktree.Repo
+	settled map[string]string // a removed herdr worktree's placeholder key to its checkout's
+	// remotes is the git remote of each key, as its latest session that
+	// recorded one recorded it.
+	remotes  map[string]string
 	home     string
 	resolver *worktree.Resolver
 }
 
-// Load resolves every session directory in d.
+// Load resolves every session directory in d, and the git remote its
+// sessions recorded.
 func Load(d *db.DB) (*Index, error) {
-	paths, err := d.ProjectPaths()
+	prs, err := d.PathRemotes()
 	if err != nil {
 		return nil, err
 	}
-	return New(paths, home()), nil
+	seen := map[string]bool{}
+	var paths []string
+	for _, p := range prs {
+		if !seen[p.Path] {
+			seen[p.Path] = true
+			paths = append(paths, p.Path)
+		}
+	}
+	x := New(paths, home())
+	x.setRemotes(prs)
+	return x, nil
+}
+
+// setRemotes records the remotes the sessions of each directory recorded,
+// for Scope to tell the remote of a directory since removed.
+func (x *Index) setRemotes(prs []db.PathRemote) {
+	members := make([]worktree.Member, len(prs))
+	for i, p := range prs {
+		members[i] = worktree.Member{Key: x.Of(p.Path).Key, Remote: p.Remote, Ended: p.Ended}
+	}
+	x.remotes = worktree.LatestRemotes(members)
 }
 
 // New resolves paths against the disk, home shortening how they show.
@@ -85,6 +109,32 @@ func (x *Index) PathsIn(dir string) []string {
 		}
 	}
 	return out
+}
+
+// Scope is the repository a --repo value names, to narrow sessions to (see
+// db.Scope). A git remote (https://github.com/owner/repo,
+// git@github.com:owner/repo.git, github.com/owner/repo) names the
+// repository wherever it is checked out. A directory names the sessions of
+// PathsIn, and its origin: the one on disk now, or for a directory since
+// removed, the one its sessions recorded. So two checkouts of one
+// repository are one, and one with no remote stays its directories.
+func (x *Index) Scope(value string) db.Scope {
+	if remote, ok := worktree.RemoteArg(value); ok {
+		return db.Scope{Remote: remote}
+	}
+	dir := value
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	sc := db.Scope{Paths: x.PathsIn(dir)}
+	if fi, err := os.Stat(dir); err == nil && fi.IsDir() {
+		if remote, ok := worktree.Remote(dir); ok {
+			sc.Remote = remote
+			return sc
+		}
+	}
+	sc.Remote = x.remotes[x.Of(dir).Key]
+	return sc
 }
 
 func home() string {

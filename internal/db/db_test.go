@@ -2,6 +2,7 @@ package db
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -381,7 +382,7 @@ func TestSearchMatchesJapaneseAsSubstring(t *testing.T) {
 	}
 }
 
-func TestSearchAndListNarrowToProjectPaths(t *testing.T) {
+func TestSearchAndListNarrowToScopes(t *testing.T) {
 	d := newTestDB(t)
 	seedSession(t, d, "s1", "a", "/work/repo")
 	seedSession(t, d, "s2", "b", "/wt/repo/feature")
@@ -389,22 +390,73 @@ func TestSearchAndListNarrowToProjectPaths(t *testing.T) {
 	for _, id := range []string{"s1", "s2", "s3"} {
 		seedMessage(t, d, id, "m-"+id, "user", "deploy the service", ts, 0)
 	}
-	repo := []string{"/work/repo", "/wt/repo/feature"}
+	repo := []Scope{{Paths: []string{"/work/repo", "/wt/repo/feature"}}}
 
-	r := search(t, d, "deploy", SearchOptions{ProjectPaths: repo})
+	r := search(t, d, "deploy", SearchOptions{Scopes: repo})
 	if len(r) != 2 {
 		t.Fatalf("search: want the two sessions of the repository, got %+v", r)
 	}
-	if r := search(t, d, "deploy", SearchOptions{ProjectPaths: []string{}}); len(r) != 0 {
-		t.Fatalf("search: an empty list narrows to nothing, got %+v", r)
+	if r := search(t, d, "deploy", SearchOptions{Scopes: []Scope{{}}}); len(r) != 0 {
+		t.Fatalf("search: an empty scope narrows to nothing, got %+v", r)
 	}
-	ls, err := d.ListSessions(ListOptions{ProjectPaths: repo})
+	ls, err := d.ListSessions(ListOptions{Scopes: repo})
 	if err != nil || len(ls) != 2 {
 		t.Fatalf("list: want 2 sessions, got %+v (%v)", ls, err)
 	}
 	paths, err := d.ProjectPaths()
 	if err != nil || len(paths) != 3 {
 		t.Fatalf("ProjectPaths = %v (%v)", paths, err)
+	}
+}
+
+// A session that recorded a remote is in a scope by its remote, wherever it
+// ran; one that recorded none by its directory. A directory used again for
+// another repository does not bring the earlier one's sessions.
+func TestScopeMatchesRemoteThenDirectory(t *testing.T) {
+	d := newTestDB(t)
+	for _, s := range []struct{ id, path, remote string }{
+		{"mine", "/src/acme/api", "github.com/acme/api"},
+		{"clone", "/cache/acme/api", "github.com/Acme/API"},
+		{"before-origin", "/src/acme/api", ""},
+		{"reused", "/src/acme/api", "github.com/other/private"},
+		{"elsewhere", "/src/acme/web", "github.com/acme/web"},
+	} {
+		seedSession(t, d, s.id, "p", s.path)
+		if _, err := d.sql.Exec(`UPDATE sessions SET remote = ? WHERE session_id = ?`, s.remote, s.id); err != nil {
+			t.Fatal(err)
+		}
+		seedMessage(t, d, s.id, "m-"+s.id, "user", "deploy the service", ts, 0)
+	}
+	ids := func(sc ...Scope) []string {
+		t.Helper()
+		ls, err := d.ListSessions(ListOptions{Scopes: sc})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, s := range ls {
+			out = append(out, s.SessionID)
+		}
+		slices.Sort(out)
+		return out
+	}
+	api := Scope{Remote: "github.com/acme/api", Paths: []string{"/src/acme/api"}}
+	if got, want := ids(api), []string{"before-origin", "clone", "mine"}; !slices.Equal(got, want) {
+		t.Errorf("remote and directory: %v, want %v", got, want)
+	}
+	if got, want := ids(Scope{Remote: "github.com/acme/api"}), []string{"clone", "mine"}; !slices.Equal(got, want) {
+		t.Errorf("remote alone: %v, want %v", got, want)
+	}
+	if got := ids(api, Scope{Remote: "github.com/acme/web"}); len(got) != 0 {
+		t.Errorf("every scope must hold: %v", got)
+	}
+	if r := search(t, d, "deploy", SearchOptions{Scopes: []Scope{api}}); len(r) != 3 {
+		t.Errorf("search: %+v", r)
+	}
+
+	prs, err := d.PathRemotes()
+	if err != nil || len(prs) != 5 {
+		t.Fatalf("PathRemotes = %+v (%v)", prs, err)
 	}
 }
 

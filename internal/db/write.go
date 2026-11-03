@@ -119,14 +119,17 @@ func (d *DB) ReplaceSession(s SessionRow, msgs []MessageRow, imgs []ImageRow, us
 		}
 	}
 
+	// A remote recorded before holds: the directory may be gone since, or
+	// now be a checkout of another repository. One not known then, or
+	// recorded as none, takes what was read now.
 	remote := s.Remote
-	if remote == nil {
-		// The directory may be gone since the session was first imported;
-		// what was read from it then still holds.
-		if err = tx.QueryRow(`SELECT remote FROM sessions WHERE session_id = ?`, s.SessionID).Scan(&remote); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("replace session: %w", err)
-		}
-		err = nil
+	var stored *string
+	if err = tx.QueryRow(`SELECT remote FROM sessions WHERE session_id = ?`, s.SessionID).Scan(&stored); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("replace session: %w", err)
+	}
+	err = nil
+	if stored != nil && (*stored != "" || remote == nil) {
+		remote = stored
 	}
 
 	for _, q := range []string{

@@ -48,9 +48,8 @@ type ListOptions struct {
 	Project string
 	Limit   *int // nil means 50
 	Offset  int
-	// ProjectPaths, when not nil, keeps the sessions run in one of these
-	// directories, as SearchOptions.ProjectPaths does.
-	ProjectPaths []string
+	// Scopes keeps the sessions in every one of these repositories.
+	Scopes []Scope
 }
 
 // ListSessions returns sessions, most recently active first.
@@ -65,15 +64,13 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 		conds = append(conds, "(project LIKE ? OR project_path LIKE ?)")
 		args = append(args, "%"+opts.Project+"%", "%"+opts.Project+"%")
 	}
-	if opts.ProjectPaths != nil {
-		if len(opts.ProjectPaths) == 0 {
-			return []ListedSession{}, nil
-		}
-		conds = append(conds, "project_path IN (?"+strings.Repeat(", ?", len(opts.ProjectPaths)-1)+")")
-		for _, p := range opts.ProjectPaths {
-			args = append(args, p)
-		}
+	remoteCol, err := d.optionalColumn("remote", "remote")
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
 	}
+	scoped, scopeArgs := scopeConds(remoteCol, "project_path", opts.Scopes)
+	conds = append(conds, scoped...)
+	args = append(args, scopeArgs...)
 	where := ""
 	if len(conds) > 0 {
 		where = "WHERE " + strings.Join(conds, " AND ")
@@ -85,10 +82,7 @@ func (d *DB) ListSessions(opts ListOptions) ([]ListedSession, error) {
 	} else if !ok {
 		title = "NULL" // an archive opened read-only before the migration
 	}
-	remote, err := d.optionalColumn("NULLIF(remote, '')", "remote")
-	if err != nil {
-		return nil, fmt.Errorf("list sessions: %w", err)
-	}
+	remote := "NULLIF(" + remoteCol + ", '')"
 	rows, err := d.sql.Query(`
       SELECT session_id, project, project_path, git_branch, first_prompt,
              message_count, started_at, ended_at, `+title+`, `+recallOnly("sessions.session_id")+`, `+remote+`

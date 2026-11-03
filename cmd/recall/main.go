@@ -202,7 +202,7 @@ Run without a command, it opens the TUI.`,
 	searchCmd.Flags().StringVar(&o.from, "from", "", "start date (YYYY-MM-DD)")
 	searchCmd.Flags().StringVar(&o.to, "to", "", "end date (YYYY-MM-DD)")
 	searchCmd.Flags().BoolVar(&o.substring, "substring", false, "match anywhere in the text, newest first (Japanese and other unspaced text always is)")
-	searchCmd.Flags().StringVar(&o.repo, "repo", "", "limit to the repository a directory is in, its worktrees included")
+	searchCmd.Flags().StringVar(&o.repo, "repo", "", "limit to a repository: a directory in it, or its git remote")
 	searchFormat := format(searchCmd, "text", "json")
 	searchCmd.RunE = func(c *cobra.Command, args []string) error {
 		searchLimit()
@@ -218,7 +218,7 @@ Run without a command, it opens the TUI.`,
 		Args:  cobra.NoArgs,
 	}
 	project(listCmd, "filter by project")
-	listCmd.Flags().StringVar(&o.repo, "repo", "", "limit to the repository a directory is in, its worktrees included")
+	listCmd.Flags().StringVar(&o.repo, "repo", "", "limit to a repository: a directory in it, or its git remote")
 	listLimit := limit(listCmd, 50, "max sessions")
 	listFormat := format(listCmd, "text", "json")
 	listCmd.RunE = func(c *cobra.Command, _ []string) error {
@@ -404,12 +404,12 @@ func repoIndex(o *options, d *db.DB) (*repos.Index, error) {
 	return repos.Load(d)
 }
 
-// repoPaths is --repo as the directories to narrow to, or nil without it.
-func repoPaths(o *options, idx *repos.Index) []string {
+// repoScopes is --repo as the repository to narrow to, or nil without it.
+func repoScopes(o *options, idx *repos.Index) []db.Scope {
 	if o.repo == "" {
 		return nil
 	}
-	return idx.PathsIn(o.repo)
+	return []db.Scope{idx.Scope(o.repo)}
 }
 
 func runSearch(o *options, query string, stdout io.Writer) error {
@@ -423,7 +423,7 @@ func runSearch(o *options, query string, stdout io.Writer) error {
 		return err
 	}
 	results, err := d.Search(query, db.SearchOptions{Project: o.project, Limit: o.limitArg(), From: o.from, To: o.to,
-		Substring: o.substring, ProjectPaths: repoPaths(o, idx)})
+		Substring: o.substring, Scopes: repoScopes(o, idx)})
 	d.Close()
 	if err != nil {
 		return err
@@ -455,7 +455,7 @@ func runList(o *options, stdout io.Writer) error {
 		d.Close()
 		return err
 	}
-	sessions, err := d.ListSessions(db.ListOptions{Project: o.project, Limit: o.limitArg(), ProjectPaths: repoPaths(o, idx)})
+	sessions, err := d.ListSessions(db.ListOptions{Project: o.project, Limit: o.limitArg(), Scopes: repoScopes(o, idx)})
 	d.Close()
 	if err != nil {
 		return err

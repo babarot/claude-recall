@@ -267,6 +267,7 @@ recall search "terraform module"
 recall search "deploy" --project oksskolten --from 2026-03-01
 recall list --project gh-infra --format json
 recall search "staging" --repo .            # this repository, its worktrees included
+recall list --repo github.com/owner/repo    # every checkout whose origin is owner/repo
 recall export <session-id> --format json --output session.json
 recall stats
 recall ui                   # Web UI in the background (http://localhost:6276)

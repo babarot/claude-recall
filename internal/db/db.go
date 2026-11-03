@@ -172,9 +172,8 @@ type SearchOptions struct {
 	// first, instead of as FTS5 words. A query in a script written without
 	// spaces is matched this way on its own; see Search.
 	Substring bool
-	// ProjectPaths, when not nil, keeps the sessions run in one of these
-	// directories: the ones a repository's sessions ran in.
-	ProjectPaths []string
+	// Scopes keeps the sessions in every one of these repositories.
+	Scopes []Scope
 }
 
 // SearchResult is one matching message. Field order and JSON names match the
@@ -247,15 +246,13 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 		conds = []string{"m.block_type = 'text'", `m.content LIKE ? ESCAPE '\'`}
 		args = []any{"%" + likeEscaper.Replace(text) + "%"}
 	}
-	if opts.ProjectPaths != nil {
-		if len(opts.ProjectPaths) == 0 {
-			return []SearchResult{}, nil
-		}
-		conds = append(conds, "s.project_path IN (?"+strings.Repeat(", ?", len(opts.ProjectPaths)-1)+")")
-		for _, p := range opts.ProjectPaths {
-			args = append(args, p)
-		}
+	remoteCol, err := d.optionalColumn("s.remote", "remote")
+	if err != nil {
+		return nil, fmt.Errorf("search: %w", err)
 	}
+	scoped, scopeArgs := scopeConds(remoteCol, "s.project_path", opts.Scopes)
+	conds = append(conds, scoped...)
+	args = append(args, scopeArgs...)
 	if opts.Project != "" {
 		conds = append(conds, "(s.project LIKE ? OR s.project_path LIKE ?)")
 		args = append(args, "%"+opts.Project+"%", "%"+opts.Project+"%")
@@ -276,10 +273,7 @@ func (d *DB) Search(query string, opts SearchOptions) ([]SearchResult, error) {
 	} else if !ok {
 		title = "NULL" // an archive opened read-only before the migration
 	}
-	remote, err := d.optionalColumn("NULLIF(s.remote, '')", "remote")
-	if err != nil {
-		return nil, fmt.Errorf("search: %w", err)
-	}
+	remote := "NULLIF(" + remoteCol + ", '')"
 	rows, err := d.sql.Query(`
       SELECT s.session_id, s.project, s.project_path, s.git_branch,
              s.started_at, m.role, m.content, m.timestamp, `+title+`, s.message_count, s.first_prompt,
