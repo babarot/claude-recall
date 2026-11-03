@@ -4,8 +4,12 @@
 package repos
 
 import (
+	"cmp"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/worktree"
@@ -140,4 +144,68 @@ func (x *Index) Scope(value string) db.Scope {
 func home() string {
 	h, _ := os.UserHomeDir()
 	return h
+}
+
+// Pin is the one repository a server is held to, which what a client asks
+// for can narrow but not widen (see Index.PinScope).
+type Pin struct {
+	// Remote is the git remote of the repository, as NormalizeRemote
+	// writes it; empty for a directory with no origin.
+	Remote string
+	// Dir is the directory given for a repository with no origin, empty
+	// otherwise.
+	Dir string
+}
+
+// String is the repository as the server names it to the client.
+func (p Pin) String() string { return cmp.Or(p.Remote, p.Dir) }
+
+// NewPin reads a --repo value as the repository to hold a server to: a git
+// remote, or a directory on disk whose origin, read now, is the remote. Its
+// sessions recorded remotes, guesses at a removed worktree's repository and
+// a directory whose git config cannot be read are not trusted to tell it,
+// so a directory must be on disk and readable.
+func NewPin(value string) (Pin, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return Pin{}, errors.New("--repo: empty")
+	}
+	if remote, ok := worktree.RemoteArg(value); ok {
+		return Pin{Remote: remote}, nil
+	}
+	dir, err := filepath.Abs(value)
+	if err != nil {
+		return Pin{}, fmt.Errorf("--repo: %w", err)
+	}
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return Pin{}, fmt.Errorf("--repo %s: neither a directory nor a git remote", value)
+	}
+	remote, ok := worktree.Remote(dir)
+	if !ok {
+		return Pin{}, fmt.Errorf("--repo %s: cannot read its git config", value)
+	}
+	if remote != "" {
+		return Pin{Remote: remote}, nil
+	}
+	return Pin{Dir: worktree.RealPath(dir)}, nil
+}
+
+// PinScope is the sessions p holds a server to. With a remote, the
+// sessions that recorded it, wherever they ran. Without one, the sessions
+// that recorded none run in the directory's own repository: its checkout
+// and worktrees, not a removed herdr worktree only guessed to be one.
+func (x *Index) PinScope(p Pin) db.Scope {
+	if p.Remote != "" {
+		return db.Scope{Remote: p.Remote}
+	}
+	key := x.resolver.Repo(p.Dir, x.home).Key
+	paths := []string{}
+	if !strings.HasPrefix(key, worktree.HerdrKey) {
+		for path := range x.byPath {
+			if x.resolver.Repo(path, x.home).Key == key {
+				paths = append(paths, path)
+			}
+		}
+	}
+	return db.Scope{Paths: paths}
 }

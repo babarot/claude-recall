@@ -15,6 +15,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/fixture"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/internal/repos"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files in testdata")
@@ -53,9 +54,15 @@ func openDB(t *testing.T, path string) *db.DB {
 // connect runs the server on d and returns a client session talking to it.
 func connect(t *testing.T, d *db.DB) *mcp.ClientSession {
 	t.Helper()
+	return connectPinned(t, d, nil)
+}
+
+// connectPinned is connect with the server held to pin.
+func connectPinned(t *testing.T, d *db.DB, pin *repos.Pin) *mcp.ClientSession {
+	t.Helper()
 	ctx := context.Background()
 	st, ct := mcp.NewInMemoryTransports()
-	if _, err := NewServer(d).Connect(ctx, st, nil); err != nil {
+	if _, err := NewServer(d, pin).Connect(ctx, st, nil); err != nil {
 		t.Fatal(err)
 	}
 	cs, err := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "0"}, nil).Connect(ctx, ct, nil)
@@ -232,5 +239,116 @@ func TestRecapPrompt(t *testing.T) {
 
 	if _, err := cs.GetPrompt(ctx, &mcp.GetPromptParams{Name: "recap", Arguments: map[string]string{"session_id": " "}}); err == nil {
 		t.Fatal("an empty session_id should be refused")
+	}
+}
+
+// A server held to one repository returns nothing of another, whatever the
+// client asks: a repo input names within it, an ID outside it is not
+// found, and the counts are its own.
+func TestPinnedServer(t *testing.T) {
+	path := fixture.Archive(t)
+	w, err := db.Open(path, db.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, remote := range map[string]string{fixture.APISession: "github.com/acme/api", fixture.AppSession: "github.com/acme/app"} {
+		if _, err := w.Exec(`UPDATE sessions SET remote = ? WHERE session_id = ?`, remote, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w.Close()
+	pin, err := repos.NewPin("https://github.com/acme/api.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs := connectPinned(t, openDB(t, path), &pin)
+
+	sessions := func(tool string, args map[string]any) map[string]bool {
+		t.Helper()
+		r := call(t, cs, tool, args)
+		if r.IsError {
+			t.Fatalf("%s %v: %s", tool, args, text(r))
+		}
+		var hits []struct {
+			SessionID  string `json:"sessionId"`
+			Repository string `json:"repository"`
+		}
+		if err := json.Unmarshal([]byte(text(r)), &hits); err != nil {
+			t.Fatalf("%s: %v: %s", tool, err, text(r))
+		}
+		out := map[string]bool{}
+		for _, h := range hits {
+			if h.Repository != "acme/api" {
+				t.Errorf("%s: repository %q, want the pinned one", tool, h.Repository)
+			}
+			out[h.SessionID[:8]] = true // the results shorten it
+		}
+		return out
+	}
+	only := func(got map[string]bool) bool { return len(got) == 1 && got[fixture.APISession[:8]] }
+	for _, tc := range []struct {
+		tool string
+		args map[string]any
+	}{
+		{"recall_search", map[string]any{"query": "the"}},
+		{"recall_search", map[string]any{"query": "the", "repo": "github.com/acme/api"}},
+		{"recall_list", map[string]any{}},
+		{"recall_list", map[string]any{"project": "app"}},
+	} {
+		if got := sessions(tc.tool, tc.args); !only(got) && len(got) != 0 {
+			t.Errorf("%s %v = %v, want only the pinned repository's", tc.tool, tc.args, got)
+		}
+	}
+	if got := sessions("recall_list", map[string]any{}); !only(got) {
+		t.Errorf("recall_list = %v, want the pinned session", got)
+	}
+	for _, repo := range []string{"github.com/acme/app", "/work/app", "/"} {
+		if got := sessions("recall_search", map[string]any{"query": "the", "repo": repo}); len(got) != 0 {
+			t.Errorf("repo %s widened the pin: %v", repo, got)
+		}
+	}
+
+	if r := text(call(t, cs, "recall_export", map[string]any{"session_id": fixture.AppSession[:4]})); strings.Contains(r, fixture.AppSession) {
+		t.Errorf("export outside the pin returned it: %s", r)
+	}
+	if r := text(call(t, cs, "recall_export", map[string]any{"session_id": ""})); strings.Contains(r, fixture.AppSession) {
+		t.Errorf("an empty ID reached outside the pin: %s", r)
+	}
+	if r := text(call(t, cs, "recall_export", map[string]any{"session_id": fixture.APISession[:4]})); !strings.Contains(r, fixture.APISession) {
+		t.Errorf("export inside the pin: %s", r)
+	}
+
+	var st struct {
+		TotalSessions int64 `json:"totalSessions"`
+	}
+	if err := json.Unmarshal([]byte(text(call(t, cs, "recall_stats", nil))), &st); err != nil || st.TotalSessions != 1 {
+		t.Errorf("stats = %+v (%v), want the pinned session alone", st, err)
+	}
+
+	tools, err := cs.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range tools.Tools {
+		if !strings.Contains(tool.Description, "github.com/acme/api") {
+			t.Errorf("%s does not name the pinned repository: %q", tool.Name, tool.Description)
+		}
+		b, _ := json.Marshal(tool.InputSchema)
+		if strings.Contains(string(b), `\".\" is the directory`) {
+			t.Errorf("%s still suggests repo \".\" on a held server: %s", tool.Name, b)
+		}
+	}
+
+	// A held server runs in a directory of its own, outside the repository:
+	// "." is the held repository, not that directory.
+	t.Chdir(t.TempDir())
+	for _, tool := range []string{"recall_search", "recall_list"} {
+		args := map[string]any{"repo": "."}
+		if tool == "recall_search" {
+			args["query"] = "the"
+		}
+		if got := sessions(tool, args); !only(got) {
+			t.Errorf(`%s repo "." from outside the repository = %v, want the pinned session`, tool, got)
+		}
 	}
 }

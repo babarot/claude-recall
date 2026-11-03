@@ -131,10 +131,25 @@ type ExportedMessage struct {
 // ExportSession finds a session by ID or ID prefix and returns it with all
 // of its messages. The session is nil when nothing matches.
 func (d *DB) ExportSession(id string) (*ExportedSession, []ExportedMessage, error) {
+	return d.ExportSessionIn(id, nil)
+}
+
+// ExportSessionIn is ExportSession among the sessions in every one of
+// scopes: one outside them is not found, though its ID matches.
+func (d *DB) ExportSessionIn(id string, scopes []Scope) (*ExportedSession, []ExportedMessage, error) {
+	remoteCol, err := d.optionalColumn("remote", "remote")
+	if err != nil {
+		return nil, nil, fmt.Errorf("export: %w", err)
+	}
+	conds, args := scopeConds(remoteCol, "project_path", scopes)
+	where := "(session_id = ? OR session_id LIKE ?)"
+	if len(conds) > 0 {
+		where += " AND " + strings.Join(conds, " AND ")
+	}
 	var s ExportedSession
-	err := d.sql.QueryRow(`
+	err = d.sql.QueryRow(`
         SELECT session_id, project, project_path, git_branch, started_at, first_prompt, summary
-        FROM sessions WHERE session_id = ? OR session_id LIKE ?`, id, id+"%").
+        FROM sessions WHERE `+where, append([]any{id, id + "%"}, args...)...).
 		Scan(&s.SessionID, &s.Project, &s.ProjectPath, &s.GitBranch, &s.StartedAt, &s.FirstPrompt, &s.Summary)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, []ExportedMessage{}, nil
@@ -187,10 +202,24 @@ type Stats struct {
 
 // Stats counts sessions and messages overall, per project and per month.
 func (d *DB) Stats(project string) (*Stats, error) {
-	filter, args := "", []any{}
+	return d.StatsIn(project, nil)
+}
+
+// StatsIn is Stats of the sessions in every one of scopes. The size of the
+// database is still the whole archive's.
+func (d *DB) StatsIn(project string, scopes []Scope) (*Stats, error) {
+	remoteCol, err := d.optionalColumn("remote", "remote")
+	if err != nil {
+		return nil, fmt.Errorf("stats: %w", err)
+	}
+	conds, args := scopeConds(remoteCol, "project_path", scopes)
 	if project != "" {
-		filter = "WHERE (project LIKE ? OR project_path LIKE ?)"
-		args = []any{"%" + project + "%", "%" + project + "%"}
+		conds = append(conds, "(project LIKE ? OR project_path LIKE ?)")
+		args = append(args, "%"+project+"%", "%"+project+"%")
+	}
+	filter := ""
+	if len(conds) > 0 {
+		filter = "WHERE " + strings.Join(conds, " AND ")
 	}
 	var s Stats
 	if err := d.sql.QueryRow(`SELECT COUNT(DISTINCT session_id), COALESCE(SUM(message_count), 0)

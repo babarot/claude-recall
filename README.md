@@ -59,6 +59,8 @@ It also offers one prompt, `recap`, which has Claude read where a session ended,
 
 A session ID from the TUI (`y`) works too: "look up session a1b2c3 with claude-recall and continue from there".
 
+`recall mcp --repo <remote-or-dir>` holds every tool to one repository, for a Claude that reads text someone else wrote, such as a pull request under review, and could be told to look elsewhere. Search and list return only that repository's sessions whatever `repo` asks for, export does not find a session outside it, and stats count only it. The repository is a git remote (`https://github.com/owner/repo`), or a directory whose origin is read when the server starts. See [ADR-005](docs/adr/005-repository-by-remote.md).
+
 ### TUI
 
 `recall` lists every archived session with its title, folder (a git worktree is shown under the repository it belongs to), branch, message count, size and ID. Started inside a repository, it shows only that repository's sessions; `.` switches to all of them, and `recall --all` starts with all of them.

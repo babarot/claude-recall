@@ -257,8 +257,9 @@ Run without a command, it opens the TUI.`,
 		Use:   "mcp",
 		Short: "Start the MCP server (stdio transport)",
 		Args:  cobra.NoArgs,
-		RunE:  func(*cobra.Command, []string) error { return runMCP(o) },
+		RunE:  func(c *cobra.Command, _ []string) error { return runMCP(o, c.Flags().Changed("repo")) },
 	}
+	mcpCmd.Flags().StringVar(&o.repo, "repo", "", "hold every tool to one repository: a git remote, or a directory in it")
 
 	uiCmd := &cobra.Command{
 		Use:   "ui",
@@ -529,7 +530,17 @@ func runStats(o *options, stdout io.Writer) error {
 	return nil
 }
 
-func runMCP(o *options) error {
+// runMCP serves MCP, held to the repository of --repo when pinned says it
+// was given: a --repo given as "" is refused, not taken for none.
+func runMCP(o *options, pinned bool) error {
+	var pin *repos.Pin
+	if pinned {
+		p, err := repos.NewPin(o.repo)
+		if err != nil {
+			return err
+		}
+		pin = &p
+	}
 	d, err := openWrite(o)
 	if err != nil {
 		return err
@@ -552,7 +563,7 @@ func runMCP(o *options) error {
 			}}).Run(ctx)
 		}, os.Stderr)
 	})
-	err = mcp.Run(ctx, d)
+	err = mcp.Run(ctx, d, pin)
 	// Let the lock go before exiting, so the next process takes over at
 	// its next look.
 	cancel()
