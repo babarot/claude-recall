@@ -110,6 +110,38 @@ export interface Find {
   snippets?: Record<string, Snippet>;
 }
 
+/** A session as the Stats page reads it (internal/api.V2StatSession). */
+export interface StatSession {
+  id: string;
+  title: string;
+  startedAt: string | null;
+  groupKey: string;
+  groupName: string;
+  /** Time worked in: the gaps between messages, leaving out those over 15 minutes. */
+  activeMinutes: number;
+  messages: number;
+  /** The model with the most output; absent without usage. */
+  model?: string;
+  /** By model: input, output, cache read, cache written for 5 minutes and for an hour. */
+  tokens: Record<string, [number, number, number, number, number]>;
+  cost: number;
+  costPartial?: boolean;
+  /** By tool: calls, failed, with a known outcome. */
+  tools: Record<string, [number, number, number]>;
+  programs: Count[];
+  files: { path: string; read: number; edited: number }[];
+  interrupted?: boolean;
+}
+
+/** /api/v2/stats (internal/api.V2Stats). */
+export interface Stats {
+  sessions: StatSession[];
+  categories: Record<string, string>;
+  /** By model, in dollars per token, as tokens are listed. */
+  prices: Record<string, [number, number, number, number, number]>;
+  unknownTokens: number;
+}
+
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(path, { signal });
   if (!res.ok) {
@@ -149,5 +181,6 @@ export const api = {
   find: (q: string, text: boolean, signal?: AbortSignal) =>
     get<Find>(`/api/v2/find?q=${enc(q)}${text ? "&text=1" : ""}`, signal),
   theme: () => get<Theme>("/api/v2/theme"),
+  stats: (since: Date, signal?: AbortSignal) => get<Stats>(`/api/v2/stats?since=${enc(since.toISOString().replace(/\.\d+Z$/, "Z"))}`, signal),
   status: () => get<{ version: string; watcher: { running: boolean } }>("/api/status"),
 };
