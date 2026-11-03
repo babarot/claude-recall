@@ -104,8 +104,8 @@ func TestV2Stats(t *testing.T) {
 	if x.Model != "claude-opus-5-5" || x.Tokens["claude-opus-5-5"] != [5]int64{2000, 200} || x.Tokens["claude-haiku-5-5"] != [5]int64{1000, 10} {
 		t.Errorf("model %q tokens %v", x.Model, x.Tokens)
 	}
-	// Opus at the config's price, Haiku at its family's.
-	want := 2000*10e-6 + 200*100e-6 + 1000*1e-6 + 10*5e-6
+	// Opus at the config's price, Haiku at the price list's.
+	want := 2000*10e-6 + 200*100e-6 + 1000*0.1e-6 + 10*0.5e-6
 	if math.Abs(x.Cost-want) > 1e-12 || x.CostPartial {
 		t.Errorf("cost %v (partial %v), want %v", x.Cost, x.CostPartial, want)
 	}

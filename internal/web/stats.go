@@ -3,6 +3,7 @@ package web
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -139,7 +140,7 @@ func (s *Server) v2Stats(w http.ResponseWriter, since string) error {
 	for i, r := range picked {
 		ids[i] = r.s.ID
 	}
-	usage, err := s.DB.UsageByModel(ids)
+	usage, err := s.DB.UsageByModel(ids, pricing.LongPrompt)
 	if err != nil {
 		return err
 	}
@@ -156,18 +157,26 @@ func (s *Server) v2Stats(w http.ResponseWriter, since string) error {
 		if x.Files == nil {
 			x.Files = []api.V2StatFile{}
 		}
-		var most int64 = -1
 		for _, u := range usage[r.s.ID] {
 			t := pricing.Tokens{u.Input, u.Output, u.CacheRead, u.CacheWrite5m, u.CacheWrite1h}
-			x.Tokens[u.Model] = t
-			if u.Output > most {
-				x.Model, most = u.Model, u.Output
+			sum := x.Tokens[u.Model]
+			for i := range sum {
+				sum[i] += t[i]
 			}
-			if rates, ok := s.Prices.Rates(u.Model); ok {
+			x.Tokens[u.Model] = sum
+			if rates, ok := s.Prices.Rates(u.Model, pricing.Request{Fast: u.Fast, Long: u.Long}); ok {
 				x.Cost += rates.Cost(t)
-				out.Prices[u.Model] = rates
+				if usual, ok := s.Prices.Rates(u.Model, pricing.Request{}); ok {
+					out.Prices[u.Model] = usual
+				}
 			} else {
 				x.CostPartial = true
+			}
+		}
+		var most int64 = -1
+		for _, m := range slices.Sorted(maps.Keys(x.Tokens)) {
+			if n := x.Tokens[m][1]; n > most {
+				x.Model, most = m, n
 			}
 		}
 		if len(usage[r.s.ID]) == 0 {

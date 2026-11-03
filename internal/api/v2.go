@@ -308,7 +308,8 @@ type V2Stats struct {
 	Categories map[string]string `json:"categories"`
 	// Prices are the rates of the models of the sessions whose price is
 	// known, in dollars per token: input, output, cache read, cache written
-	// for 5 minutes and for an hour.
+	// for 5 minutes and for an hour. They are the usual ones; responses in
+	// fast mode or with a long prompt can cost more, which Cost counts.
 	Prices map[string][5]float64 `json:"prices"`
 	// UnknownTokens is how many of the sessions have no usage: stored
 	// before it was, with their transcript gone since.

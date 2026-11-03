@@ -131,7 +131,7 @@ type UI struct {
 	// Port is where recall ui listens, and where ui stop and ui status look.
 	Port int `toml:"port"`
 	// Prices are the list prices, by model ID, the Stats page estimates
-	// costs with, over pricing's defaults for each family.
+	// costs with, over pricing's price list.
 	Prices map[string]pricing.Price `toml:"prices"`
 }
 
@@ -275,11 +275,12 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # recall ui status look for it, unless --port says otherwise.
 # port = 6276
 # The Stats page estimates what the tokens cost at the Claude API's list
-# prices, in US dollars per million tokens. Opus, Sonnet and Haiku have
-# defaults; set the price of a model that has none, or a newer price, by its
-# model ID, such as { "claude-opus-5-5" = { input = 5, output = 25 } }.
-# Cache reads are priced at a tenth of input, cache writes at 1.25 times input
-# (5 minutes) or twice (an hour).
+# prices, which recall knows for the models released when it was. Set the
+# price of a newer model, or a newer price, by its model ID in US dollars per
+# million tokens, such as { "claude-opus-5-5" = { input = 4, output = 20 } }.
+# Cache writes are priced at 1.25 times input (5 minutes) or twice (an hour),
+# and cache reads at the model's share of input (a tenth unless the price list
+# says otherwise).
 # prices = {}
 
 [tui]

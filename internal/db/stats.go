@@ -165,15 +165,19 @@ func (d *DB) sessionFacts(ids []string, out map[string]*SessionFacts) error {
 }
 
 // ModelUsage is the tokens a session used with one model, its subagents'
-// included.
+// included, in responses of one kind: in fast mode or not, and with a long
+// prompt or not.
 type ModelUsage struct {
 	Model                                                string
+	Fast, Long                                           bool
 	Input, Output, CacheRead, CacheWrite5m, CacheWrite1h int64
 }
 
-// UsageByModel sums the usage of the sessions ids by model. It is empty on
-// an archive opened read-only before usage was stored.
-func (d *DB) UsageByModel(ids []string) (map[string][]ModelUsage, error) {
+// UsageByModel sums the usage of the sessions ids by model and kind of
+// response; a long prompt is one of over longPrompt tokens, cache reads and
+// writes included. It is empty on an archive opened read-only before usage
+// was stored.
+func (d *DB) UsageByModel(ids []string, longPrompt int64) (map[string][]ModelUsage, error) {
 	out := map[string][]ModelUsage{}
 	var n int
 	if err := d.sql.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'usage'`).Scan(&n); err != nil || n == 0 {
@@ -181,15 +185,17 @@ func (d *DB) UsageByModel(ids []string) (map[string][]ModelUsage, error) {
 	}
 	for len(ids) > 0 {
 		k := min(len(ids), statsChunk)
-		rows, err := d.sql.Query(`SELECT session_id, model, SUM(input), SUM(output), SUM(cache_read), SUM(cache_write_5m), SUM(cache_write_1h)
-          FROM usage WHERE session_id IN (`+placeholders(k)+`) GROUP BY session_id, model ORDER BY session_id, model`, idArgs(ids[:k])...)
+		args := append([]any{longPrompt}, idArgs(ids[:k])...)
+		rows, err := d.sql.Query(`SELECT session_id, model, speed = 'fast', input + cache_read + cache_write_5m + cache_write_1h > ?,
+                 SUM(input), SUM(output), SUM(cache_read), SUM(cache_write_5m), SUM(cache_write_1h)
+          FROM usage WHERE session_id IN (`+placeholders(k)+`) GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3, 4`, args...)
 		if err != nil {
 			return nil, fmt.Errorf("usage by model: %w", err)
 		}
 		for rows.Next() {
 			var id string
 			var u ModelUsage
-			if err := rows.Scan(&id, &u.Model, &u.Input, &u.Output, &u.CacheRead, &u.CacheWrite5m, &u.CacheWrite1h); err != nil {
+			if err := rows.Scan(&id, &u.Model, &u.Fast, &u.Long, &u.Input, &u.Output, &u.CacheRead, &u.CacheWrite5m, &u.CacheWrite1h); err != nil {
 				rows.Close()
 				return nil, fmt.Errorf("usage by model: %w", err)
 			}

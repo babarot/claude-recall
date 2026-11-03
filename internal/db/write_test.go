@@ -69,3 +69,35 @@ func TestReplaceSessionKeepsUsage(t *testing.T) {
 		}
 	}
 }
+
+// Usage is summed by model and by kind of response: fast mode, and prompts
+// over the length given.
+func TestUsageByModel(t *testing.T) {
+	d := newTestDB(t)
+	u := func(id, model, speed string, input int64) UsageRow {
+		return UsageRow{MessageID: id, Model: model, Speed: speed, Input: input, Output: 1}
+	}
+	if err := d.ReplaceSession(SessionRow{SessionID: "s1", Project: "p"}, nil, nil, []UsageRow{
+		u("m1", "a", "standard", 10), u("m2", "a", "standard", 20), u("m3", "a", "fast", 30), u("m4", "a", "standard", 500), u("m5", "b", "standard", 1),
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err := d.UsageByModel([]string{"s1", "none"}, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ModelUsage{
+		{Model: "a", Input: 30, Output: 2},
+		{Model: "a", Long: true, Input: 500, Output: 1},
+		{Model: "a", Fast: true, Input: 30, Output: 1},
+		{Model: "b", Input: 1, Output: 1},
+	}
+	if len(got) != 1 || len(got["s1"]) != len(want) {
+		t.Fatalf("got %+v", got)
+	}
+	for i, w := range want {
+		if got["s1"][i] != w {
+			t.Errorf("[%d] = %+v, want %+v", i, got["s1"][i], w)
+		}
+	}
+}
