@@ -278,7 +278,6 @@ func askBox() *modalBox {
 			return "Ask Claude"
 		},
 		width: askWidth, minWidth: 30,
-		frame: frameAccent,
 		lines: func(m Model, inner, rows int) []boxLine {
 			body := m.askLines(inner, rows)
 			out := make([]boxLine, len(body))

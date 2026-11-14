@@ -206,3 +206,30 @@ func TestShrink(t *testing.T) {
 		t.Fatalf("a flat image should stay flat, got %#x", r>>8)
 	}
 }
+
+// Under a modal the reading view is dimmed, but its image keeps the cells
+// that draw it, in the color that names it.
+func TestImageStaysUnderAModal(t *testing.T) {
+	m, src := newImageModel(t, true)
+	m = press(t, m, "space")
+	k := imageKey{m.current().s.ID, "u1", 0}
+	m = update(t, m, loadImage(src, k))
+	before := imageRun.FindAllString(m.render(), -1)
+	if len(before) == 0 {
+		t.Fatalf("no image rows in the reading view:\n%s", ansi.Strip(m.render()))
+	}
+	m = press(t, m, "s")
+	under := m.render()
+	kept := 0
+	for _, r := range before {
+		if strings.Contains(under, r) {
+			kept++
+		}
+	}
+	// The rows behind the box are covered; every other row is kept whole.
+	s, _ := m.openModal()
+	r, _ := m.boxRect(s)
+	if kept == 0 || kept < len(before)-r.h {
+		t.Errorf("%d of %d image rows kept under the sort menu (%d rows tall)", kept, len(before), r.h)
+	}
+}
