@@ -167,3 +167,32 @@ func TestCursorMovedBack(t *testing.T) {
 		t.Errorf("left of the cursor: %q", left)
 	}
 }
+
+// In a field, scrolled or not, a character typed goes in at the cell the
+// cursor stands on, wherever the cursor was moved to, also when the text
+// repeats, so that what is shown could start at several places in it, and
+// when it holds wide characters.
+func TestTypedWhereTheCursorStands(t *testing.T) {
+	for _, text := range []string{strings.Repeat("a", 36), strings.Repeat("あいうえおabc", 4), "abc"} {
+		for _, st := range []uiState{uiFolderSearch, uiFilter} {
+			typed := typeText(t, typingCases(t)[st], text)
+			for back := range len([]rune(text)) + 1 {
+				m := typed
+				for range back {
+					m = update(t, m, tea.KeyPressMsg{Code: tea.KeyLeft})
+				}
+				_, cur := m.renderWithCursor()
+				if cur == nil {
+					t.Fatalf("%s, %q, %d back: no cursor", st, text, back)
+				}
+				s, after := typeText(t, m, "Z").renderWithCursor()
+				line := ansi.Strip(strings.Split(s, "\n")[cur.Y])
+				// Typed at the end, the field may scroll on: Z is then
+				// right before the cursor that follows it.
+				if got := ansi.Cut(line, cur.X, cur.X+1); got != "Z" && (back > 0 || !strings.HasSuffix(ansi.Truncate(line, after.X, ""), "Z")) {
+					t.Errorf("%s, %q, %d back: Z typed at cell %d is not drawn there: %q", st, text, back, cur.X, line)
+				}
+			}
+		}
+	}
+}

@@ -35,30 +35,41 @@ func (m Model) inputView(state uiState, in textinput.Model) string {
 	if m.uiState() != state || !in.Focused() {
 		return v
 	}
-	x := cursorX(in, v)
+	x := cursorX(in)
 	return ansi.Truncate(v, x, "") + cursorMark + ansi.TruncateLeft(v, x, "")
 }
 
-// cursorX is the cell in v, in's view, that in's cursor stands on. It is
-// counted in cells, not taken from in.Cursor(), which counts the runes
-// before the cursor: after あ it would stand a cell short, in the middle of
-// the character.
+// cursorX is the cell in in's view that its cursor stands on. It is not
+// taken from in.Cursor(), which counts the runes before the cursor, a cell
+// short after each wide character such as あ, and leaves out how far a text
+// wider than the field is scrolled, which textinput does not tell.
 //
-// A text wider than the field is scrolled, and v shows only part of it,
-// from a place textinput does not tell. The cursor stands after the
-// longest run of text ending at the cursor that v starts with.
-func cursorX(in textinput.Model, v string) int {
+// A copy of in is drawn with a character of no width at the cursor, and
+// the cursor stands where that character is drawn. textinput scrolls by
+// the width of the text, which the character does not change, so the copy
+// shows the same part of the text as in. When the cursor stands just past
+// the last character shown, as it does while typing at the end of a
+// scrolled field, the character is past what the copy shows; the copy's
+// cursor is then put after it, which textinput scrolls to from the text
+// before the cursor alone, as it did for in.
+func cursorX(in textinput.Model) int {
 	val := []rune(in.Value())
 	pos := min(in.Position(), len(val))
-	pw := ansi.StringWidth(in.Prompt)
-	shown := ansi.Strip(ansi.TruncateLeft(v, pw, ""))
-	for from := range pos + 1 {
-		if before := string(val[from:pos]); strings.HasPrefix(shown, before) {
-			return pw + ansi.StringWidth(before)
-		}
+	c := in
+	c.SetValue(string(val[:pos]) + noWidth + string(val[pos:]))
+	if before, _, ok := strings.Cut(c.View(), noWidth); ok {
+		return ansi.StringWidth(before)
 	}
-	return pw
+	c.SetCursor(pos + 1)
+	if before, _, ok := strings.Cut(c.View(), noWidth); ok {
+		return ansi.StringWidth(before)
+	}
+	return ansi.StringWidth(in.Prompt) + ansi.StringWidth(string(val[:pos]))
 }
+
+// noWidth is the character cursorX draws at the cursor: a zero width
+// space, which takes no cell and is not typed in a search.
+const noWidth = "\u200b"
 
 // typingInput is the field the keys go to, if one is.
 func (m Model) typingInput() (textinput.Model, bool) {
