@@ -362,8 +362,22 @@ func (m *Model) placeModal() {
 	if m.modalTop != 0 {
 		return
 	}
-	h := len(s.box.lines(*m, m.boxWidth(s.box)-4, m.boxRows())) + 2
+	h := len(m.boxLines(s.box, m.boxWidth(s.box)-4, m.boxRows())) + 2
 	m.modalTop = max(modalTopMost, min(m.height/4, (m.height-h)/2))
+}
+
+// boxLines are the box's rows, inner cells wide, at most rows of them: a
+// modal whose rows run past them (a long failure of Ask) is cut, its last
+// row saying there is more, so the box never covers the status line and
+// the footer.
+func (m Model) boxLines(b *modalBox, inner, rows int) []boxLine {
+	ls := b.lines(m, inner, rows)
+	if len(ls) <= rows {
+		return ls
+	}
+	ls = slices.Clone(ls[:rows])
+	ls[rows-1] = boxLine{text: m.st.muted.Render(ellipsis)}
+	return ls
 }
 
 // boxWidth is how wide the box is drawn on this terminal.
@@ -380,7 +394,7 @@ func (m Model) boxRect(s modalSpec) (rect, bool) {
 		return rect{}, false
 	}
 	w := m.boxWidth(b)
-	h := len(b.lines(m, w-4, m.boxRows())) + 2
+	h := len(m.boxLines(b, w-4, m.boxRows())) + 2
 	return rect{(m.width - w) / 2, m.modalRow(), w, h}, true
 }
 
@@ -401,7 +415,7 @@ func (m Model) drawBox(s modalSpec, w, rows int) []string {
 	title, hint := " "+b.title(m)+" ", " "+hint+" "
 	fill := max(0, w-4-ansi.StringWidth(title)-ansi.StringWidth(hint))
 	out := []string{border.Render("╭─") + m.st.key.Render(title) + border.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + border.Render("─╮")}
-	for _, l := range b.lines(m, inner, rows) {
+	for _, l := range m.boxLines(b, inner, rows) {
 		text := ansi.Truncate(l.text, inner, ellipsis)
 		pad := strings.Repeat(" ", max(0, inner-ansi.StringWidth(text)))
 		if l.selected {

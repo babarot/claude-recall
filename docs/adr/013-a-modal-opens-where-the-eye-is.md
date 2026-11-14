@@ -14,11 +14,11 @@ gh-desk places its popups by one rule (its ADR-127): a quarter down the screen, 
 
 - When a modal opens with none showing, its box is placed a quarter down the terminal. A box tall enough that, placed there, it would leave less room under it than above it is placed higher, centered, and never above the third row. A box never sits lower than centered.
 - The row is decided once, by the height the box has when it opens. It holds while a modal shows: a modal taking the place of another opens on the same row, and a box whose height changes grows or shrinks downward from it. It is decided again on a resize, and when a modal opens after all have closed.
-- A box holds the rows from its row down to above the status line and the footer, which stay in sight under it.
+- A box holds the rows from its row down to above the status line and the footer, which stay in sight under it. Rows past them are cut, the last saying there is more.
 - The row is decided after each message is taken in, once the modal opened has the state its box is drawn from.
 - The quarter is a constant, not a setting.
 - This replaces "placement" among what a modal's declaration holds, in ADR-012: no declaration says where its box goes.
-- Rejected: every box a quarter down. A tall box (the key list) would run past the bottom, with more space above it than under it.
+- Rejected: every box a quarter down. A tall box (the key list) would be cut at the bottom and lose lines it shows now, with more space above it than under it.
 - Rejected: centering each box by its height while it shows. It moves whenever its height changes.
 - Rejected: deciding the row inside the function that opens a modal. The openers set the modal's state after opening it, so the box measured there is not the one drawn.
 

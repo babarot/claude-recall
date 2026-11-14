@@ -4,9 +4,11 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
 )
@@ -118,7 +120,7 @@ func TestModalGoKnowsNoModal(t *testing.T) {
 		"closeModal": true, "openModal": true, "modalTop": true,
 		// modal.go's own methods.
 		"modalKeyFor": true, "typeInModal": true, "edgeHint": true,
-		"modalRow": true, "placeModal": true, "boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true, "wheelModal": true,
+		"modalRow": true, "placeModal": true, "boxLines": true, "boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true, "wheelModal": true,
 	}
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "modal.go", nil, 0)
@@ -271,5 +273,26 @@ func TestModalRowHolds(t *testing.T) {
 	m = update(t, m, tea.WindowSizeMsg{Width: 140, Height: 24})
 	if m.modalTop != 24/4 {
 		t.Errorf("resized to 24 rows: row %d, want %d", m.modalTop, 24/4)
+	}
+}
+
+// A box whose rows run past what it may hold is cut there: Ask's failure,
+// however long, leaves the status line and the footer in sight.
+func TestBoxStopsAboveTheStatusLine(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 24)
+	m = press(t, m, "a")
+	m.ask.stage, m.ask.question = askFailed, "parser"
+	m.ask.err = strings.Repeat("claude said something went wrong. ", 120)
+	s, _ := m.openModal()
+	r, _ := m.boxRect(s)
+	if bottom := r.y + r.h; bottom > m.height-2 {
+		t.Errorf("the box ends on row %d, over the status line on %d", bottom-1, m.height-2)
+	}
+	lines := strings.Split(m.render(), "\n")
+	if got := ansi.Strip(lines[m.height-1]); !strings.Contains(got, "esc") {
+		t.Errorf("the footer is covered: %q", got)
+	}
+	if len(m.drawBox(s, r.w, m.boxRows())) != r.h {
+		t.Errorf("drawn %d rows, placed as %d", len(m.drawBox(s, r.w, m.boxRows())), r.h)
 	}
 }
