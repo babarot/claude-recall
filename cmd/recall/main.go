@@ -635,8 +635,19 @@ func runMCP(o *options, pinned bool) error {
 	// its next look.
 	cancel()
 	wg.Wait()
-	return err
+	if err != nil {
+		return connError{err}
+	}
+	return nil
 }
+
+// connError is how the connection to an MCP client ended. The SDK can put
+// what the client sent in it, such as a field it could not read, so the
+// log leaves its words out.
+type connError struct{ err error }
+
+func (e connError) Error() string { return e.err.Error() }
+func (e connError) Unwrap() error { return e.err }
 
 func uiAddr(port int) string { return fmt.Sprintf("http://localhost:%d", port) }
 
@@ -1185,8 +1196,13 @@ func procOf(c *cobra.Command) string {
 // their failures to whoever ran them, and their errors can hold what was
 // searched for.
 func logFailure(o *options, err error) error {
-	if err != nil {
-		o.log.Error("failed", logging.KeyErr, err.Error())
+	if err == nil {
+		return nil
 	}
+	msg := err.Error()
+	if errors.As(err, new(connError)) {
+		msg = "the connection to the MCP client failed (its words are left out: they may hold what the client sent)"
+	}
+	o.log.Error("failed", logging.KeyErr, msg)
 	return err
 }

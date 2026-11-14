@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -661,5 +662,21 @@ func TestLog(t *testing.T) {
 	writeConfig(t, "[core]\nlog_level = \"loud\"\n")
 	if _, err := runArgs("list", "--db", path); err == nil || !strings.Contains(err.Error(), "core.log_level") {
 		t.Errorf("a wrong level: %v", err)
+	}
+}
+
+// The end of an MCP connection is logged without its words, which can hold
+// what the client sent.
+func TestConnErrorLeftOut(t *testing.T) {
+	var log bytes.Buffer
+	o := &options{log: logging.New(&log, slog.LevelInfo)}
+	err := logFailure(o, connError{errors.New(`invalid message version tag "a secret question"; expected "2.0"`)})
+	if err == nil || !strings.Contains(log.String(), `"msg":"failed"`) || strings.Contains(log.String(), "secret") {
+		t.Errorf("log:\n%s", log.String())
+	}
+	log.Reset()
+	_ = logFailure(o, errors.New("open the archive: disk full"))
+	if !strings.Contains(log.String(), "disk full") {
+		t.Errorf("a failure to start is not logged with its words:\n%s", log.String())
 	}
 }
