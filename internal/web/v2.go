@@ -13,6 +13,7 @@ import (
 	"github.com/babarot/claude-recall/internal/api"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/filter"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/theme"
@@ -70,6 +71,7 @@ func (s *Server) warm() {
 	defer s.v2.mu.Unlock()
 	if _, err := s.rows(""); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
+		s.logger().Error("reading the sessions failed", logging.KeyErr, err.Error())
 	}
 }
 

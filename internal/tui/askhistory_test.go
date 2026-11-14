@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"bytes"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/askhistory"
 	"github.com/babarot/claude-recall/internal/config"
+	"github.com/babarot/claude-recall/internal/logging"
 )
 
 // fakeStore keeps the questions in memory and records its writes in order.
@@ -367,5 +370,33 @@ func TestAskCompletesOnlyAtTheEnd(t *testing.T) {
 	m = pressCode(t, completeModel(t), tea.KeyUp)
 	if g := m.askGhost(); g != "" {
 		t.Errorf("offered while recalling: %q", g)
+	}
+}
+
+// Ask's result is logged by how many it found and how long it took, never
+// by the question; at debug, a key is logged by the operation it runs.
+func TestAskAndKeysLogged(t *testing.T) {
+	var log bytes.Buffer
+	m := askModel(t, &fakeAsk{hits: []askHit{{"cccccccc", "why"}}}, config.Default().TUI).LogTo(logging.New(&log, slog.LevelDebug))
+	m = askDriven(t, m, "a secret question")
+	if !strings.Contains(log.String(), `"msg":"asked"`) || !strings.Contains(log.String(), `"count":1`) {
+		t.Errorf("Ask's result is not logged:\n%s", log.String())
+	}
+	press(t, pressCode(t, m, tea.KeyEscape), "y")
+	if !strings.Contains(log.String(), `"msg":"key","op":"copy_id"`) {
+		t.Errorf("the key is not logged:\n%s", log.String())
+	}
+	if strings.Contains(log.String(), "secret") {
+		t.Errorf("the question is in the log:\n%s", log.String())
+	}
+}
+
+// What claude says when Ask fails is left out of the log.
+func TestAskFailureLogged(t *testing.T) {
+	var log bytes.Buffer
+	m := askModel(t, &fakeAsk{err: errors.New("claude: the answer about the secret")}, config.Default().TUI).LogTo(logging.New(&log, slog.LevelDebug))
+	askDriven(t, m, "q")
+	if !strings.Contains(log.String(), `"msg":"ask failed"`) || strings.Contains(log.String(), "secret") {
+		t.Errorf("log:\n%s", log.String())
 	}
 }

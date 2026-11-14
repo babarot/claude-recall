@@ -7,15 +7,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/babarot/claude-recall/internal/api"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/repos"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/worktree"
@@ -150,6 +153,9 @@ type Handlers struct {
 	// Pin, when not nil, holds every tool to one repository: what a
 	// client asks for narrows within it and never widens it.
 	Pin *repos.Pin
+	// Log is where each call is told, by the tool's name, never by what
+	// it was asked; none when nil.
+	Log *slog.Logger
 }
 
 // scopes is the repositories a call narrows to: the pinned one, if any,
@@ -255,7 +261,9 @@ func (h Handlers) handler(name string) mcp.ToolHandler {
 				a = args{}
 			}
 		}
+		start := time.Now()
 		result, err := h.Call(name, a)
+		h.logCall(name, start, err)
 		if err != nil {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: "Error: " + err.Error()}}}, nil
 		}
@@ -307,9 +315,11 @@ func handleRecap(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptRe
 
 // NewServer returns the MCP server with the four tools and the prompt,
 // held to one repository when pin is not nil.
-func NewServer(d *db.DB, pin *repos.Pin) *mcp.Server {
+func NewServer(d *db.DB, pin *repos.Pin) *mcp.Server { return newServer(d, pin, nil) }
+
+func newServer(d *db.DB, pin *repos.Pin, log *slog.Logger) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "claude-recall", Version: version.Version}, nil)
-	h := Handlers{DB: d, Pin: pin}
+	h := Handlers{DB: d, Pin: pin, Log: log}
 	for _, t := range []*mcp.Tool{searchTool, listTool, exportTool, statsTool} {
 		if pin != nil {
 			t = pinnedTool(t, *pin)
@@ -321,7 +331,26 @@ func NewServer(d *db.DB, pin *repos.Pin) *mcp.Server {
 }
 
 // Run serves MCP over stdin and stdout until the client disconnects, held
-// to one repository when pin is not nil.
-func Run(ctx context.Context, d *db.DB, pin *repos.Pin) error {
-	return NewServer(d, pin).Run(ctx, &mcp.StdioTransport{})
+// to one repository when pin is not nil, telling each call on log.
+func Run(ctx context.Context, d *db.DB, pin *repos.Pin, log *slog.Logger) error {
+	return newServer(d, pin, log).Run(ctx, &mcp.StdioTransport{})
+}
+
+// logCall tells a call by the tool's name and how long it took, never by
+// what it was asked. The error of a search is left out, since it may hold
+// the words searched for.
+func (h Handlers) logCall(name string, start time.Time, err error) {
+	if h.Log == nil {
+		return
+	}
+	attrs := []any{logging.KeyTool, name, logging.KeyDurationMS, time.Since(start).Milliseconds()}
+	if err != nil {
+		msg := err.Error()
+		if name == "recall_search" {
+			msg = "(left out: it may hold the words searched for)"
+		}
+		h.Log.Warn("tool failed", append(attrs, logging.KeyErr, msg)...)
+		return
+	}
+	h.Log.Debug("tool", attrs...)
 }

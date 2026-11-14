@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
 	"github.com/babarot/claude-recall/internal/jscompat"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/pricing"
 	"github.com/babarot/claude-recall/internal/version"
 	"github.com/babarot/claude-recall/internal/watcher"
@@ -118,6 +120,9 @@ type Server struct {
 	Theme string
 	// Prices estimate what the tokens of a session cost.
 	Prices pricing.Table
+	// Log is where the server says what it does and what failed; none
+	// when nil. Words searched for are never logged.
+	Log *slog.Logger
 
 	trees []string
 	port  int
@@ -147,6 +152,12 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		s.port = a.Port
 	}
 	srv := &http.Server{Handler: s}
+	log := s.logger()
+	if s.Watcher != nil && s.Watcher.Logger == nil {
+		s.Watcher.Logger = log
+	}
+	log.Info("serving", logging.KeyPort, s.port)
+	defer log.Info("stopped serving", logging.KeyPort, s.port)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -230,11 +241,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/api/v2/"):
 		if err := s.v2API(w, r, path); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
+			s.logFailed(r, err)
 			internalError(w)
 		}
 	case strings.HasPrefix(path, "/api/"):
 		if err := s.api(w, r, path); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
+			s.logFailed(r, err)
 			internalError(w)
 		}
 	default:
@@ -465,4 +478,22 @@ func serveAsset(w http.ResponseWriter, path string) {
 		return
 	}
 	text(w, http.StatusNotFound, "Not Found")
+}
+
+func (s *Server) logger() *slog.Logger {
+	if s.Log == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return s.Log
+}
+
+// logFailed logs a request the API failed, by its path alone: the query
+// string holds the words searched for, and so may the error of a search,
+// which is left out for that reason.
+func (s *Server) logFailed(r *http.Request, err error) {
+	msg := err.Error()
+	if strings.Contains(r.URL.Path, "search") || r.URL.Query().Has("q") {
+		msg = "(left out: it may hold the words searched for)"
+	}
+	s.logger().Error("request failed", logging.KeyPath, r.URL.Path, logging.KeyErr, msg)
 }

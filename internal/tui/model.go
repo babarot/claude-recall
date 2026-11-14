@@ -4,6 +4,7 @@ package tui
 
 import (
 	"cmp"
+	"log/slog"
 	"os"
 	"os/exec"
 	"runtime"
@@ -19,6 +20,7 @@ import (
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/filter"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/resume"
 	"github.com/babarot/claude-recall/internal/theme"
@@ -180,9 +182,13 @@ type Model struct {
 	// newSettings are the settings it added, told of then.
 	updated     bool
 	newSettings []string
-	reasons     map[string]string
-	asked       map[string]int
-	askedFor    string
+	// log is where the TUI tells what it does: Ask's results, and at
+	// debug the actions keys run, by name. What is typed, asked or said
+	// is never logged.
+	log      *slog.Logger
+	reasons  map[string]string
+	asked    map[string]int
+	askedFor string
 	// sortMenu is set while the sort menu shows, sortSel its highlight.
 	sortMenu bool
 	sortSel  int
@@ -672,6 +678,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case uiConvSearch:
 			return m.updateConvSearch(msg)
 		}
+		if op := m.actionOf(msg); op != "" {
+			m.logger().Debug("key", logging.KeyOp, op, logging.KeySession, m.currentID())
+		}
 		if st.opensHelp() && key.Matches(msg, m.km.Global.Help) {
 			m.helpOpen = true
 			return m, nil
@@ -1075,4 +1084,37 @@ func (m *Model) click(x, y int) {
 		m.focus = focusList
 		m.clamp()
 	}
+}
+
+// LogTo has the TUI tell what it does on log.
+func (m Model) LogTo(log *slog.Logger) Model {
+	m.log = log
+	return m
+}
+
+func (m Model) logger() *slog.Logger {
+	if m.log == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return m.log
+}
+
+// actionOf is the operation a key runs in the pane that has the focus, by
+// the name the config file gives it, or empty for none.
+func (m Model) actionOf(msg tea.KeyPressMsg) string {
+	ops := m.km.byName()
+	for _, name := range opsIn(m.keyContext()) {
+		if key.Matches(msg, ops[name]) {
+			return name
+		}
+	}
+	return ""
+}
+
+// currentID is the ID of the session under the cursor, or empty.
+func (m *Model) currentID() string {
+	if r := m.current(); r != nil {
+		return r.s.ID
+	}
+	return ""
 }

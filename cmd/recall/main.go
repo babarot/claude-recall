@@ -630,7 +630,7 @@ func runMCP(o *options, pinned bool) error {
 			}}).Run(ctx)
 		}, os.Stderr, o.log)
 	})
-	err = mcp.Run(ctx, d, pin)
+	err = mcp.Run(ctx, d, pin, o.log)
 	// Let the lock go before exiting, so the next process takes over at
 	// its next look.
 	cancel()
@@ -728,6 +728,7 @@ func serveUI(o *options, stdout io.Writer) error {
 	defer stop()
 	s := web.New(d, o.trees...)
 	s.Shutdown = stop
+	s.Log = o.log
 	// A session recalled in a new claude gets this recall's MCP server on
 	// the same database, as from the TUI.
 	s.Theme = o.theme
@@ -861,6 +862,7 @@ func runUpdate(o *options, stdout, stderr io.Writer) error {
 	// The TUI and recall version read it, so they stop telling of a
 	// release right after this one installs it.
 	_ = update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now(), Latest: latest})
+	o.log.Debug("looked for a release", logging.KeyLatest, latest)
 	newer, err := update.Newer(latest, version.Version)
 	if err != nil {
 		return err
@@ -881,11 +883,14 @@ func runUpdate(o *options, stdout, stderr io.Writer) error {
 	fmt.Fprintf(stdout, "Updating recall %s → %s...\n", version.Version, latest)
 	err = releases.Apply(ctx, latest, asset, exe, func(p string) error { return runsAs(p, latest) })
 	if errors.Is(err, update.ErrNotPublished) {
+		o.log.Warn("update not published yet", logging.KeyLatest, latest)
 		return fmt.Errorf("recall %s is still being published; try again in a few minutes", latest)
 	}
 	if err != nil {
+		o.log.Error("update failed", logging.KeyLatest, latest, logging.KeyErr, err.Error())
 		return err
 	}
+	o.log.Info("updated", logging.KeyFrom, version.Version, logging.KeyTo, latest, logging.KeyPath, exe)
 
 	// The binary is in place by now, so a UI that will not restart is
 	// reported and the update still succeeds.
@@ -1065,7 +1070,7 @@ func runTUI(o *options, c *cobra.Command) error {
 	if r, ok := releaseNotice(cfg.Core.UpdateCheck); ok {
 		model = model.TellOfRelease(r)
 	}
-	model = model.RememberVersionIn(config.LastVersionPath()).NotesFrom(releaseNotes)
+	model = model.RememberVersionIn(config.LastVersionPath()).NotesFrom(releaseNotes).LogTo(o.log)
 	// Recorded on every run, told of only after an update; a failure only
 	// leaves them untold.
 	if added, err := config.RecordSettings(config.SettingsPath(), config.KnownSettings(), version.Version); err == nil {
