@@ -6,7 +6,7 @@ What a modal is in `internal/tui`, the words used for the parts of the screen ar
 
 | Word | What it is | In the code |
 |---|---|---|
-| modal | What opens over the screen and takes every key while it shows, until `esc` closes it, but `ctrl+c`, which quits from anywhere (a running ask stopped first). It is drawn as a box | `modalSpec`, `openModal`, `modalSpecs` in [modal.go](../../internal/tui/modal.go) |
+| modal | What opens over the screen and takes every key while it shows, until `esc` closes it, but `ctrl+c`, which quits from anywhere (a running ask stopped first). It is drawn as a box | `modalSpec` in [modal.go](../../internal/tui/modal.go); each modal's declaration in its own file (`helpSpec`, `sortSpec`, `askTypingSpec` and the like); `specOf` and `openModal` in [uistate.go](../../internal/tui/uistate.go) |
 | box | What a modal is drawn as: its lines inside a rounded frame, with a title and a hint on the top edge. The filter's suggestions and the user's messages in a conversation are drawn in boxes too. In the code and these docs, box is only the drawing: what opens, closes and takes keys is a modal. The user-facing docs call a modal a box | `boxOver` in [ask.go](../../internal/tui/ask.go); the key list, the sort menu and what's new draw their own |
 | edge | The top line of a box, which holds its title and the hint made from the modal's declaration (`edgeHint`); Ask's answer holds the model, the time taken and the cost there instead (`askSummary`) | `edgeHint` in modal.go |
 | overlay | Drawing lines over the screen's lines from a cell on, keeping the screen left and right of them. It is how a modal is put on the screen, and how the filter's suggestions are; it is not a modal | `overlay` in [query.go](../../internal/tui/query.go) |
@@ -21,7 +21,7 @@ The state of the screen, which of these takes the keys, is `uiState` in [uistate
 
 ## The modals
 
-| Modal | `uiState` | Opened by | Parts (see modal.go) | Placed | Width |
+| Modal | `uiState` | Opened by | Parts (its declaration, in its own file) | Placed | Width |
 |---|---|---|---|---|---|
 | key list | `uiHelp` | `help` | none; it does not scroll | centered top to bottom | up to 64 |
 | sort menu | `uiSort` | `sort` | list; own keys `1` to `4` | centered top to bottom (`sortMenuRect`) | up to 44 |
@@ -36,6 +36,12 @@ The state of the screen, which of these takes the keys, is `uiState` in [uistate
 A width is the most a box takes, a constant; a narrower terminal narrows it, and a terminal narrower than a box can be (30 columns, 24 for the sort menu) leaves it undrawn, with the footer still saying how out (`esc` first).
 
 The Ask box keeps one height from typing to running: its body is five rows in both, and the search of the questions fills the same five. The box of the answer grows to the height of the screen, which is why it sits near the top.
+
+## Where a modal is written
+
+- [modal.go](../../internal/tui/modal.go) is the mechanism every modal shares: the declaration's types, the layer that reads keys from it (`modalKeyFor`), the hints (`hints`, `edgeHint`) and what the conflict check takes (`fixedKeys`, `navOps`). It knows no modal: it reaches a `Model` only for the keymap, the key hints and its own methods. `TestModalGoKnowsNoModal` checks it by the names of the parameters and receivers declared as a `Model`, in functions, func literals and package variables; a `Model` reached through another name is left to review.
+- Each modal declares itself in its own file, as a function (`helpSpec` in help.go, `sortSpec` in sortmenu.go, the Ask stages in ask.go and the search in askhistory.go, `recallSpec` in recall.go, `whatsNewSpec` in whatsnew.go). A function, not a package variable: a declaration's funcs reach Model methods, and as variables Go's initialization order would follow them into a cycle as soon as one reached the registry.
+- [uistate.go](../../internal/tui/uistate.go) says which state is which modal (`specOf`), and which modal shows (`Model.modal`, `openModalKind`, `closeModal`). It is the one file that names every modal, as the list of states is. The conflict check in keys.go walks the states through `specOf`, with no Model.
 
 ## How a modal is drawn
 

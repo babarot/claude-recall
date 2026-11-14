@@ -279,9 +279,9 @@ func (m Model) withAsk(screen string) string {
 	q := m.st.filter.Render("› " + m.ask.question)
 	switch m.ask.stage {
 	case askTyping:
-		title, hint = "Ask Claude", m.edgeHint(askTypingSpec)
+		title, hint = "Ask Claude", m.edgeHint(askTypingSpec())
 		if m.askHist.search.open {
-			title, hint = "Ask Claude", m.edgeHint(askSearchSpec)
+			title, hint = "Ask Claude", m.edgeHint(askSearchSpec())
 			body = m.askSearchBody(inner)
 			break
 		}
@@ -292,7 +292,7 @@ func (m Model) withAsk(screen string) string {
 	case askRunning:
 		elapsed := m.now().Sub(m.ask.started)
 		spin := string([]rune(spinFrames)[int(elapsed/(100*time.Millisecond))%len([]rune(spinFrames))])
-		title, hint = "Ask Claude", m.edgeHint(modalSpecs[uiAskRunning])
+		title, hint = "Ask Claude", m.edgeHint(askRunningSpec())
 		body = []string{ansi.Truncate(q, inner, ellipsis),
 			m.st.id.Render(spin) + " " + m.st.subtle.Render("searching…") + m.st.muted.Render(fmt.Sprintf(" %ds", int(elapsed.Seconds())))}
 		// The last few searches, in rows kept for them from the start, so
@@ -331,7 +331,7 @@ func (m Model) withAsk(screen string) string {
 			body = append(body, items[i]...)
 		}
 	case askFailed:
-		title, hint = "Ask Claude", m.edgeHint(modalSpecs[uiAskFailed])
+		title, hint = "Ask Claude", m.edgeHint(askFailedSpec())
 		body = []string{ansi.Truncate(q, inner, ellipsis), ""}
 		for _, l := range wrap(m.ask.err, inner) {
 			body = append(body, m.st.warn.Render(l))
@@ -426,4 +426,73 @@ func (m Model) askUIState() uiState {
 		return uiAskSearch
 	}
 	return map[askStage]uiState{askTyping: uiAskTyping, askRunning: uiAskRunning, askAnswered: uiAskAnswered, askFailed: uiAskFailed}[m.ask.stage]
+}
+
+// askTypingSpec declares Ask while the question is typed.
+func askTypingSpec() modalSpec {
+	return modalSpec{
+		field: func(m *Model) *textinput.Model { return &m.ask.input },
+		history: &modalHistory{
+			older: func(m *Model) { m.recallOlder() },
+			newer: func(m *Model) { m.recallNewer() },
+			leave: func(m *Model) { m.askHist.recall.Leave() },
+			any:   func(m Model) bool { return len(m.askHist.list) > 0 },
+		},
+		own: []modalKey{
+			{keys: []string{"enter"}, word: "ask", edge: true, do: func(m *Model) tea.Cmd { return m.startAsk() }},
+			{keys: []string{"ctrl+r"}, word: "search", edge: true,
+				when: func(m Model) bool { return len(m.askHist.list) > 0 },
+				do:   func(m *Model) tea.Cmd { return m.openAskSearch() }},
+			{keys: []string{"tab"}, word: "complete",
+				when: func(m Model) bool { return m.askGhost() != "" },
+				do:   func(m *Model) tea.Cmd { m.completeAsk(); return nil }},
+			// → at the end of the text fills it in too; elsewhere it moves.
+			{keys: []string{"right"},
+				when: func(m Model) bool { return m.askGhost() != "" },
+				do:   func(m *Model) tea.Cmd { m.completeAsk(); return nil }},
+		},
+		esc: closeKey(func(m *Model) { m.closeAsk() }),
+	}
+}
+
+// askRunningSpec declares Ask while Claude searches: esc stops it.
+func askRunningSpec() modalSpec {
+	return modalSpec{esc: modalKey{keys: []string{"esc"}, word: "cancel", edge: true, do: func(m *Model) tea.Cmd { m.closeAsk(); return nil }}}
+}
+
+// askAnsweredSpec declares Ask with its answer: the sessions found, to open or narrow the list to.
+func askAnsweredSpec() modalSpec {
+	return modalSpec{
+		list: &modalList{
+			len: func(m Model) int { return len(m.ask.hits) },
+			at:  func(m Model) int { return m.ask.sel },
+			set: func(m *Model, i int) { m.ask.sel = i },
+			choose: modalKey{keys: []string{"enter"}, word: "open", do: func(m *Model) tea.Cmd {
+				if len(m.ask.hits) > 0 {
+					m.jumpTo(m.ask.hits[m.ask.sel].id)
+				}
+				m.closeAsk()
+				return nil
+			}},
+		},
+		own: []modalKey{
+			{keys: []string{"f"}, word: "filter the list to these", do: func(m *Model) tea.Cmd {
+				if len(m.ask.hits) > 0 {
+					m.showAsked()
+				}
+				m.closeAsk()
+				return nil
+			}},
+			{keys: []string{"r"}, word: "ask again", do: func(m *Model) tea.Cmd { return m.openAsk() }},
+		},
+		esc: closeKey(func(m *Model) { m.closeAsk() }),
+	}
+}
+
+// askFailedSpec declares Ask after a failure: r or enter asks again.
+func askFailedSpec() modalSpec {
+	return modalSpec{
+		own: []modalKey{{keys: []string{"r", "enter"}, hint: "r", word: "ask again", edge: true, do: func(m *Model) tea.Cmd { return m.openAsk() }}},
+		esc: closeKey(func(m *Model) { m.closeAsk() }),
+	}
 }

@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -93,5 +96,78 @@ func TestOpeningAModalClosesTheOther(t *testing.T) {
 	}
 	if m.ask.cancel != nil || m.ask.seq == seq {
 		t.Error("the ask was left running under the sort menu")
+	}
+}
+
+// modal.go is the mechanism every modal shares, and knows none of them:
+// it reaches a Model only for the keymap, the key hints and its own
+// methods, never a modal's fields. The test reads names, not types: it
+// follows the parameters and receivers declared as Model or *Model, in
+// functions, func literals and package variables alike, and would miss a
+// Model reached through another name, which review is left to catch. A modal declares itself in its own
+// file, and uistate.go says which state is which modal.
+func TestModalGoKnowsNoModal(t *testing.T) {
+	allowed := map[string]bool{"km": true, "hintKeys": true, "modalKeyFor": true, "typeInModal": true, "edgeHint": true}
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "modal.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	isModel := func(e ast.Expr) bool {
+		if s, ok := e.(*ast.StarExpr); ok {
+			e = s.X
+		}
+		id, ok := e.(*ast.Ident)
+		return ok && id.Name == "Model"
+	}
+	names := func(fields ...*ast.FieldList) map[string]bool {
+		out := map[string]bool{}
+		for _, fl := range fields {
+			if fl == nil {
+				continue
+			}
+			for _, fd := range fl.List {
+				if isModel(fd.Type) {
+					for _, n := range fd.Names {
+						out[n.Name] = true
+					}
+				}
+			}
+		}
+		return out
+	}
+	var check func(models map[string]bool, body ast.Node)
+	check = func(models map[string]bool, body ast.Node) {
+		ast.Inspect(body, func(n ast.Node) bool {
+			// A func literal's own Model params count inside it alone.
+			if lit, ok := n.(*ast.FuncLit); ok && n != body {
+				inner := names(lit.Type.Params)
+				for k := range models {
+					inner[k] = true
+				}
+				check(inner, lit)
+				return false
+			}
+			sel, ok := n.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			if x, ok := sel.X.(*ast.Ident); ok && models[x.Name] && !allowed[sel.Sel.Name] {
+				t.Errorf("%s: modal.go reaches %s.%s, which a modal's own file should hold", fset.Position(sel.Pos()), x.Name, sel.Sel.Name)
+			}
+			return true
+		})
+	}
+	for _, d := range f.Decls {
+		switch d := d.(type) {
+		case *ast.FuncDecl:
+			if d.Body != nil {
+				check(names(d.Recv, d.Type.Params), d.Body)
+			}
+		default:
+			// A package variable's funcs too, as the declarations were
+			// before they moved out.
+			check(map[string]bool{}, d)
+		}
 	}
 }

@@ -119,3 +119,32 @@ func (m *Model) closeModal() {
 	}
 	m.modal = modalNone
 }
+
+// specOf declares the modal of state st, if st is one. The conflict check
+// of the keys walks the states with it, with no Model.
+func specOf(st uiState) (modalSpec, bool) {
+	switch st {
+	case uiHelp:
+		return helpSpec(), true
+	case uiSort:
+		return sortSpec(), true
+	case uiAskTyping:
+		return askTypingSpec(), true
+	case uiAskSearch:
+		return askSearchSpec(), true
+	case uiAskRunning:
+		return askRunningSpec(), true
+	case uiAskAnswered:
+		return askAnsweredSpec(), true
+	case uiAskFailed:
+		return askFailedSpec(), true
+	case uiRecall:
+		return recallSpec(), true
+	case uiWhatsNew:
+		return whatsNewSpec(), true
+	}
+	return modalSpec{}, false
+}
+
+// openModal declares the modal that shows, if one does.
+func (m Model) openModal() (modalSpec, bool) { return specOf(m.uiState()) }
