@@ -150,7 +150,7 @@ func (m Model) whatsNewWidth() int { return m.boxWidth(whatsNewSpec().box) }
 func (m Model) whatsNewInner() int { return m.whatsNewWidth() - 4 }
 
 // whatsNewRows is how many lines of notes the box shows at once.
-func (m Model) whatsNewRows() int { return max(1, m.boxRows(placeCenter)) }
+func (m Model) whatsNewRows() int { return max(1, m.boxRows()) }
 
 // whatsNewBody is every line of the box's content, at inner columns.
 func (m Model) whatsNewBody(inner int) []string {
@@ -290,7 +290,7 @@ func whatsNewSpec() modalSpec {
 		box: &modalBox{
 			title: func(Model) string { return "What's new" },
 			width: whatsNewWidth, minWidth: 30,
-			place: placeCenter, click: clickCloses,
+			click: clickCloses,
 			lines: func(m Model, inner, rows int) []boxLine {
 				shown, _, _ := m.whatsNewShown(inner, rows)
 				out := make([]boxLine, len(shown))
