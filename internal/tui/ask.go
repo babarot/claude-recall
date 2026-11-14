@@ -195,57 +195,6 @@ func (m Model) resolveHits(hits []askHit) []askHit {
 	return out
 }
 
-// updateAsk handles a key while the box shows.
-func (m Model) updateAsk(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	key := msg.String()
-	switch m.ask.stage {
-	case askTyping:
-		switch key {
-		case "enter":
-			return m, m.startAsk()
-		case "esc":
-			m.closeAsk()
-			return m, nil
-		}
-		var cmd tea.Cmd
-		m.ask.input, cmd = m.ask.input.Update(msg)
-		return m, cmd
-	case askRunning:
-		if key == "esc" || key == "q" {
-			m.closeAsk()
-		}
-	case askAnswered:
-		switch key {
-		case "down", "j", "ctrl+n", "tab":
-			m.ask.sel = min(m.ask.sel+1, max(0, len(m.ask.hits)-1))
-		case "up", "k", "ctrl+p", "shift+tab":
-			m.ask.sel = max(0, m.ask.sel-1)
-		case "enter":
-			if len(m.ask.hits) > 0 {
-				m.jumpTo(m.ask.hits[m.ask.sel].id)
-			}
-			m.closeAsk()
-		case "f":
-			if len(m.ask.hits) > 0 {
-				m.showAsked()
-			}
-			m.closeAsk()
-		case "r":
-			return m, m.openAsk()
-		case "esc", "q":
-			m.closeAsk()
-		}
-	case askFailed:
-		switch key {
-		case "r", "enter":
-			return m, m.openAsk()
-		case "esc", "q":
-			m.closeAsk()
-		}
-	}
-	return m, nil
-}
-
 // jumpTo selects session id, showing every folder and dropping the filter
 // first when they hide it.
 func (m *Model) jumpTo(id string) {
@@ -306,7 +255,7 @@ func (m Model) withAsk(screen string) string {
 	q := m.st.filter.Render("› " + m.ask.question)
 	switch m.ask.stage {
 	case askTyping:
-		title, hint = "Ask Claude", "enter ask · esc close"
+		title, hint = "Ask Claude", m.frameHint(askTypingSpec)
 		body = []string{m.inputView(uiAskTyping, m.ask.input),
 			m.st.muted.Render(`  e.g. "the session where we fixed the terraform state" · "who looked at PR #7427"`), "",
 			m.st.dim.Render(fmt.Sprintf("  claude -p · %s · searches with recall only (no files, no shell)", config.ModelID(m.cfg.AskModel))),
@@ -314,7 +263,7 @@ func (m Model) withAsk(screen string) string {
 	case askRunning:
 		elapsed := m.now().Sub(m.ask.started)
 		spin := string([]rune(spinFrames)[int(elapsed/(100*time.Millisecond))%len([]rune(spinFrames))])
-		title, hint = "Ask Claude", "esc cancel"
+		title, hint = "Ask Claude", m.frameHint(modalSpecs[uiAskRunning])
 		body = []string{ansi.Truncate(q, inner, ellipsis), "",
 			m.st.id.Render(spin) + " " + m.st.subtle.Render("searching…") + m.st.muted.Render(fmt.Sprintf(" %ds", int(elapsed.Seconds())))}
 		steps := m.ask.steps
@@ -349,7 +298,7 @@ func (m Model) withAsk(screen string) string {
 			body = append(body, items[i]...)
 		}
 	case askFailed:
-		title, hint = "Ask Claude", "r ask again · esc close"
+		title, hint = "Ask Claude", m.frameHint(modalSpecs[uiAskFailed])
 		body = []string{ansi.Truncate(q, inner, ellipsis), ""}
 		for _, l := range wrap(m.ask.err, inner) {
 			body = append(body, m.st.warn.Render(l))

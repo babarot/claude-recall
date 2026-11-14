@@ -161,9 +161,9 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 	if !slices.Equal(m.km.Session.Resume.Keys(), []string{"c"}) || !slices.Equal(m.km.Session.Recall.Keys(), []string{"enter"}) {
 		t.Fatalf("resume %q recall %q", m.km.Session.Resume.Keys(), m.km.Session.Recall.Keys())
 	}
-	// A fixed key is still a mistake.
-	if _, err := m.WithKeys(map[string]config.KeyList{"sort": list("1")}); err == nil {
-		t.Fatal("sort = \"1\" should be reported")
+	// A fixed key is still a mistake: f filters the list to Ask's answer.
+	if _, err := m.WithKeys(map[string]config.KeyList{"down": list("f")}); err == nil {
+		t.Fatal("down = \"f\" should be reported")
 	}
 }
 

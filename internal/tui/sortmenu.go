@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
 // s opens a menu of the sort orders over the screen:
 // the arrows, j k or the mouse pick one and Enter applies it, as does its
-// number; Esc, s or q closes the menu as it was.
+// number; Esc closes the menu as it was.
 
 // sortNotes say what each order puts first.
 var sortNotes = map[string]string{
@@ -40,30 +38,6 @@ func (m *Model) applySort(i int) {
 	m.cursor, m.offset = 0, 0
 }
 
-// updateSortMenu handles a key while the menu shows.
-func (m Model) updateSortMenu(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch k := msg.String(); k {
-	case "down", "j", "ctrl+n", "tab":
-		m.sortSel = (m.sortSel + 1) % len(sorts)
-	case "up", "k", "ctrl+p", "shift+tab":
-		m.sortSel = (m.sortSel + len(sorts) - 1) % len(sorts)
-	case "enter", "space":
-		m.applySort(m.sortSel)
-	case "esc", "q":
-		m.sortMenu = false
-	default:
-		if n := int(k[0] - '1'); len(k) == 1 && n >= 0 && n < len(sorts) {
-			m.applySort(n)
-			break
-		}
-		// It also closes on the key that opened it.
-		if key.Matches(msg, m.km.Global.Sort) {
-			m.sortMenu = false
-		}
-	}
-	return m, nil
-}
-
 // sortMenuRect is where the menu is drawn: centered, a line per order
 // between its borders.
 func (m Model) sortMenuRect() rect {
@@ -89,8 +63,8 @@ func (m Model) withSortMenu(screen string) string {
 	}
 	b := m.st.rule
 	inner := r.w - 4
-	title, hint := " Sort by ", " enter esc "
-	fill := max(0, r.w-4-len(title)-len(hint))
+	title, hint := " Sort by ", " "+m.frameHint(sortSpec)+" "
+	fill := max(0, r.w-4-len(title)-ansi.StringWidth(hint))
 	box := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for i, s := range sorts {
 		mark := "  "

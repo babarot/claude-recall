@@ -23,7 +23,10 @@ func TestConflicts(t *testing.T) {
 	}{
 		{func(k *keyMap) { k.Session.Resume = keys("j") }, "j is both resume and down in the session list"},
 		{func(k *keyMap) { k.Session.Recall = keys("enter") }, "enter is both resume and recall in the session list"},
-		{func(k *keyMap) { k.Global.Sort = keys("1") }, "1 is both a fixed key and sort in the sort menu"},
+		{func(k *keyMap) { k.Nav.Down = keys("1") }, "1 is both a fixed key and down in the sort menu"},
+		{func(k *keyMap) { k.Nav.Down = keys("f") }, "f is both a fixed key and down in the ask answered"},
+		// The list's choose key, which a remap can take from resume.
+		{func(k *keyMap) { k.Session.Resume = keys("x"); k.Nav.Down = keys("enter") }, "enter is both a fixed key and down in the ask answered"},
 		{func(k *keyMap) { k.Global.Help = keys("esc") }, "esc is both a fixed key and help"},
 		{func(k *keyMap) { k.Folders.FoldersBack = keys("q") }, "q is both quit and folders.back in the folder list"},
 	} {
@@ -109,27 +112,25 @@ func TestRemappedKeys(t *testing.T) {
 		t.Fatalf("space should resume: result %v expanded %v", r.Result, r.expanded)
 	}
 
-	// A box closes on the key that opens it, whichever that is.
+	// A box opens on its remapped key, and closes on esc alone, not on the
+	// key that opened it.
 	m, _ = newTestModel(t, config.Default().TUI, 140, 40)
 	m.km.Global.Help = keys("H")
 	m.km.Global.Sort = keys("o")
 	m = press(t, m, "H")
-	if !m.helpOpen || !strings.Contains(m.render(), "H esc q close") {
-		t.Fatal("H should open the key list, and its edge should say so")
+	if !m.helpOpen || !strings.Contains(m.render(), "esc close") {
+		t.Fatal("H should open the key list, and its edge should say how out")
 	}
-	if m = press(t, m, "H"); m.helpOpen {
-		t.Fatal("H should close the key list")
+	if m = press(t, m, "H"); !m.helpOpen {
+		t.Fatal("H closed the key list")
 	}
-	if m = press(t, m, "?"); m.helpOpen {
+	if m = press(t, m, "esc", "?"); m.helpOpen {
 		t.Fatal("? no longer opens it")
 	}
 	if m = press(t, m, "o"); !m.sortMenu {
 		t.Fatal("o should open the sort menu")
 	}
-	if m = press(t, m, "s"); !m.sortMenu {
-		t.Fatal("s no longer closes it")
-	}
-	if m = press(t, m, "o"); m.sortMenu {
-		t.Fatal("o should close the sort menu")
+	if m = press(t, m, "o", "s"); !m.sortMenu {
+		t.Fatal("o or s closed the sort menu")
 	}
 }

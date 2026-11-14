@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
@@ -133,30 +132,6 @@ func (m *Model) whatsNewLoaded(msg whatsNewLoaded) {
 	w.tag, w.notes, w.err = msg.tag, msg.notes, nil
 }
 
-// updateWhatsNew handles a key while the box shows: the moving keys scroll
-// it, and it closes on esc, q or the key that opened it.
-func (m Model) updateWhatsNew(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	nav := m.km.Nav
-	page := max(1, m.whatsNewRows()-1)
-	switch {
-	case msg.String() == "esc" || msg.String() == "q" || key.Matches(msg, m.km.Global.WhatsNew):
-		m.whatsNew.open = false
-	case key.Matches(msg, nav.Down):
-		m.scrollWhatsNew(1)
-	case key.Matches(msg, nav.Up):
-		m.scrollWhatsNew(-1)
-	case key.Matches(msg, nav.PageDown):
-		m.scrollWhatsNew(page)
-	case key.Matches(msg, nav.PageUp):
-		m.scrollWhatsNew(-page)
-	case key.Matches(msg, nav.Top):
-		m.whatsNew.offset = 0
-	case key.Matches(msg, nav.Bottom):
-		m.scrollWhatsNew(len(m.whatsNewBody(m.whatsNewInner())))
-	}
-	return m, nil
-}
-
 func (m *Model) scrollWhatsNew(step int) {
 	n := len(m.whatsNewBody(m.whatsNewInner()))
 	m.whatsNew.offset = max(0, min(m.whatsNew.offset+step, n-m.whatsNewRows()))
@@ -259,7 +234,7 @@ func (m Model) withWhatsNew(screen string) string {
 
 	b := m.st.rule
 	title := " What's new "
-	hint := " " + m.hintKeys("{whats_new.0} esc q close") + " "
+	hint := " " + m.frameHint(whatsNewSpec) + " "
 	fill := max(0, w-4-len(title)-ansi.StringWidth(hint))
 	box := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for _, l := range shown {
