@@ -84,5 +84,5 @@ func (m Model) withRecall(screen string) string {
 		where += ", in " + worktree.TildePath(m.startDir, m.home)
 	}
 	body = append(body, m.st.dim.Render(where))
-	return m.boxOver(screen, w, "Recall in a new claude", m.frameHint(recallSpec), body)
+	return m.boxOver(screen, w, "Recall in a new claude", m.edgeHint(recallSpec), body)
 }

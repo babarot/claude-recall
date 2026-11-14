@@ -151,8 +151,8 @@ func TestAskKeepsAndRecallsQuestions(t *testing.T) {
 	if v := m.ask.input.Value(); v != "parser workkj" {
 		t.Errorf("k and j typed as %q", v)
 	}
-	if !strings.Contains(ansi.Strip(m.renderHelp()), "↑↓ earlier questions") {
-		t.Errorf("footer %q", ansi.Strip(m.renderHelp()))
+	if !strings.Contains(ansi.Strip(m.renderFooter()), "↑↓ earlier questions") {
+		t.Errorf("footer %q", ansi.Strip(m.renderFooter()))
 	}
 	if !strings.Contains(screen(m), "enter ask · ctrl+r search · ↑↓ earlier · esc close") {
 		t.Errorf("no ↑↓ earlier on the box's edge:\n%s", screen(m))
@@ -161,8 +161,8 @@ func TestAskKeepsAndRecallsQuestions(t *testing.T) {
 	m = historyModel(t, &fakeAsk{}, &fakeStore{})
 	next, cmd = m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
 	m = drive(t, asModel(t, next), cmd)
-	if strings.Contains(screen(m), "earlier") || strings.Contains(ansi.Strip(m.renderHelp()), "earlier") {
-		t.Errorf("earlier questions told with none:\n%s\n%s", screen(m), ansi.Strip(m.renderHelp()))
+	if strings.Contains(screen(m), "earlier") || strings.Contains(ansi.Strip(m.renderFooter()), "earlier") {
+		t.Errorf("earlier questions told with none:\n%s\n%s", screen(m), ansi.Strip(m.renderFooter()))
 	}
 }
 
@@ -304,7 +304,7 @@ func TestAskSearchEdits(t *testing.T) {
 // With no question asked before, ctrl+r does nothing and is not told.
 func TestAskSearchWithNothingToFind(t *testing.T) {
 	m := press(t, askModel(t, &fakeAsk{}, config.Default().TUI), "a")
-	if strings.Contains(screen(m), "ctrl+r") || strings.Contains(ansi.Strip(m.renderHelp()), "ctrl+r") {
+	if strings.Contains(screen(m), "ctrl+r") || strings.Contains(ansi.Strip(m.renderFooter()), "ctrl+r") {
 		t.Errorf("ctrl+r told with nothing to find:\n%s", screen(m))
 	}
 	if m = ctrlR(t, m); m.uiState() != uiAskTyping {
@@ -338,8 +338,8 @@ func TestAskCompletes(t *testing.T) {
 	if left := ansi.Truncate(line, cur.X, ""); !strings.HasSuffix(left, "› pars") {
 		t.Errorf("the cursor is not at the end of the typed text: %q", left)
 	}
-	if !strings.Contains(ansi.Strip(m.renderHelp()), "tab complete") {
-		t.Errorf("footer %q", ansi.Strip(m.renderHelp()))
+	if !strings.Contains(ansi.Strip(m.renderFooter()), "tab complete") {
+		t.Errorf("footer %q", ansi.Strip(m.renderFooter()))
 	}
 	for _, k := range []rune{tea.KeyTab, tea.KeyRight} {
 		got := pressCode(t, m, k)
@@ -358,7 +358,7 @@ func TestAskCompletes(t *testing.T) {
 // or while a question is recalled; → then moves the cursor.
 func TestAskCompletesOnlyAtTheEnd(t *testing.T) {
 	m := completeModel(t)
-	if m.askGhost() != "" || strings.Contains(ansi.Strip(m.renderHelp()), "tab complete") {
+	if m.askGhost() != "" || strings.Contains(ansi.Strip(m.renderFooter()), "tab complete") {
 		t.Errorf("offered with nothing typed: %q", m.askGhost())
 	}
 	m = pressCode(t, typeText(t, m, "pars"), tea.KeyLeft)

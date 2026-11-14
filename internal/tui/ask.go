@@ -267,9 +267,9 @@ func (m Model) withAsk(screen string) string {
 	q := m.st.filter.Render("› " + m.ask.question)
 	switch m.ask.stage {
 	case askTyping:
-		title, hint = "Ask Claude", m.frameHint(askTypingSpec)
+		title, hint = "Ask Claude", m.edgeHint(askTypingSpec)
 		if m.askHist.search.open {
-			title, hint = "Ask Claude", m.frameHint(askSearchSpec)
+			title, hint = "Ask Claude", m.edgeHint(askSearchSpec)
 			body = m.askSearchBody(inner)
 			break
 		}
@@ -280,7 +280,7 @@ func (m Model) withAsk(screen string) string {
 	case askRunning:
 		elapsed := m.now().Sub(m.ask.started)
 		spin := string([]rune(spinFrames)[int(elapsed/(100*time.Millisecond))%len([]rune(spinFrames))])
-		title, hint = "Ask Claude", m.frameHint(modalSpecs[uiAskRunning])
+		title, hint = "Ask Claude", m.edgeHint(modalSpecs[uiAskRunning])
 		body = []string{ansi.Truncate(q, inner, ellipsis),
 			m.st.id.Render(spin) + " " + m.st.subtle.Render("searching…") + m.st.muted.Render(fmt.Sprintf(" %ds", int(elapsed.Seconds())))}
 		// The last few searches, in rows kept for them from the start, so
@@ -319,7 +319,7 @@ func (m Model) withAsk(screen string) string {
 			body = append(body, items[i]...)
 		}
 	case askFailed:
-		title, hint = "Ask Claude", m.frameHint(modalSpecs[uiAskFailed])
+		title, hint = "Ask Claude", m.edgeHint(modalSpecs[uiAskFailed])
 		body = []string{ansi.Truncate(q, inner, ellipsis), ""}
 		for _, l := range wrap(m.ask.err, inner) {
 			body = append(body, m.st.warn.Render(l))

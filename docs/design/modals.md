@@ -8,7 +8,7 @@ What a modal is in `internal/tui`, the words used for the parts of the screen ar
 |---|---|---|
 | modal | What opens over the screen and takes every key while it shows, until `esc` closes it, but `ctrl+c`, which quits from anywhere (a running ask stopped first). It is drawn as a box | `modalSpec`, `openModal`, `modalSpecs` in [modal.go](../../internal/tui/modal.go) |
 | box | What a modal is drawn as: its lines inside a rounded frame, with a title and a hint on the top edge. The filter's suggestions and the user's messages in a conversation are drawn in boxes too. In the code and these docs, box is only the drawing: what opens, closes and takes keys is a modal. The user-facing docs call a modal a box | `boxOver` in [ask.go](../../internal/tui/ask.go); the key list, the sort menu and what's new draw their own |
-| edge | The top line of a box, which holds its title and the hint made from the modal's declaration (`frameHint`); Ask's answer holds the model, the time taken and the cost there instead (`askSummary`) | `frameHint` in modal.go |
+| edge | The top line of a box, which holds its title and the hint made from the modal's declaration (`edgeHint`); Ask's answer holds the model, the time taken and the cost there instead (`askSummary`) | `edgeHint` in modal.go |
 | overlay | Drawing lines over the screen's lines from a cell on, keeping the screen left and right of them. It is how a modal is put on the screen, and how the filter's suggestions are; it is not a modal | `overlay` in [query.go](../../internal/tui/query.go) |
 | field | Where text is typed: the filter, the folder search, the conversation search, and the fields inside modals (Ask's question, the search of Ask's questions, the topic before recalling) | `textinput.Model` made by `newInput` in [input.go](../../internal/tui/input.go) |
 | pane | An area that can have the focus: the session list, the folder list, the detail frames and the reading view | `focus`, `keyContext` |
@@ -40,7 +40,7 @@ The Ask box keeps one height from typing to running: its body is five rows in bo
 ## How a modal is drawn
 
 1. `draw` in view.go draws the screen as if no modal were open (`renderScreen`).
-2. The modal of the state, if any, builds its lines and its box (`withAsk`, `withRecall`, `withHelp`, `withSortMenu`, `withWhatsNew`), with the hint on its edge from `frameHint`, or, on Ask's answer, what the answer took (`askSummary`).
+2. The modal of the state, if any, builds its lines and its box (`withAsk`, `withRecall`, `withHelp`, `withSortMenu`, `withWhatsNew`), with the hint on its edge from `edgeHint`, or, on Ask's answer, what the answer took (`askSummary`).
 3. It overlays its box on the screen's lines with `overlay`, from the row and column it is placed at. The screen under it is not dimmed.
 4. `View` takes the cursor's mark out of the drawn screen and puts the terminal's cursor there, when a field is typed in ([input.go](../../internal/tui/input.go)).
 

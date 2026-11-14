@@ -99,7 +99,7 @@ func TestKeyHints(t *testing.T) {
 	}
 
 	for _, c := range footerCases(t) {
-		add("footer: "+c.name, c.m.renderHelp())
+		add("footer: "+c.name, c.m.renderFooter())
 	}
 
 	base := func() Model { m, _ := newTestModel(t, config.Default().TUI, 140, 40); return m }

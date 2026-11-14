@@ -246,11 +246,11 @@ func TestFooterStrikesResumeForMissingFolder(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 200, 30)
 	struck := m.st.gone.Render("enter resume")
 	// First row: bbbbbbbb, whose folder is gone.
-	if footer := m.renderHelp(); !strings.Contains(footer, struck) || !strings.HasPrefix(ansi.Strip(footer), " enter resume · c recall") {
+	if footer := m.renderFooter(); !strings.Contains(footer, struck) || !strings.HasPrefix(ansi.Strip(footer), " enter resume · c recall") {
 		t.Fatalf("footer %q", footer)
 	}
 	// Second row: aaaaaaaa, whose folder exists.
-	if footer := press(t, m, "down").renderHelp(); strings.Contains(footer, struck) {
+	if footer := press(t, m, "down").renderFooter(); strings.Contains(footer, struck) {
 		t.Fatalf("footer %q", footer)
 	}
 }
@@ -296,10 +296,10 @@ func TestFooterStrikesResumeForDeletedTranscript(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 200, 30)
 	m = withTranscripts(t, m)
 	struck := m.st.gone.Render("enter resume")
-	if footer := press(t, m, "down", "down").renderHelp(); !strings.Contains(footer, struck) {
+	if footer := press(t, m, "down", "down").renderFooter(); !strings.Contains(footer, struck) {
 		t.Fatalf("footer %q", footer)
 	}
-	if footer := press(t, m, "down").renderHelp(); strings.Contains(footer, struck) {
+	if footer := press(t, m, "down").renderFooter(); strings.Contains(footer, struck) {
 		t.Fatalf("footer %q", footer)
 	}
 }
@@ -1127,7 +1127,7 @@ func TestTranscriptInAnotherTree(t *testing.T) {
 		t.Fatalf("toast %q", r.toast)
 	}
 	struck := m.st.gone.Render("enter resume")
-	if footer := press(t, m, "down", "down").renderHelp(); !strings.Contains(footer, struck) {
+	if footer := press(t, m, "down", "down").renderFooter(); !strings.Contains(footer, struck) {
 		t.Fatalf("footer %q", footer)
 	}
 

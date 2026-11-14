@@ -244,7 +244,7 @@ func (m Model) withWhatsNew(screen string) string {
 
 	b := m.st.rule
 	title := " What's new "
-	hint := " " + m.frameHint(whatsNewSpec) + " "
+	hint := " " + m.edgeHint(whatsNewSpec) + " "
 	fill := max(0, w-4-len(title)-ansi.StringWidth(hint))
 	box := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for _, l := range shown {
