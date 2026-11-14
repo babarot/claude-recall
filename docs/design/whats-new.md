@@ -33,7 +33,7 @@ Parsing, in `internal/update` (`ParseChangelog`): a `## [<version>](<url>) - <da
 A modal, opened with `w` (`whats_new` under `[keys]`), a global key, so from every pane, the reading view included. It lists every version, newest first, scrolled to the top:
 
 ```
-╭ What's new ─────────────────────────────────────────────────╮
+╭─ What's new ──────────────────────────────────── esc close ─╮
 │ 1.8.0  2026-10-12  not installed · recall update            │
 │   New Features                                              │
 │   · Add recall update to replace recall with the latest ... │
