@@ -14,7 +14,7 @@ import (
 	"github.com/babarot/claude-recall/internal/logging"
 )
 
-// a asks Claude to find sessions, in a box over the screen: type a
+// a asks Claude to find sessions, in a modal: type a
 // question, watch it search, pick one of the sessions it found to jump to,
 // or f to narrow the list to all of them. Why Claude picked each stays
 // under its row and in Conversation (tui.ask_reasons).
@@ -83,7 +83,7 @@ func newAskInput() textinput.Model {
 	return in
 }
 
-// openAsk shows the box with the last question to edit.
+// openAsk opens the modal with the last question to edit.
 func (m *Model) openAsk() tea.Cmd {
 	m.ask.stage = askTyping
 	m.ask.input.SetValue(m.ask.question)
@@ -120,7 +120,7 @@ func (m *Model) askTick(seq int) tea.Cmd {
 	return tea.Tick(askTickEvery, func(time.Time) tea.Msg { return askTickMsg{seq} })
 }
 
-// closeAsk hides the box, stopping a run.
+// closeAsk closes the modal, stopping a run.
 func (m *Model) closeAsk() {
 	m.askHist.search = askSearch{}
 	if m.ask.cancel != nil {
@@ -267,9 +267,9 @@ func (m Model) withAsk(screen string) string {
 	q := m.st.filter.Render("› " + m.ask.question)
 	switch m.ask.stage {
 	case askTyping:
-		title, hint = "Ask Claude", m.frameHint(askTypingSpec)
+		title, hint = "Ask Claude", m.edgeHint(askTypingSpec)
 		if m.askHist.search.open {
-			title, hint = "Ask Claude", m.frameHint(askSearchSpec)
+			title, hint = "Ask Claude", m.edgeHint(askSearchSpec)
 			body = m.askSearchBody(inner)
 			break
 		}
@@ -280,7 +280,7 @@ func (m Model) withAsk(screen string) string {
 	case askRunning:
 		elapsed := m.now().Sub(m.ask.started)
 		spin := string([]rune(spinFrames)[int(elapsed/(100*time.Millisecond))%len([]rune(spinFrames))])
-		title, hint = "Ask Claude", m.frameHint(modalSpecs[uiAskRunning])
+		title, hint = "Ask Claude", m.edgeHint(modalSpecs[uiAskRunning])
 		body = []string{ansi.Truncate(q, inner, ellipsis),
 			m.st.id.Render(spin) + " " + m.st.subtle.Render("searching…") + m.st.muted.Render(fmt.Sprintf(" %ds", int(elapsed.Seconds())))}
 		// The last few searches, in rows kept for them from the start, so
@@ -319,7 +319,7 @@ func (m Model) withAsk(screen string) string {
 			body = append(body, items[i]...)
 		}
 	case askFailed:
-		title, hint = "Ask Claude", m.frameHint(modalSpecs[uiAskFailed])
+		title, hint = "Ask Claude", m.edgeHint(modalSpecs[uiAskFailed])
 		body = []string{ansi.Truncate(q, inner, ellipsis), ""}
 		for _, l := range wrap(m.ask.err, inner) {
 			body = append(body, m.st.warn.Render(l))
@@ -364,7 +364,7 @@ func (m Model) askSummary() string {
 	return strings.Join(parts, " · ")
 }
 
-// askItem is a found session in the box: its title and where it is, then
+// askItem is a found session in the modal's list: its title and where it is, then
 // Claude's reason in up to two lines.
 func (m Model) askItem(h askHit, w int, sel bool) []string {
 	var r *row

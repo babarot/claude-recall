@@ -52,7 +52,7 @@ func TestWithKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	footer := ansi.Strip(m.renderHelp())
+	footer := ansi.Strip(m.renderFooter())
 	// The keys keep their places; what they do changes.
 	if !strings.HasPrefix(footer, " enter read · c recall · space resume") || strings.Contains(footer, "sort") {
 		t.Fatalf("footer %q", footer)
@@ -118,10 +118,10 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 		t.Fatalf("folders.back is %q", got)
 	}
 	if r := press(t, m, "enter"); !r.recall.open || r.Result != nil {
-		t.Fatalf("enter should recall: box %v result %+v", r.recall.open, r.Result)
+		t.Fatalf("enter should recall: modal %v result %+v", r.recall.open, r.Result)
 	}
 	// resume, without a key, leaves the footer and the key list.
-	footer := ansi.Strip(m.renderHelp())
+	footer := ansi.Strip(m.renderFooter())
 	if !strings.HasPrefix(footer, " enter recall · space read") || strings.Contains(footer, "resume") {
 		t.Fatalf("footer %q", footer)
 	}
@@ -142,7 +142,7 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 	if m, err = m.WithKeys(map[string]config.KeyList{"recall": list("enter"), "resume": list("c")}); err != nil {
 		t.Fatal(err)
 	}
-	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " enter recall · c resume · space read") {
+	if footer := ansi.Strip(m.renderFooter()); !strings.HasPrefix(footer, " enter recall · c resume · space read") {
 		t.Fatalf("footer %q", footer)
 	}
 	// A key none of the defaults have goes after them.
@@ -150,7 +150,7 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 	if m, err = m.WithKeys(map[string]config.KeyList{"resume": list("x")}); err != nil {
 		t.Fatal(err)
 	}
-	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " c recall · space read") || !strings.HasSuffix(footer, "q quit · x resume") {
+	if footer := ansi.Strip(m.renderFooter()); !strings.HasPrefix(footer, " c recall · space read") || !strings.HasSuffix(footer, "q quit · x resume") {
 		t.Fatalf("footer %q", footer)
 	}
 	// Setting both keeps the key on the one set, the other moving away.

@@ -22,7 +22,7 @@ func newInput() textinput.Model {
 // the screen by View, which puts the cursor there. It is an APC sequence,
 // which takes no cells, so every step that cuts, pads or lays the screen
 // over another measures the line as it will be shown, and the mark moves
-// with the field wherever it is drawn: a box over the screen, the
+// with the field wherever it is drawn: a modal, the
 // sidebar, a pane.
 const cursorMark = "\x1b_recall-cursor\x1b\\"
 

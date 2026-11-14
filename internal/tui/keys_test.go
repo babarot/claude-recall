@@ -101,7 +101,7 @@ func TestRemappedKeys(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	m.km.Session.Resume = keys("space")
 	m.km.Session.Read = keys("enter")
-	if footer := ansi.Strip(m.renderHelp()); !strings.HasPrefix(footer, " enter read · c recall · space resume") {
+	if footer := ansi.Strip(m.renderFooter()); !strings.HasPrefix(footer, " enter read · c recall · space resume") {
 		t.Fatalf("footer %q", footer)
 	}
 	if r := press(t, m, "enter"); !r.expanded || r.Result != nil {
@@ -112,7 +112,7 @@ func TestRemappedKeys(t *testing.T) {
 		t.Fatalf("space should resume: result %v expanded %v", r.Result, r.expanded)
 	}
 
-	// A box opens on its remapped key, and closes on esc alone, not on the
+	// A modal opens on its remapped key, and closes on esc alone, not on the
 	// key that opened it.
 	m, _ = newTestModel(t, config.Default().TUI, 140, 40)
 	m.km.Global.Help = keys("H")

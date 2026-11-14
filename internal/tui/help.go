@@ -180,7 +180,7 @@ func (m Model) helpBox(w, h int) []string {
 		body = append(body[:max(0, h-3)], helpLine{text: m.st.muted.Render("… a taller terminal shows the rest")})
 	}
 	title := " Keys "
-	hint := " " + m.frameHint(modalSpecs[uiHelp]) + " "
+	hint := " " + m.edgeHint(modalSpecs[uiHelp]) + " "
 	fill := max(0, w-4-len(title)-ansi.StringWidth(hint))
 	out := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for _, l := range body {

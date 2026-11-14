@@ -15,7 +15,7 @@ In scope: the keyboard in the TUI (`recall` / `recall tui`). Out of scope: the m
 
 | Term | Meaning |
 |---|---|
-| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`), the Ask Claude box (`a`), the box before recalling a session (`c`) and what's new (`w`) |
+| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`), Ask Claude (`a`), the one before recalling a session (`c`) and what's new (`w`). The user-facing docs call it a box; the code and the design docs keep box for what it is drawn as. [modals.md](modals.md) has the words for the parts of the screen around it and how a modal is drawn |
 | Field | Where text is typed: the filter (`/`), the folder search, the conversation search and Ask's question |
 | Pane | An area that can have the focus: the session list, the folder list, the detail frames (Conversation, What was done, Details) and the reading view |
 | Global | Keys that work whatever pane has the focus |
@@ -25,7 +25,7 @@ In scope: the keyboard in the TUI (`recall` / `recall tui`). Out of scope: the m
 
 Keys were compared as strings such as `"enter"` in a `switch` per place, and handled in this hand-written order:
 
-1. If the Ask box, the sort menu or the key list was open, it took the key and that was it
+1. If Ask, the sort menu or the key list was open, it took the key and that was it
 2. `?` opened the key list unless a field was being typed in
 3. While the filter was being typed in, the filter took the key
 4. Otherwise `updateList` took it and looked, in order:
@@ -203,7 +203,7 @@ The shared verbs (scroll, `/` for the conversation search, `n` `N`, `esc`) and t
 | The filter | `enter` | `esc` (closes the suggestions if they show, otherwise clears the filter and closes it) | `↑` `↓` move in the list, or pick a suggestion while they show. `tab` `→` complete a key or a suggestion, `shift+tab` the other way |
 | The folder search | `enter` | `esc` (clears the search) | `↑` `↓` `ctrl+n` `ctrl+p` pick a folder |
 | The conversation search | `enter` | `esc` (clears the search) | None |
-| Ask's question | `enter` (ask) | `esc` (closes the box) | `up` `down` (`↑` `↓` `ctrl+p` `ctrl+n` by default) go through the questions asked before; the letters among them are typed |
+| Ask's question | `enter` (ask) | `esc` (closes Ask) | `up` `down` (`↑` `↓` `ctrl+p` `ctrl+n` by default) go through the questions asked before; the letters among them are typed |
 
 All as before.
 

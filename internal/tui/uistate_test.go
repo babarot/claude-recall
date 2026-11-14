@@ -40,15 +40,15 @@ func TestUIStatesCovered(t *testing.T) {
 
 // TestFootersSayWhereTheyAre checks that each state's footer says
 // something, and that no state but the list falls back to the list's
-// keys, which do not work over a box or in a field.
+// keys, which do not work over a modal or in a field.
 func TestFootersSayWhereTheyAre(t *testing.T) {
 	cases := footerCases(t)
-	list := ansi.Strip(cases[0].m.renderHelp())
+	list := ansi.Strip(cases[0].m.renderFooter())
 	for _, c := range cases {
-		got := ansi.Strip(c.m.renderHelp())
+		got := ansi.Strip(c.m.renderFooter())
 		switch st := c.m.uiState(); {
 		case strings.TrimSpace(got) == "":
-			t.Errorf("%s (%s): no footer; give the state a case in renderHelp", c.name, st)
+			t.Errorf("%s (%s): no footer; give the state a case in renderFooter", c.name, st)
 		case st != uiList && got == list:
 			t.Errorf("%s (%s): the footer is the session list's", c.name, st)
 		}

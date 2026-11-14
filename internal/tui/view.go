@@ -152,7 +152,7 @@ func (m Model) renderScreen() string {
 	default:
 		lines = append(lines, table...)
 	}
-	lines = append(lines, m.renderStatus(), m.renderHelp())
+	lines = append(lines, m.renderStatus(), m.renderFooter())
 	// Suggestions for the folder: term open just under the filter line.
 	if r, list, idx, from, ok := m.suggestRect(); ok {
 		for i, l := range m.suggestBox(list, idx, from, r.w) {
@@ -345,9 +345,9 @@ func (m Model) renderStatus() string {
 	return " " + s.Render(ansi.Truncate(m.toast, m.width-2, ellipsis))
 }
 
-func (m Model) renderHelp() string {
+func (m Model) renderFooter() string {
 	// Each pair is a key hint template (see hintKeys) and what it does;
-	// esc and the keys of a box or a field being typed in are written as
+	// esc and the keys of a modal or a field being typed in are written as
 	// they are, since they cannot be remapped.
 	var pairs [][2]string
 	if s, ok := m.openModal(); ok {
@@ -419,7 +419,7 @@ func (m Model) renderHelp() string {
 			parts = append(parts, m.st.key.Render(k)+" "+m.st.muted.Render(p[1]))
 		}
 	}
-	return " " + ansi.Truncate(strings.Join(parts, m.st.helpSep.Render(" · ")), m.width-2, ellipsis)
+	return " " + ansi.Truncate(strings.Join(parts, m.st.footerSep.Render(" · ")), m.width-2, ellipsis)
 }
 
 // byDefaultKey orders the footer's hints by where their keys stand by

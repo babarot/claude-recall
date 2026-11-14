@@ -15,4 +15,4 @@
 
 ## TUI
 
-- A new pane, modal or field is a value of `uiState` in `internal/tui/uistate.go`, so keys reach it and the footer and the `?` key list know it. Then fill in what the tests in `internal/tui/uistate_test.go` ask for: a footer case in `renderHelp`, a case in `footerCases`, whether `?` opens over it, and for a pane its group in `helpGroups`
+- A new pane, modal or field is a value of `uiState` in `internal/tui/uistate.go`, so keys reach it and the footer and the `?` key list know it. Then fill in what the tests in `internal/tui/uistate_test.go` ask for: a footer case in `renderFooter`, a case in `footerCases`, whether `?` opens over it, and for a pane its group in `helpGroups`

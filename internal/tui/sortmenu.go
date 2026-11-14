@@ -63,7 +63,7 @@ func (m Model) withSortMenu(screen string) string {
 	}
 	b := m.st.rule
 	inner := r.w - 4
-	title, hint := " Sort by ", " "+m.frameHint(sortSpec)+" "
+	title, hint := " Sort by ", " "+m.edgeHint(sortSpec)+" "
 	fill := max(0, r.w-4-len(title)-ansi.StringWidth(hint))
 	box := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for i, s := range sorts {

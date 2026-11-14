@@ -290,7 +290,7 @@ func (m Model) suggestionAt(x, y int) int {
 }
 
 // pickSuggestion completes the key's term with suggestion i and a space,
-// so the box closes and the next word can follow.
+// so the suggestions close and the next word can follow.
 func (m *Model) pickSuggestion(i int) {
 	list, _ := m.suggestions()
 	start, end, key, _, ok := m.keyTerm()

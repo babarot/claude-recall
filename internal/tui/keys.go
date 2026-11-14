@@ -9,7 +9,7 @@ import (
 )
 
 // Keys are looked up in layers, top first, and a layer that takes a key
-// stops it there: ctrl+c, then an open box (the key list, the sort menu,
+// stops it there: ctrl+c, then an open modal (the key list, the sort menu,
 // Ask), then a field being typed in, then the focused pane, then the keys
 // that work anywhere. A pane takes only the keys it declares; anything else
 // goes to the keys that work anywhere, never to another pane. See

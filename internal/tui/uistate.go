@@ -1,7 +1,7 @@
 package tui
 
 // uiState is what the screen is in, read from the fields that hold it, in
-// the order keys are given out: a box over the screen, then a field being
+// the order keys are given out: a modal, then a field being
 // typed in, then the focused pane. Keys, the screen, the footer and paste
 // all go by it, and the tests run through every value, so a state added
 // here is one the footer and the key list cannot miss.
@@ -23,7 +23,7 @@ const (
 	uiAskRunning
 	uiAskAnswered
 	uiAskFailed
-	uiRecall   // the box before recalling a session
+	uiRecall   // the modal before recalling a session
 	uiWhatsNew // the release notes
 	numUIStates
 )
@@ -71,7 +71,7 @@ func (m Model) uiState() uiState {
 }
 
 // opensHelp reports whether ? opens the key list: in a pane, not over a
-// box or in a field, where ? is a character or nothing.
+// modal or in a field, where ? is a character or nothing.
 func (s uiState) opensHelp() bool {
 	switch s {
 	case uiList, uiFrame, uiReading, uiReadingList, uiFolders:
