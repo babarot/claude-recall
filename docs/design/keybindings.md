@@ -114,7 +114,7 @@ A modal declares the parts it holds (`modalSpec` in `internal/tui/modal.go`): a 
 
 1. `esc` steps out: it closes the modal, or cancels a running ask
 2. In a field, a key that types a character is typed
-3. The modal's own keys (`1` to `4` in the sort menu, `f` and `r` on Ask's answer, `enter` that asks or starts claude, `ctrl+r` that searches Ask's questions)
+3. The modal's own keys (`1` to `4` in the sort menu, `f` and `r` on Ask's answer, `enter` that asks or starts claude, `ctrl+r` that searches Ask's questions, `tab` and `right` that fill in a question offered). A key of its own that does nothing at the moment, such as `right` with nothing offered, is left to the parts after it
 4. A field that recalls what was typed before (Ask's) goes through it on nav's `up` and `down`. A list moves on nav's `up`, `down`, `page_up`, `page_down`, `top` and `bottom`, and chooses on its choose keys; a body scrolls on the same nav keys. Beside a field, a list leaves `top` and `bottom` to it, and every key it does not take goes to the field
 5. What is left goes to the field (←→, backspace and the like)
 
@@ -213,7 +213,7 @@ All as before.
 |---|---|
 | The key list | Closes with `esc` |
 | The sort menu | `up` `down` (`↑` `↓` `k` `j` `ctrl+p` `ctrl+n` by default) pick, `enter` `space` choose, `1` to `4` choose directly; closes with `esc` |
-| Ask, typing | `enter` asks, `up` `down` recall the questions asked before, `ctrl+r` searches them; closes with `esc` |
+| Ask, typing | `enter` asks, `up` `down` recall the questions asked before, `ctrl+r` searches them, `tab` (and `right` at the end of the text) fills in the question shown faint; closes with `esc` |
 | Ask, searching the questions | `up` `down` `page_up` `page_down` pick, `enter` puts the question in Ask's field; `esc` goes back to it. `home` and `end` move in the search's field |
 | Ask, running | `esc` cancels |
 | Ask, answered | `up` `down` pick, `enter` jumps, `f` narrows the list, `r` asks again; closes with `esc` |

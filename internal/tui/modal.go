@@ -72,8 +72,8 @@ type modalKey struct {
 	hint, word string
 	// frame puts the key on the box's top edge as well as the footer.
 	frame bool
-	// when, if set, says whether the key does anything now; its hint
-	// shows only then.
+	// when, if set, says whether the key does anything now: only then is
+	// it taken, and its hint shown.
 	when func(m Model) bool
 	do   func(m *Model) tea.Cmd
 }
@@ -119,7 +119,8 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		return m.typeInModal(s, msg)
 	}
 	for _, o := range s.own {
-		if slices.Contains(o.keys, k) {
+		// A key that does nothing now is left to the parts after it.
+		if slices.Contains(o.keys, k) && (o.when == nil || o.when(m)) {
 			return m, o.do(&m)
 		}
 	}
@@ -332,6 +333,13 @@ var askTypingSpec = modalSpec{
 		{keys: []string{"ctrl+r"}, word: "search", frame: true,
 			when: func(m Model) bool { return len(m.askHist.list) > 0 },
 			do:   func(m *Model) tea.Cmd { return m.openAskSearch() }},
+		{keys: []string{"tab"}, word: "complete",
+			when: func(m Model) bool { return m.askGhost() != "" },
+			do:   func(m *Model) tea.Cmd { m.completeAsk(); return nil }},
+		// → at the end of the text fills it in too; elsewhere it moves.
+		{keys: []string{"right"},
+			when: func(m Model) bool { return m.askGhost() != "" },
+			do:   func(m *Model) tea.Cmd { m.completeAsk(); return nil }},
 	},
 	esc: closeKey(func(m *Model) { m.closeAsk() }),
 }

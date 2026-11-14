@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -281,4 +282,58 @@ func (m Model) askWhen(t time.Time) string {
 		return t.Format("15:04")
 	}
 	return t.Format("01-02")
+}
+
+// askGhost is what follows the text typed in Ask's field in the newest
+// question asked before that starts with it, ignoring case, drawn faint
+// after the cursor; empty while the cursor is not at the end of the text,
+// a question is recalled, or nothing is typed.
+func (m Model) askGhost() string {
+	in := m.ask.input
+	if m.ask.stage != askTyping || m.askHist.search.open || !in.Focused() || m.askHist.recall.Active() {
+		return ""
+	}
+	typed := in.Value()
+	if typed == "" || in.Position() != len([]rune(typed)) {
+		return ""
+	}
+	return ghost(typed, m.askHist.list)
+}
+
+// ghost is the rest of the first question in list that starts with typed,
+// ignoring case. It goes by rune, as lower case keeps the runes of a text
+// but not always its bytes.
+func ghost(typed string, list []askhistory.Entry) string {
+	want := []rune(strings.ToLower(typed))
+	for _, e := range list {
+		rs, low := []rune(e.Question), []rune(strings.ToLower(e.Question))
+		if len(low) == len(rs) && len(low) > len(want) && slices.Equal(low[:len(want)], want) {
+			return string(rs[len(want):])
+		}
+	}
+	return ""
+}
+
+// completeAsk fills in the question askGhost offers. What is filled in is
+// the user's, as what is typed is.
+func (m *Model) completeAsk() {
+	g := m.askGhost()
+	if g == "" {
+		return
+	}
+	m.askHist.recall.Leave()
+	m.ask.input.SetValue(m.ask.input.Value() + g)
+	m.ask.input.CursorEnd()
+}
+
+// askFieldLine is Ask's field with what askGhost offers faint after the
+// cursor, which stays at the end of the typed text: an input method shows
+// the text being composed there, over the faint text, which goes when the
+// text is committed.
+func (m Model) askFieldLine() string {
+	v := m.inputView(uiAskTyping, m.ask.input)
+	if g := m.askGhost(); g != "" {
+		return strings.TrimRight(v, " ") + m.st.dim.Render(g)
+	}
+	return v
 }
