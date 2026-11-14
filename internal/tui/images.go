@@ -19,6 +19,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/logging"
 )
 
 // Images: with tui.images, when the terminal draws them, the reading view shows the images pasted
@@ -239,6 +240,7 @@ func (m *Model) storeImage(msg imageLoaded) {
 	delete(t.loading, msg.key)
 	if msg.err != nil {
 		t.failed[msg.key] = true
+		m.logger().Debug("an image could not be read", logging.KeySession, msg.key.session, logging.KeyErr, msg.err.Error())
 	} else {
 		t.nextID = t.nextID%maxImageIDs + 1
 		id := t.nextID

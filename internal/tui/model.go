@@ -320,9 +320,11 @@ func (m *Model) saveState() tea.Cmd {
 	if m.statePath == "" {
 		return nil
 	}
-	path, st := m.statePath, config.State{DetailHeight: m.detailH, Sidebar: m.sidebar, ExpandRows: m.expandRows}
+	path, st, log := m.statePath, config.State{DetailHeight: m.detailH, Sidebar: m.sidebar, ExpandRows: m.expandRows}, m.logger()
 	return func() tea.Msg {
-		_ = config.SaveState(path, st)
+		if err := config.SaveState(path, st); err != nil {
+			log.Warn("the screen's state could not be kept", logging.KeyPath, path, logging.KeyErr, err.Error())
+		}
 		return nil
 	}
 }

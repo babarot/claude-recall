@@ -199,7 +199,7 @@ Run without a command, it opens the TUI.`,
 		Use:   "import",
 		Short: "Import sessions into the vault",
 		Args:  cobra.NoArgs,
-		RunE:  func(c *cobra.Command, _ []string) error { return runImport(o, c.OutOrStdout()) },
+		RunE:  func(c *cobra.Command, _ []string) error { return logFailure(o, runImport(o, c.OutOrStdout())) },
 	}
 	importCmd.Flags().StringVar(&o.session, "session", "", "import a specific session (an ID prefix works)")
 	project(importCmd, "import sessions whose project matches")
@@ -272,7 +272,7 @@ Run without a command, it opens the TUI.`,
 		Use:   "mcp",
 		Short: "Start the MCP server (stdio transport)",
 		Args:  cobra.NoArgs,
-		RunE:  func(c *cobra.Command, _ []string) error { return runMCP(o, c.Flags().Changed("repo")) },
+		RunE:  func(c *cobra.Command, _ []string) error { return logFailure(o, runMCP(o, c.Flags().Changed("repo"))) },
 	}
 	mcpCmd.Flags().StringVar(&o.repo, "repo", "", "hold every tool to one repository: a git remote, or a directory in it")
 
@@ -285,9 +285,9 @@ print its URL, or restart it if it is an older release.`, config.DefaultPort),
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if o.foreground {
-				return serveUI(o, c.OutOrStdout())
+				return logFailure(o, serveUI(o, c.OutOrStdout()))
 			}
-			return runUI(o, c.OutOrStdout(), c.ErrOrStderr())
+			return logFailure(o, runUI(o, c.OutOrStdout(), c.ErrOrStderr()))
 		},
 	}
 	uiCmd.PersistentFlags().IntVar(&o.port, "port", 0, "port of the web UI (default: port under [ui] in the config file, or 6276)")
@@ -786,7 +786,7 @@ func runUI(o *options, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return startBackground(self, o.port, o.db, stdout, stderr)
+	return startBackground(self, o.port, o.db, stdout, stderr, o.log)
 }
 
 // stopAndWait asks the web UI on port to stop and waits, up to 5 seconds,
@@ -810,7 +810,7 @@ func stopAndWait(port int) error {
 
 // startBackground runs `exe ui --foreground` detached and waits for it to
 // answer.
-func startBackground(exe string, port int, db string, stdout, stderr io.Writer) error {
+func startBackground(exe string, port int, db string, stdout, stderr io.Writer, log *slog.Logger) error {
 	addr := uiAddr(port)
 	cmd := exec.Command(exe, "ui", "--foreground", "--port", strconv.Itoa(port), "--db", db)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -831,6 +831,7 @@ func startBackground(exe string, port int, db string, stdout, stderr io.Writer) 
 		}
 	}
 	fmt.Fprintln(stderr, "Failed to start UI server.")
+	log.Error("the web UI did not start", logging.KeyPort, port)
 	return nil
 }
 
@@ -899,8 +900,10 @@ func runUpdate(o *options, stdout, stderr io.Writer) error {
 		fmt.Fprintf(stdout, "Restarting the web UI (%s → %s).\n", cmp.Or(st.Version, "older"), latest)
 		if err := stopAndWait(o.port); err != nil {
 			fmt.Fprintln(stderr, err)
-		} else if err := startBackground(exe, o.port, o.db, stdout, stderr); err != nil {
+			o.log.Error("the web UI did not stop to restart", logging.KeyErr, err.Error())
+		} else if err := startBackground(exe, o.port, o.db, stdout, stderr, o.log); err != nil {
 			fmt.Fprintln(stderr, "Failed to start UI server:", err)
+			o.log.Error("the web UI did not start", logging.KeyErr, err.Error())
 		}
 	}
 	fmt.Fprintf(stdout, "Updated recall %s → %s\n", version.Version, latest)
@@ -960,7 +963,7 @@ func versionNotice(o *options, stderr io.Writer) {
 
 // releaseNotice is what the TUI tells of a newer release: the one in the
 // cache, and a look for the latest when the cache is a day old.
-func releaseNotice(configOn bool) (tui.Release, bool) {
+func releaseNotice(configOn bool, log *slog.Logger) (tui.Release, bool) {
 	if !update.Checks(version.Source, configOn) {
 		return tui.Release{}, false
 	}
@@ -977,7 +980,10 @@ func releaseNotice(configOn bool) (tui.Release, bool) {
 		r.Check = func() string {
 			ctx, cancel := context.WithTimeout(context.Background(), update.CheckTimeout)
 			defer cancel()
-			found, _ := releases.Refresh(ctx, path)
+			found, err := releases.Refresh(ctx, path)
+			if err != nil {
+				log.Debug("looking for a release failed", logging.KeyErr, err.Error())
+			}
 			v, _ := found.Newer(version.Version)
 			return v
 		}
@@ -1067,7 +1073,7 @@ func runTUI(o *options, c *cobra.Command) error {
 		model = model.AskWith(self, filepath.Join(filepath.Dir(config.StatePath()), "ask")).AskHistoryIn(filepath.Dir(config.StatePath()))
 	}
 	model = model.RecallWith(self).TranscriptsIn(o.trees...)
-	if r, ok := releaseNotice(cfg.Core.UpdateCheck); ok {
+	if r, ok := releaseNotice(cfg.Core.UpdateCheck, o.log); ok {
 		model = model.TellOfRelease(r)
 	}
 	model = model.RememberVersionIn(config.LastVersionPath()).NotesFrom(releaseNotes).LogTo(o.log)
@@ -1075,6 +1081,8 @@ func runTUI(o *options, c *cobra.Command) error {
 	// leaves them untold.
 	if added, err := config.RecordSettings(config.SettingsPath(), config.KnownSettings(), version.Version); err == nil {
 		model = model.TellOfNewSettings(added)
+	} else {
+		o.log.Warn("the settings known could not be kept", logging.KeyErr, err.Error())
 	}
 	final, err := tea.NewProgram(model).Run()
 	if err != nil {
@@ -1170,4 +1178,15 @@ func procOf(c *cobra.Command) string {
 		return path[1]
 	}
 	return "cli"
+}
+
+// logFailure logs err, the end of recall mcp, recall ui or recall import,
+// which run where no one reads what they print. The other commands print
+// their failures to whoever ran them, and their errors can hold what was
+// searched for.
+func logFailure(o *options, err error) error {
+	if err != nil {
+		o.log.Error("failed", logging.KeyErr, err.Error())
+	}
+	return err
 }

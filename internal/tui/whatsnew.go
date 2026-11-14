@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
+	"github.com/babarot/claude-recall/internal/logging"
 	selfupdate "github.com/babarot/claude-recall/internal/update"
 )
 
@@ -92,12 +93,14 @@ func (m Model) startCmds() tea.Cmd {
 
 // recordVersion writes this run's version for the next run to compare.
 func (m Model) recordVersion() tea.Cmd {
-	path, v := m.versionPath, m.version
+	path, v, log := m.versionPath, m.version, m.logger()
 	if path == "" {
 		return nil
 	}
 	return func() tea.Msg {
-		_ = config.SaveLastVersion(path, v)
+		if err := config.SaveLastVersion(path, v); err != nil {
+			log.Warn("the version could not be kept", logging.KeyPath, path, logging.KeyErr, err.Error())
+		}
 		return nil
 	}
 }
@@ -131,6 +134,7 @@ func (m *Model) whatsNewLoaded(msg whatsNewLoaded) {
 	w.loading = false
 	if msg.err != nil {
 		w.err = msg.err
+		m.logger().Warn("the release notes could not be read", logging.KeyErr, msg.err.Error())
 		return
 	}
 	w.tag, w.notes, w.err = msg.tag, msg.notes, nil

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -397,6 +399,22 @@ func TestAskFailureLogged(t *testing.T) {
 	m := askModel(t, &fakeAsk{err: errors.New("claude: the answer about the secret")}, config.Default().TUI).LogTo(logging.New(&log, slog.LevelDebug))
 	askDriven(t, m, "q")
 	if !strings.Contains(log.String(), `"msg":"ask failed"`) || strings.Contains(log.String(), "secret") {
+		t.Errorf("log:\n%s", log.String())
+	}
+}
+
+// State the TUI could not keep is logged, since nothing on the screen says
+// so and the next run would quietly start without it.
+func TestStateNotKeptLogged(t *testing.T) {
+	var log bytes.Buffer
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	m = m.LogTo(logging.New(&log, slog.LevelInfo)).RememberIn(filepath.Join(t.TempDir(), "file", "in", "the", "way"))
+	// A file where the state's directory would be.
+	if err := os.WriteFile(filepath.Dir(filepath.Dir(filepath.Dir(m.statePath))), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m.saveState()()
+	if !strings.Contains(log.String(), "could not be kept") {
 		t.Errorf("log:\n%s", log.String())
 	}
 }
