@@ -1,5 +1,18 @@
 # Changelog
 
+## [v1.15.0](https://github.com/babarot/claude-recall/compare/v1.14.0...v1.15.0) - 2026-11-14
+### New Features
+- Keep Ask's questions, and recall them with up and down by @babarot in https://github.com/babarot/claude-recall/pull/146
+### Bug fixes
+- Build with Go 1.26.11 for the fix in net/http by @babarot in https://github.com/babarot/claude-recall/pull/143
+- Put the terminal's cursor in the field being typed in by @babarot in https://github.com/babarot/claude-recall/pull/141
+- Hand on a relative --db as an absolute path by @babarot in https://github.com/babarot/claude-recall/pull/145
+### Improvements
+- Read a modal's keys from what it holds, and close it on esc alone by @babarot in https://github.com/babarot/claude-recall/pull/144
+- Keep a running ask's box as tall as the one the question was typed in by @babarot in https://github.com/babarot/claude-recall/pull/147
+### Refactorings
+- Add the MIT LICENSE file by @babarot in https://github.com/babarot/claude-recall/pull/142
+
 ## [v1.14.0](https://github.com/babarot/claude-recall/compare/v1.13.0...v1.14.0) - 2026-11-03
 ### New Features
 - Store the tokens and model of each response by @babarot in https://github.com/babarot/claude-recall/pull/125
