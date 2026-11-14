@@ -487,13 +487,14 @@ func (s *Server) logger() *slog.Logger {
 	return s.Log
 }
 
-// logFailed logs a request the API failed, by its path alone: the query
-// string holds the words searched for, and so may the error of a search,
-// which is left out for that reason.
+// logFailed logs a request the API failed, by its path alone. A request
+// that carries input beside its path, a query string or a body, may have
+// it echoed in the error (the words searched for, a value that could not
+// be read), so the error of such a request is left out.
 func (s *Server) logFailed(r *http.Request, err error) {
 	msg := err.Error()
-	if strings.Contains(r.URL.Path, "search") || r.URL.Query().Has("q") {
-		msg = "(left out: it may hold the words searched for)"
+	if r.URL.RawQuery != "" || r.ContentLength != 0 || strings.Contains(r.URL.Path, "search") {
+		msg = "(left out: it may hold what the request carried)"
 	}
 	s.logger().Error("request failed", logging.KeyPath, r.URL.Path, logging.KeyErr, msg)
 }
