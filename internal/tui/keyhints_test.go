@@ -108,7 +108,11 @@ func TestKeyHints(t *testing.T) {
 	// The key list is pinned opened from every pane: TestUIStatesCovered
 	// checks these reach every keyContext.
 	for _, c := range helpCases(t, m, fm) {
-		add("? key list: "+c.name, strings.Join(c.m.drawBox(helpSpec(), 100, 78), "\n"))
+		// The version at its top is pinned, so a release does not change
+		// the file.
+		hm := c.m
+		hm.version = "1.0.0"
+		add("? key list: "+c.name, strings.Join(hm.drawBox(helpSpec(), 100, 78), "\n"))
 	}
 	topLine("sort menu top edge", press(t, m, "s"), "Sort by")
 	topLine("what's new top edge", press(t, m, "w"), "What's new")

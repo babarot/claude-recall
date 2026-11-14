@@ -1,16 +1,19 @@
 package tui
 
 import (
+	"cmp"
+	"fmt"
 	"slices"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
 // ? shows every key, grouped by where it works, over the screen; Esc
-// closes it. The group of the pane it was opened from comes first, marked
-// as the selected row is, and keys that do not work there are muted.
+// closes it. It tells the version at its top, and a newer release with how
+// to update to it. The group of the pane it was opened from comes first;
+// each group's header says whether its keys work there, and keys that do
+// not are faint. It scrolls when the terminal is too short for it.
 
 // helpRow is a key hint template (see hintKeys) and what it does, which may
 // name keys the same way, with the panes it works in (nil: its group's).
@@ -124,75 +127,114 @@ func helpOrder(c keyContext) []helpGroup {
 
 const helpKeyWidth = 15
 
-// helpLine is a line of the key list's body; here lines carry the selected
-// row's bar and background.
-type helpLine struct {
-	text string
-	here bool
+// homepage is where recall lives, told at the top of the key list.
+const homepage = "github.com/babarot/claude-recall"
+
+// helpWidth is the widest the key list gets.
+const helpWidth = 64
+
+// helpTop are the key list's first lines, right-aligned: the version and
+// the homepage, and a newer release with how to update to it.
+func (m Model) helpTop(inner int) []string {
+	right := func(s string) string {
+		s = ansi.Truncate(s, inner, ellipsis)
+		return strings.Repeat(" ", max(0, inner-ansi.StringWidth(s))) + s
+	}
+	out := []string{right(m.st.dim.Render("recall " + cmp.Or(m.version, "dev") + " · " + homepage))}
+	if v := m.release.Version; v != "" {
+		how := m.st.subtle.Render(m.release.How)
+		if m.release.Command {
+			how = m.st.key.Render(m.release.How)
+		}
+		out = append(out, right(m.st.ok.Render(v+" is out")+m.st.dim.Render(" · ")+how))
+	}
+	return out
 }
 
-// helpBody is the key list's lines for the focused pane.
-func (m Model) helpBody(inner int) []helpLine {
+// helpBody is every line of the key list, inner cells wide, for the
+// focused pane: its top lines, then the groups, each under a header that
+// rules off the rest of its line.
+func (m Model) helpBody(inner int) []string {
 	c := m.keyContext()
-	var body []helpLine
+	body := append(m.helpTop(inner), "")
 	for i, g := range helpOrder(c) {
 		if i > 0 {
-			body = append(body, helpLine{})
+			body = append(body, "")
 		}
-		here := i == 0
-		on := func(s lipgloss.Style) lipgloss.Style { return m.st.on(s, here) }
 		works := m.works(g, c)
-		title := strings.ToUpper(g.title)
+		some := slices.ContainsFunc(g.rows, func(r helpRow) bool { return r.worksIn(g, c) })
+		var head string
 		switch {
-		case here:
-			title = on(m.st.subtle.Bold(true)).Render(title) + on(m.st.text).Render("  ") + m.st.helpHere.Render(" here ")
-		case !works && g.title == helpGroups[0].title:
-			title = m.section(g.title) + m.st.muted.Render("  bright rows work here too")
 		case works:
-			title = m.section(g.title)
+			head = m.st.id.Bold(true).Render(g.title) + m.st.dim.Render(" · works here")
+		case some:
+			head = m.st.muted.Bold(true).Render(g.title) + m.st.dim.Render(" · bright rows work here")
 		default:
-			title = m.st.muted.Render(title)
+			head = m.st.muted.Bold(true).Render(g.title)
 		}
-		body = append(body, helpLine{title, here})
+		head += " " + m.st.rule.Render(strings.Repeat("─", max(0, inner-ansi.StringWidth(head)-1)))
+		body = append(body, head)
 		for _, r := range g.rows {
 			keys := m.hintKeys(r.keys)
 			if keys == "" {
 				continue // remapped away
 			}
-			ks, ws := on(m.st.key), on(m.st.subtle)
-			if !here && !r.worksIn(g, c) && !works {
-				ks, ws = m.st.muted, m.st.muted
+			ks, ws := m.st.key, m.st.subtle
+			if !works && !r.worksIn(g, c) {
+				ks, ws = m.st.muted, m.st.dim
 			}
-			key := ks.Render(keys) + on(m.st.text).Render(strings.Repeat(" ", max(1, helpKeyWidth-ansi.StringWidth(keys))))
-			body = append(body, helpLine{ansi.Truncate(key+ws.Render(m.hintKeys(r.what)), inner, ellipsis), here})
+			key := "  " + ks.Render(keys) + strings.Repeat(" ", max(1, helpKeyWidth-ansi.StringWidth(keys)))
+			body = append(body, ansi.Truncate(key+ws.Render(m.hintKeys(r.what)), inner, ellipsis))
 		}
 	}
 	return body
 }
 
-// helpSpec declares the key list: nothing to read keys for but esc.
+// helpInner is how wide the key list's lines are on this terminal.
+func (m Model) helpInner() int { return m.boxWidth(helpSpec().box) - 4 }
+
+// helpShown is the part of the key list the box shows, rows at a time
+// from where it is scrolled to, where that part starts, and how many lines
+// there are.
+func (m Model) helpShown(inner, rows int) (shown []string, off, total int) {
+	body := m.helpBody(inner)
+	off = max(0, min(m.helpOffset, len(body)-rows))
+	return body[off:min(len(body), off+rows)], off, len(body)
+}
+
+func (m *Model) scrollHelp(step int) {
+	n := len(m.helpBody(m.helpInner()))
+	m.helpOffset = max(0, min(m.helpOffset+step, n-max(1, m.boxRows())))
+}
+
+// helpSpec declares the key list: a body to scroll, and esc.
 func helpSpec() modalSpec {
 	return modalSpec{
+		body: &modalBody{
+			scroll: func(m *Model, step int) { m.scrollHelp(step) },
+			page:   func(m Model) int { return max(1, m.boxRows()-1) },
+		},
 		esc: closeKey(func(m *Model) { m.closeModal() }),
 		box: &modalBox{
 			title: func(Model) string { return "Keys" },
-			width: 64, minWidth: 30,
+			width: helpWidth, minWidth: 30,
 			click: clickCloses,
-			lines: func(m Model, inner, rows int) []boxLine { return m.helpLines(inner, rows) },
+			lines: func(m Model, inner, rows int) []boxLine {
+				shown, _, _ := m.helpShown(inner, rows)
+				out := make([]boxLine, len(shown))
+				for i, l := range shown {
+					out[i] = boxLine{text: l}
+				}
+				return out
+			},
+			// Where the part shown is in the list, when it is longer.
+			bottom: func(m Model, inner, rows int) string {
+				shown, off, total := m.helpShown(inner, rows)
+				if total <= len(shown) {
+					return ""
+				}
+				return fmt.Sprintf(" %d-%d/%d ", off+1, off+len(shown), total)
+			},
 		},
 	}
-}
-
-// helpLines are the key list's rows, the group of the pane it was opened
-// from marked; past rows, the last says a taller terminal shows the rest.
-func (m Model) helpLines(inner, rows int) []boxLine {
-	body := m.helpBody(inner)
-	if len(body) > rows {
-		body = append(body[:max(0, rows-1)], helpLine{text: m.st.muted.Render("… a taller terminal shows the rest")})
-	}
-	out := make([]boxLine, len(body))
-	for i, l := range body {
-		out[i] = boxLine{text: l.text, bar: l.here, selected: l.here}
-	}
-	return out
 }

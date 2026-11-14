@@ -23,7 +23,7 @@ The state of the screen, which of these takes the keys, is `uiState` in [uistate
 
 | Modal | `uiState` | Opened by | Parts (its declaration, in its own file) | Width |
 |---|---|---|---|---|
-| key list | `uiHelp` | `help` | none; it does not scroll | up to 64 |
+| key list | `uiHelp` | `help` | body | up to 64 |
 | sort menu | `uiSort` | `sort` | list; own keys `1` to `4` | up to 44 |
 | Ask, typing | `uiAskTyping` | `ask` | field; recalls questions on `up` `down`; own keys `enter`, `ctrl+r`, `tab`, `right` | up to 96 |
 | Ask, searching the questions | `uiAskSearch` | `ctrl+r` in Ask | field and list | up to 96 |
@@ -57,7 +57,7 @@ Where a box is placed is not a value of the declaration: every box is placed by 
 
 Every box has the same frame, in the accent color, its top edge ending in `─╮`, and leaves two cells of the terminal's width (`boxMargin`). The accent marked only the boxes the user types in before the screen was dimmed under a modal; over the dimmed screen the border color was fainter than the text around the box, so every frame takes the accent, and a box the user types in is told by its cursor.
 
-A selected row is drawn by each modal in its rows, but for two things a row tells `drawBox`: the key list's mark goes in the left margin (`bar`), and the rest of the row may have the selection's background (`selected`).
+A selected row is drawn by each modal in its rows, but for one thing a row tells `drawBox`: the rest of the row may have the selection's background (`selected`), as the sort menu's has.
 
 1. `draw` in view.go draws the screen as if no modal were open (`renderScreen`).
 2. If a modal shows, `drawModal` in modal.go dims the screen (`dim`) and draws the box (`drawBox`) over it with `overlay`, where `boxRect` places it. Every line but the last, the footer, which says the modal's keys, loses its colors and is drawn in the faint color (`styles.dim`), so only the box and the footer keep theirs, as gh-desk dims the screen under its popups. A toast on the status line keeps its color too, since it is there to be read for a moment. The rows of an image in the reading view keep their cells and color (`imageRun`): Kitty's placeholder cells name the image by their foreground color, and drawn in another they would show another image or none. A row cut short, its color's end gone, still matches.
