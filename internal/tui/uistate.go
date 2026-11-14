@@ -36,19 +36,19 @@ var uiStateNames = [numUIStates]string{
 func (s uiState) String() string { return uiStateNames[s] }
 
 func (m Model) uiState() uiState {
-	switch {
-	case m.recall.open:
+	switch m.modal {
+	case modalRecall:
 		return uiRecall
-	case m.ask.stage == askTyping && m.askHist.search.open:
-		return uiAskSearch
-	case m.ask.stage != askClosed:
-		return map[askStage]uiState{askTyping: uiAskTyping, askRunning: uiAskRunning, askAnswered: uiAskAnswered, askFailed: uiAskFailed}[m.ask.stage]
-	case m.sortMenu:
+	case modalAsk:
+		return m.askUIState()
+	case modalSort:
 		return uiSort
-	case m.whatsNew.open:
+	case modalWhatsNew:
 		return uiWhatsNew
-	case m.helpOpen:
+	case modalHelp:
 		return uiHelp
+	}
+	switch {
 	case m.mode == modeFilter:
 		return uiFilter
 	case m.focus == focusFolders && m.sideTyping:
@@ -87,4 +87,35 @@ func (s uiState) typing() bool {
 		return true
 	}
 	return false
+}
+
+// modalKind is the modal that shows, if any. One field holds it, so two
+// are never open at once.
+type modalKind int
+
+const (
+	modalNone modalKind = iota
+	modalHelp
+	modalSort
+	modalAsk
+	modalRecall
+	modalWhatsNew
+)
+
+// openModalKind opens modal k, closing first the one that shows, with what
+// closing it takes (a running ask stopped), rather than writing over it.
+func (m *Model) openModalKind(k modalKind) {
+	m.closeModal()
+	m.modal = k
+}
+
+// closeModal closes the modal that shows, if any.
+func (m *Model) closeModal() {
+	switch m.modal {
+	case modalAsk:
+		m.endAsk()
+	case modalRecall:
+		m.recall.input.Blur()
+	}
+	m.modal = modalNone
 }

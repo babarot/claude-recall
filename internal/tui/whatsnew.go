@@ -26,7 +26,6 @@ const updatedToastFor = 6 * time.Second
 // whatsNewState is the What's new modal: the release notes from CHANGELOG.md,
 // fetched the first time it opens and kept for the run.
 type whatsNewState struct {
-	open    bool
 	loading bool
 	// tag is the release the notes were fetched at, and notes what came,
 	// or err why nothing did.
@@ -115,8 +114,9 @@ func (m Model) notesTag() string {
 }
 
 func (m *Model) openWhatsNew() tea.Cmd {
+	m.openModalKind(modalWhatsNew)
 	w := &m.whatsNew
-	w.open, w.offset = true, 0
+	w.offset = 0
 	tag := m.notesTag()
 	if w.loading || (w.notes != nil && w.tag == tag) || m.fetchNotes == nil {
 		return nil

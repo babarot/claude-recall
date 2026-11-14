@@ -23,13 +23,13 @@ const sortMenuWidth = 44
 
 // openSortMenu shows the menu with the current order highlighted.
 func (m *Model) openSortMenu() {
-	m.sortMenu = true
+	m.openModalKind(modalSort)
 	m.sortSel = m.sortIdx
 }
 
 // applySort switches to order i and closes the menu.
 func (m *Model) applySort(i int) {
-	m.sortMenu = false
+	m.closeModal()
 	if i == m.sortIdx {
 		return
 	}

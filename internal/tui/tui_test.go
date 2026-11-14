@@ -157,7 +157,7 @@ func TestSortMenu(t *testing.T) {
 	m = press(t, m, "s")
 	s := screen(m)
 	for _, want := range []string{"Sort by", "● Ended", "Started", "Msgs", "most messages first", "Size"} {
-		if !m.sortMenu || !strings.Contains(s, want) {
+		if m.modal != modalSort || !strings.Contains(s, want) {
 			t.Fatalf("menu lacks %q:\n%s", want, s)
 		}
 	}
@@ -167,34 +167,34 @@ func TestSortMenu(t *testing.T) {
 		t.Fatalf("j j: sort %s, highlight %d", sorts[m.sortIdx].name, m.sortSel)
 	}
 	m = press(t, m, "enter")
-	if m.sortMenu || sorts[m.sortIdx].name != "Msgs" || m.current().s.MessageCount != 50 {
-		t.Fatalf("enter: menu %v sort %s first %+v", m.sortMenu, sorts[m.sortIdx].name, m.current().s)
+	if (m.modal == modalSort) || sorts[m.sortIdx].name != "Msgs" || m.current().s.MessageCount != 50 {
+		t.Fatalf("enter: menu %v sort %s first %+v", (m.modal == modalSort), sorts[m.sortIdx].name, m.current().s)
 	}
 	// A number applies its order; Esc leaves things as they were.
-	if m = press(t, m, "s", "4"); sorts[m.sortIdx].name != "Size" || m.sortMenu {
+	if m = press(t, m, "s", "4"); sorts[m.sortIdx].name != "Size" || (m.modal == modalSort) {
 		t.Fatalf("4: sort %s", sorts[m.sortIdx].name)
 	}
-	if m = press(t, m, "s", "j", "esc"); sorts[m.sortIdx].name != "Size" || m.sortMenu {
+	if m = press(t, m, "s", "j", "esc"); sorts[m.sortIdx].name != "Size" || (m.modal == modalSort) {
 		t.Fatalf("esc: sort %s", sorts[m.sortIdx].name)
 	}
 	// A click on an order applies it.
 	m = press(t, m, "s")
 	r := m.sortMenuRect()
 	m = update(t, m, tea.MouseClickMsg{X: r.x + 4, Y: r.y + 2, Button: tea.MouseLeft})
-	if sorts[m.sortIdx].name != "Started" || m.sortMenu {
+	if sorts[m.sortIdx].name != "Started" || (m.modal == modalSort) {
 		t.Fatalf("click: sort %s", sorts[m.sortIdx].name)
 	}
 	// s works from every pane: reading the conversation, a frame, the
 	// folder list.
 	m = press(t, m, "space")
-	if m = press(t, m, "s"); !m.sortMenu {
+	if m = press(t, m, "s"); m.modal != modalSort {
 		t.Fatal("s should open the menu while reading")
 	}
 	m = press(t, m, "esc", "space", "tab")
 	if m.focus != focusConv {
 		t.Fatalf("focus %v", m.focus)
 	}
-	if m = press(t, m, "s"); !m.sortMenu {
+	if m = press(t, m, "s"); m.modal != modalSort {
 		t.Fatal("s should open the menu from a frame")
 	}
 }
@@ -327,7 +327,7 @@ func TestCopyCommand(t *testing.T) {
 func TestRecall(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
 	m = press(t, m, "c") // first row: bbbbbbbb, whose folder is gone
-	if !m.recall.open || !strings.Contains(screen(m), "Recall in a new claude") {
+	if m.modal != modalRecall || !strings.Contains(screen(m), "Recall in a new claude") {
 		t.Fatalf("c should open the modal:\n%s", screen(m))
 	}
 	// Keys go to the modal, not the list: q is typed, not quit.
@@ -347,8 +347,8 @@ func TestRecallEmptyTopicAndEsc(t *testing.T) {
 		t.Fatalf("recall %+v", r.Recall)
 	}
 	r := press(t, m, "c", "esc")
-	if r.recall.open || r.Recall != nil {
-		t.Fatalf("esc should close the modal: open %v recall %+v", r.recall.open, r.Recall)
+	if (r.modal == modalRecall) || r.Recall != nil {
+		t.Fatalf("esc should close the modal: open %v recall %+v", (r.modal == modalRecall), r.Recall)
 	}
 }
 
@@ -1094,7 +1094,7 @@ func TestCtrlCQuitsFromAnywhere(t *testing.T) {
 	quits("key list", press(t, m, "?"))
 	quits("sort menu", press(t, m, "s"))
 	a := m
-	a.ask.stage = askRunning
+	a.ask.stage, a.modal = askRunning, modalAsk
 	quits("ask", a)
 	f := newFolderFixture(t)
 	fm := press(t, folderModel(t, config.Default().TUI, f, 140, 40), "left", "left")

@@ -26,15 +26,15 @@ func TestQuestionMarkShowsTheKeys(t *testing.T) {
 	// Other keys do nothing while it shows, the key that opened it and q
 	// among them; esc alone closes it.
 	cursor := m.cursor
-	if m = press(t, m, "j", "s", "?", "q"); m.cursor != cursor || !m.helpOpen || m.Result != nil {
+	if m = press(t, m, "j", "s", "?", "q"); m.cursor != cursor || m.modal != modalHelp || m.Result != nil {
 		t.Fatal("keys should not reach the list behind the key list, nor close it")
 	}
-	if m = press(t, m, "esc"); m.helpOpen {
+	if m = press(t, m, "esc"); m.modal == modalHelp {
 		t.Error("esc should close the key list")
 	}
 	// In the filter, ? is a character to type.
 	m = press(t, m, "/", "?")
-	if m.helpOpen || m.filter.Value() != "?" {
+	if (m.modal == modalHelp) || m.filter.Value() != "?" {
 		t.Fatalf("in the filter ? is typed: %q", m.filter.Value())
 	}
 }
