@@ -240,7 +240,7 @@ Sessions are imported from `~/.claude/projects` (`$CLAUDE_CONFIG_DIR/projects` w
 
 ## Configuration
 
-`~/.config/claude-recall/config.toml` (or `$XDG_CONFIG_HOME/claude-recall/config.toml`). `recall` writes it the first time the TUI runs, with every setting at its default and commented out; a setting left out is its default, so set only what you change:
+`~/.config/claude-recall/config.toml` (or `$XDG_CONFIG_HOME/claude-recall/config.toml`). A setting left out is its default, so set only what you change; `recall config reference` prints every setting with what it does and its default:
 
 ```toml
 [core]
