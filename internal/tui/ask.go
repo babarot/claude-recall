@@ -29,6 +29,10 @@ const (
 )
 
 const (
+	// askStepRows is how many of a running ask's searches show: with the
+	// question and the spinner, as many rows as the box has while the
+	// question is typed.
+	askStepRows  = 3
 	askWidth     = 96
 	askTickEvery = 200 * time.Millisecond
 	spinFrames   = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -264,14 +268,18 @@ func (m Model) withAsk(screen string) string {
 		elapsed := m.now().Sub(m.ask.started)
 		spin := string([]rune(spinFrames)[int(elapsed/(100*time.Millisecond))%len([]rune(spinFrames))])
 		title, hint = "Ask Claude", m.frameHint(modalSpecs[uiAskRunning])
-		body = []string{ansi.Truncate(q, inner, ellipsis), "",
+		body = []string{ansi.Truncate(q, inner, ellipsis),
 			m.st.id.Render(spin) + " " + m.st.subtle.Render("searching…") + m.st.muted.Render(fmt.Sprintf(" %ds", int(elapsed.Seconds())))}
-		steps := m.ask.steps
-		if len(steps) > 6 {
-			steps = steps[len(steps)-6:]
-		}
-		for _, s := range steps {
-			body = append(body, m.st.muted.Render("  · "+ansi.Truncate(s, inner-4, ellipsis)))
+		// The last few searches, in rows kept for them from the start, so
+		// the box stays as tall as it was while the question was typed and
+		// a new search pushes the oldest out.
+		steps := m.ask.steps[max(0, len(m.ask.steps)-askStepRows):]
+		for i := range askStepRows {
+			line := ""
+			if i < len(steps) {
+				line = m.st.muted.Render("  · " + ansi.Truncate(steps[i], inner-4, ellipsis))
+			}
+			body = append(body, line)
 		}
 	case askAnswered:
 		title = fmt.Sprintf("Ask Claude · %d sessions", len(m.ask.hits))
