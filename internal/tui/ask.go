@@ -72,7 +72,7 @@ func (m Model) AskWith(recall []string, dir string) Model {
 }
 
 func newAskInput() textinput.Model {
-	in := textinput.New()
+	in := newInput()
 	in.Prompt = "› "
 	in.Placeholder = "what are you looking for?"
 	return in
@@ -307,7 +307,7 @@ func (m Model) withAsk(screen string) string {
 	switch m.ask.stage {
 	case askTyping:
 		title, hint = "Ask Claude", "enter ask · esc close"
-		body = []string{m.ask.input.View(),
+		body = []string{m.inputView(uiAskTyping, m.ask.input),
 			m.st.muted.Render(`  e.g. "the session where we fixed the terraform state" · "who looked at PR #7427"`), "",
 			m.st.dim.Render(fmt.Sprintf("  claude -p · %s · searches with recall only (no files, no shell)", config.ModelID(m.cfg.AskModel))),
 			m.st.dim.Render("  uses your Claude plan, as Claude Code does")}

@@ -87,7 +87,9 @@ func (m Model) listHeight() int {
 }
 
 func (m Model) View() tea.View {
-	v := tea.NewView(m.render())
+	s, cur := m.renderWithCursor()
+	v := tea.NewView(s)
+	v.Cursor = cur
 	v.AltScreen = true
 	v.WindowTitle = "recall"
 	// Mouse: drag the detail pane's top edge to resize it, wheel to scroll.
@@ -95,7 +97,19 @@ func (m Model) View() tea.View {
 	return v
 }
 
+// render is the screen as View shows it, without the terminal's cursor.
 func (m Model) render() string {
+	s, _ := m.renderWithCursor()
+	return s
+}
+
+// renderWithCursor is the screen and the terminal's cursor on it, which
+// stands in the field being typed in (nil when none is).
+func (m Model) renderWithCursor() (string, *tea.Cursor) {
+	return m.takeCursor(m.draw())
+}
+
+func (m Model) draw() string {
 	if m.width == 0 || m.height == 0 || m.settling {
 		return ""
 	}
@@ -118,10 +132,10 @@ func (m Model) renderScreen() string {
 
 	lines := []string{m.renderHeader()}
 	if m.filterShown() {
-		line := " " + m.st.filter.Render(m.filter.View())
+		line := " " + m.st.filter.Render(m.inputView(uiFilter, m.filter))
 		// The hinted key follows the cursor, faint, until tab takes it.
 		if hint := m.keyHint(); hint != "" && m.mode == modeFilter {
-			line = " " + m.st.filter.Render(strings.TrimRight(m.filter.View(), " ")) + m.st.dim.Render(hint)
+			line = " " + m.st.filter.Render(strings.TrimRight(m.inputView(uiFilter, m.filter), " ")) + m.st.dim.Render(hint)
 		}
 		lines = append(lines, line)
 	}
