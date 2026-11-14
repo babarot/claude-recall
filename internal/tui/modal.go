@@ -50,6 +50,9 @@ type modalRecall struct {
 	// leave is called when the field is edited: a text recalled and
 	// changed is the user's.
 	leave func(m *Model)
+	// any reports whether there is anything to recall, which the hints say
+	// only then.
+	any func(m Model) bool
 }
 
 // modalBody is text to read, scrolled by nav's keys.
@@ -190,7 +193,7 @@ func (m Model) typeInModal(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 
 // hints are the modal's keys as footer pairs (key hint templates and what
 // they do, see hintKeys), frame alone for those on the box's top edge.
-func (s modalSpec) hints(frame bool) [][2]string {
+func (s modalSpec) hints(m Model, frame bool) [][2]string {
 	var out [][2]string
 	// The way out comes first in the footer, so a terminal too narrow for
 	// the box, or for every hint, still says it; on the box's edge it comes
@@ -220,8 +223,14 @@ func (s modalSpec) hints(frame bool) [][2]string {
 	for _, o := range s.own {
 		add(o)
 	}
-	if s.recall != nil && !frame {
-		out = append(out, [2]string{"{up.0}{down.0}", "earlier questions"})
+	// The questions asked before show on the box's edge too, where the eye
+	// goes, before the way out.
+	if r := s.recall; r != nil && r.any(m) {
+		word := "earlier questions"
+		if frame {
+			word = "earlier"
+		}
+		out = append(out, [2]string{"{up.0}{down.0}", word})
 	}
 	if frame {
 		add(s.esc)
@@ -232,7 +241,7 @@ func (s modalSpec) hints(frame bool) [][2]string {
 // frameHint is the hint on the top edge of the modal's box.
 func (m Model) frameHint(s modalSpec) string {
 	var parts []string
-	for _, p := range s.hints(true) {
+	for _, p := range s.hints(m, true) {
 		if k := m.hintKeys(p[0]); k != "" {
 			parts = append(parts, k+" "+p[1])
 		}
@@ -297,6 +306,7 @@ var askTypingSpec = modalSpec{
 		older: func(m *Model) { m.recallOlder() },
 		newer: func(m *Model) { m.recallNewer() },
 		leave: func(m *Model) { m.askHist.recall.Leave() },
+		any:   func(m Model) bool { return len(m.askHist.list) > 0 },
 	},
 	own: []modalKey{{keys: []string{"enter"}, word: "ask", frame: true, do: func(m *Model) tea.Cmd { return m.startAsk() }}},
 	esc: closeKey(func(m *Model) { m.closeAsk() }),

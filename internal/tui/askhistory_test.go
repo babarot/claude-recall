@@ -149,6 +149,16 @@ func TestAskKeepsAndRecallsQuestions(t *testing.T) {
 	if !strings.Contains(ansi.Strip(m.renderHelp()), "↑↓ earlier questions") {
 		t.Errorf("footer %q", ansi.Strip(m.renderHelp()))
 	}
+	if !strings.Contains(screen(m), "enter ask · ↑↓ earlier · esc close") {
+		t.Errorf("no ↑↓ earlier on the box's edge:\n%s", screen(m))
+	}
+	// With no question asked before, neither says it.
+	m = historyModel(t, &fakeAsk{}, &fakeStore{})
+	next, cmd = m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
+	m = drive(t, asModel(t, next), cmd)
+	if strings.Contains(screen(m), "earlier") || strings.Contains(ansi.Strip(m.renderHelp()), "earlier") {
+		t.Errorf("earlier questions told with none:\n%s\n%s", screen(m), ansi.Strip(m.renderHelp()))
+	}
 }
 
 // A question recalled and changed is the user's: down no longer goes
