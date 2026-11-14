@@ -2,6 +2,7 @@ package tui
 
 import (
 	"cmp"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -41,15 +42,14 @@ type modalSpec struct {
 }
 
 // modalBox is how a modal is drawn as a box and what a click does. The
-// boxes differ in a few ways the user sees (the frame's color, a selected
-// row); those are values here, drawn by one drawBox. Every box is placed
-// by one rule (placeModal).
+// boxes differ in a few ways the user sees (a selected row, what a click
+// does); those are values here, drawn by one drawBox. Every box is placed
+// by one rule (placeModal), and framed in the accent color.
 type modalBox struct {
 	title func(m Model) string
 	// width is the widest the box gets, and minWidth the narrowest it is
 	// drawn at; it leaves boxMargin of the terminal's width.
 	width, minWidth int
-	frame           boxFrame
 	click           boxClick
 	// lines are the box's rows, inner cells wide, at most rows of them.
 	lines func(m Model, inner, rows int) []boxLine
@@ -59,15 +59,6 @@ type modalBox struct {
 	// bottom, if set, is on the bottom edge, at its right.
 	bottom func(m Model, inner, rows int) string
 }
-
-// boxFrame is the color a box's frame is drawn in: the border color, or
-// the accent color for a box the user types in.
-type boxFrame int
-
-const (
-	frameRule boxFrame = iota
-	frameAccent
-)
 
 // boxClick is what a click does while the box shows.
 type boxClick int
@@ -409,10 +400,9 @@ func (m Model) drawBox(s modalSpec, w, rows int) []string {
 			hint = t
 		}
 	}
-	border := m.st.rule
-	if b.frame == frameAccent {
-		border = m.st.id
-	}
+	// Every frame is in the accent color: over the screen dimmed under it,
+	// the border color would be fainter than the text around the box.
+	border := m.st.id
 	title, hint := " "+b.title(m)+" ", " "+hint+" "
 	fill := max(0, w-4-ansi.StringWidth(title)-ansi.StringWidth(hint))
 	out := []string{border.Render("╭─") + m.st.key.Render(title) + border.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + border.Render("─╮")}
@@ -435,21 +425,60 @@ func (m Model) drawBox(s modalSpec, w, rows int) []string {
 	return append(out, border.Render("╰"+strings.Repeat("─", w-2)+"╯"))
 }
 
-// drawModal lays the modal's box over the screen, where boxRect places
-// it; a terminal too narrow for it leaves it undrawn, and the footer says
-// how out.
+// drawModal lays the modal's box over the screen, dimmed under it, where
+// boxRect places it; a terminal too narrow for it leaves it undrawn, and
+// the footer says how out.
 func (m Model) drawModal(s modalSpec, screen string) string {
 	r, ok := m.boxRect(s)
 	if !ok {
 		return screen
 	}
 	lines := strings.Split(screen, "\n")
+	// The footer, the last line, says the modal's keys and keeps its
+	// colors, and so does a toast on the status line above it, there to
+	// be read for a moment.
+	for i := range len(lines) - 1 {
+		if i == len(lines)-2 && m.toast != "" {
+			continue
+		}
+		lines[i] = m.dim(lines[i])
+	}
 	for i, l := range m.drawBox(s, r.w, m.boxRows()) {
 		if j := r.y + i; j < len(lines) {
 			lines[j] = overlay(lines[j], l, r.x)
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// imageRun is a row of an image as the reading view draws it: Kitty's
+// placeholder cells, each with the diacritics that name its row and
+// column, in a foreground color that is the image's ID (see placeholders).
+// The color's end is left optional, so a row cut short still matches.
+var imageRun = regexp.MustCompile(`\x1b\[38;5;\d+m(?:\x{10EEEE}\p{Mn}*)+(?:\x1b\[39m)?`)
+
+// dim draws a line of the screen under a modal in one faint color, so
+// only the box keeps its colors. The rows of an image keep theirs: their
+// color names the image, and drawn in another the cells would show
+// another image or none.
+func (m Model) dim(line string) string {
+	runs := imageRun.FindAllStringIndex(line, -1)
+	if runs == nil {
+		return m.st.dim.Render(ansi.Strip(line))
+	}
+	var b strings.Builder
+	at := 0
+	for _, r := range runs {
+		if t := ansi.Strip(line[at:r[0]]); t != "" {
+			b.WriteString(m.st.dim.Render(t))
+		}
+		b.WriteString(line[r[0]:r[1]])
+		at = r[1]
+	}
+	if t := ansi.Strip(line[at:]); t != "" {
+		b.WriteString(m.st.dim.Render(t))
+	}
+	return b.String()
 }
 
 // clickModal is a click at x, y while the modal shows.

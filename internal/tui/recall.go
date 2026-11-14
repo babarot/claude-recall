@@ -103,7 +103,6 @@ func recallSpec() modalSpec {
 		box: &modalBox{
 			title: func(Model) string { return "Recall in a new claude" },
 			width: askWidth, minWidth: 30,
-			frame: frameAccent,
 			lines: func(m Model, _, _ int) []boxLine { return m.recallLines() },
 		},
 	}

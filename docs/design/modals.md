@@ -45,21 +45,22 @@ The Ask box keeps one height from typing to running: its body is five rows in bo
 
 ## How a modal is drawn
 
-A modal's declaration holds its box (`modalBox` in modal.go): its title, how wide it gets, the narrowest it is drawn at, its frame's color, what a click does, and its rows (`lines`), with what goes on its edges when not the hint. The boxes differ where the user sees it, and those differences are values of the declaration, not code of their own:
+A modal's declaration holds its box (`modalBox` in modal.go): its title, how wide it gets, the narrowest it is drawn at, what a click does, and its rows (`lines`), with what goes on its edges when not the hint. The boxes differ where the user sees it, and those differences are values of the declaration, not code of their own:
 
-| | Frame | Click |
-|---|---|---|
-| key list, sort menu, what's new | border color (`frameRule`) | the key list and what's new close; the sort menu chooses the row clicked and closes outside (`clickList`) |
-| Ask, before recalling | accent color (`frameAccent`), as boxes the user types in | nothing |
+| | Click |
+|---|---|
+| key list, what's new | closes (`clickCloses`) |
+| sort menu | chooses the row clicked, of those drawn, and closes outside (`clickList`) |
+| Ask, before recalling | nothing |
 
 Where a box is placed is not a value of the declaration: every box is placed by one rule (below).
 
-Every box has the same frame otherwise, its top edge ending in `─╮`, and leaves two cells of the terminal's width (`boxMargin`).
+Every box has the same frame, in the accent color, its top edge ending in `─╮`, and leaves two cells of the terminal's width (`boxMargin`). The accent marked only the boxes the user types in before the screen was dimmed under a modal; over the dimmed screen the border color was fainter than the text around the box, so every frame takes the accent, and a box the user types in is told by its cursor.
 
 A selected row is drawn by each modal in its rows, but for two things a row tells `drawBox`: the key list's mark goes in the left margin (`bar`), and the rest of the row may have the selection's background (`selected`).
 
 1. `draw` in view.go draws the screen as if no modal were open (`renderScreen`).
-2. If a modal shows, `drawModal` in modal.go places its box (`boxRect`) and draws it (`drawBox`) over the screen with `overlay`. The screen under it is not dimmed.
+2. If a modal shows, `drawModal` in modal.go dims the screen (`dim`) and draws the box (`drawBox`) over it with `overlay`, where `boxRect` places it. Every line but the last, the footer, which says the modal's keys, loses its colors and is drawn in the faint color (`styles.dim`), so only the box and the footer keep theirs, as gh-desk dims the screen under its popups. A toast on the status line keeps its color too, since it is there to be read for a moment. The rows of an image in the reading view keep their cells and color (`imageRun`): Kitty's placeholder cells name the image by their foreground color, and drawn in another they would show another image or none. A row cut short, its color's end gone, still matches.
 3. `View` takes the cursor's mark out of the drawn screen and puts the terminal's cursor there, when a field is typed in ([input.go](../../internal/tui/input.go)).
 
 ## Where a box is placed

@@ -4,6 +4,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"image/color"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -118,9 +120,11 @@ func TestModalGoKnowsNoModal(t *testing.T) {
 		// Closing whatever modal shows, on a click; which modal shows, and
 		// the row every modal is drawn from, to place its box.
 		"closeModal": true, "openModal": true, "modalTop": true,
+		// A toast on the status line, which the dimmed screen leaves in color.
+		"toast": true,
 		// modal.go's own methods.
 		"modalKeyFor": true, "typeInModal": true, "edgeHint": true,
-		"modalRow": true, "placeModal": true, "boxLines": true, "boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true, "wheelModal": true,
+		"modalRow": true, "placeModal": true, "boxLines": true, "dim": true, "boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true, "wheelModal": true,
 	}
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "modal.go", nil, 0)
@@ -311,5 +315,98 @@ func TestClickChoosesOnlyRowsDrawn(t *testing.T) {
 	m = update(t, m, tea.MouseClickMsg{X: r.x + 4, Y: r.y + r.h - 2, Button: tea.MouseLeft})
 	if m.modal != modalNone || m.sortSel != sel {
 		t.Errorf("a click on the ellipsis: modal %v, sort %d (was %d)", m.modal, m.sortSel, sel)
+	}
+}
+
+// Under a modal the screen is drawn in one faint color, but for the
+// footer, which says the modal's keys, and the box, framed in the accent
+// color.
+func TestScreenDimsUnderAModal(t *testing.T) {
+	for _, bg := range []color.Color{color.Black, color.White} {
+		m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+		m = update(t, m, tea.BackgroundColorMsg{Color: bg})
+		screenDimsUnder(t, press(t, m, "s"))
+	}
+}
+
+func screenDimsUnder(t *testing.T, m Model) {
+	t.Helper()
+	s, _ := m.openModal()
+	r, _ := m.boxRect(s)
+	lines := strings.Split(m.render(), "\n")
+	faint := m.st.dim.Render("x")
+	faint = faint[:strings.Index(faint, "x")]
+	for i, l := range lines[:len(lines)-1] {
+		if i >= r.y && i < r.y+r.h {
+			// Beside the box, left and right of it.
+			l = ansi.Truncate(l, r.x, "") + ansi.TruncateLeft(l, r.x+r.w, "")
+		}
+		for _, sgr := range sgrs(l) {
+			if sgr != faint && sgr != "\x1b[m" {
+				t.Fatalf("line %d keeps %q:\n%q", i, sgr, l)
+			}
+		}
+	}
+	if foot := lines[len(lines)-1]; !strings.Contains(foot, m.st.key.Render("esc")) {
+		t.Errorf("the footer lost its colors: %q", foot)
+	}
+	accent := m.st.id.Render("╭─")
+	if top := lines[r.y]; !strings.Contains(top, accent) {
+		t.Errorf("the sort menu is not framed in the accent color: %q", top)
+	}
+}
+
+// The rows of an image keep their color under a modal: it names the
+// image Kitty draws in those cells.
+func TestDimKeepsImageRows(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	row := placeholders(7, 3, 2)[1]
+	line := m.st.bar.Render("▎") + " " + row + m.st.title.Render(" after")
+	got := m.dim(line)
+	if !strings.Contains(got, row) {
+		t.Errorf("the image row changed:\n got %q\nwant it to hold %q", got, row)
+	}
+	if want := m.st.dim.Render("▎ "); !strings.HasPrefix(got, want) {
+		t.Errorf("the text before the image is not dimmed: %q", got)
+	}
+	if ansi.Strip(got) != ansi.Strip(line) {
+		t.Errorf("the text changed: %q, was %q", ansi.Strip(got), ansi.Strip(line))
+	}
+}
+
+// sgrs are the SGR sequences in s that color some text, in order: one
+// followed at once by another, as ansi.Truncate leaves past its cut,
+// colors nothing.
+func sgrs(s string) []string {
+	var out []string
+	for _, m := range sgrRe.FindAllStringSubmatch(s, -1) {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+var sgrRe = regexp.MustCompile(`(\x1b\[[0-9;]*m)[^\x1b]`)
+
+// A toast shown while a modal is open keeps its color: it is there to be
+// read.
+func TestToastKeepsItsColorUnderAModal(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	m = press(t, m, "s")
+	m.toast, m.toastKind = "Could not keep it", toastWarn
+	lines := strings.Split(m.render(), "\n")
+	if status := lines[len(lines)-2]; !strings.Contains(status, m.st.warn.Render("Could not keep it")) {
+		t.Errorf("the toast lost its color: %q", status)
+	}
+}
+
+// A row of an image cut short, its color's end gone, is still kept.
+func TestDimKeepsACutImageRow(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	row := ansi.Truncate(placeholders(7, 10, 1)[0], 5, ellipsis)
+	if !strings.Contains(row, ellipsis+"\x1b[39m") {
+		t.Fatalf("the ellipsis is not between the cells and the color's end: %q", row)
+	}
+	if got := m.dim(row); !strings.Contains(got, "\x1b[38;5;7m") {
+		t.Errorf("the cut row lost its color: %q", got)
 	}
 }
