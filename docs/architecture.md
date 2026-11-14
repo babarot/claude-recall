@@ -18,6 +18,53 @@ flowchart TD
     DB --> UI
 ```
 
+## Packages
+
+Each package imports only from the layers below it, and only the outside modules listed for it; [arch_test.go](../arch_test.go) checks every import against this table and writes it here ([ADR-010](adr/010-packages-import-only-what-their-layer-allows.md)).
+
+<!-- layers:start (go test -run TestArchitectureDoc -update) -->
+| Layer | Package | Does | May import | Outside modules |
+|---|---|---|---|---|
+| 0 | `internal/jscompat` | JavaScript's trim, UTF-16 lengths and JSON.stringify, so stored text stays as the TypeScript implementation wrote it | - | - |
+| 0 | `internal/pricing` | What the tokens of a session cost at the Claude API's list prices | - | - |
+| 0 | `internal/theme` | The TUI's color schemes, which the web UI is drawn in too | - | - |
+| 0 | `internal/title` | A session's name, as every client shows it | - | - |
+| 0 | `internal/version` | The release version, which tagpr updates | - | - |
+| 0 | `internal/filter` | The filter the TUI and the web UI narrow sessions with: words and key:value terms | - | - |
+| 0 | `internal/worktree` | The repository a directory belongs to, and the main checkout of a linked worktree | - | - |
+| 0 | `internal/webui` | The web UI's built files, embedded | - | - |
+| 0 | `internal/flock` | A lock on a file, taken without waiting | - | - |
+| 0 | `internal/update` | Whether a newer release is out, its notes, and replacing an install.sh install with it | - | - |
+| 0 | `demo/fakeapi` | A made-up GitHub API for the demo; never built into recall | - | - |
+| 1 | `internal/db` | The archive: SQLite with FTS5, its schema and migrations | `internal/jscompat` | `modernc.org/sqlite` |
+| 1 | `internal/config` | Where recall reads and writes, the config file and its mistakes, and the reference of every setting | `internal/pricing`, `internal/theme` | `github.com/pelletier/go-toml/v2` |
+| 1 | `internal/parser` | A Claude Code JSONL transcript as the rows the archive stores | `internal/jscompat` | - |
+| 1 | `internal/askhistory` | The questions asked in Ask, kept between runs | `internal/flock` | - |
+| 2 | `internal/cli` | What the CLI prints for search, list, export and stats | `internal/db`, `internal/jscompat` | - |
+| 2 | `internal/repos` | The repository each session directory belongs to | `internal/db`, `internal/worktree` | - |
+| 2 | `internal/resume` | The commands that go back to a session: claude -r, or a new claude that recalls it | `internal/parser` | - |
+| 2 | `internal/tidy` | What a session's tools did, to read at a glance: files by where they are, commands by program | `internal/db`, `internal/worktree` | - |
+| 2 | `internal/importer` | Importing transcripts into the archive, one transaction a session | `internal/config`, `internal/db`, `internal/parser`, `internal/worktree` | - |
+| 3 | `internal/api` | The JSON the MCP tools and the web API return | `internal/cli`, `internal/db`, `internal/jscompat`, `internal/title` | - |
+| 3 | `history` | The read-only Go API other modules import, under v1 semver | `internal/db`, `internal/repos`, `internal/title` | - |
+| 3 | `internal/watcher` | Watching the transcript trees and importing what changes, one watcher at a time | `internal/db`, `internal/flock`, `internal/importer`, `internal/parser` | - |
+| 3 | `internal/fixture` | Transcripts made up for the tests | `internal/db`, `internal/importer` | - |
+| 3 | `demo/gen` | Makes the demo's archive; never built into recall | `internal/db`, `internal/importer` | - |
+| 4 | `internal/mcp` | The MCP server: the recall tools and the recap prompt over stdio | `internal/api`, `internal/db`, `internal/jscompat`, `internal/repos`, `internal/version`, `internal/worktree` | `github.com/modelcontextprotocol/go-sdk` |
+| 4 | `internal/tui` | The terminal UI | `internal/askhistory`, `internal/config`, `internal/db`, `internal/filter`, `internal/parser`, `internal/resume`, `internal/theme`, `internal/tidy`, `internal/title`, `internal/update`, `internal/version`, `internal/worktree` | `charm.land/bubbles/v2`, `charm.land/bubbletea/v2`, `charm.land/lipgloss/v2`, `github.com/atotto/clipboard`, `github.com/charmbracelet/ultraviolet`, `github.com/charmbracelet/x/ansi` |
+| 4 | `internal/web` | The web UI's server and its API, on this machine | `internal/api`, `internal/db`, `internal/filter`, `internal/importer`, `internal/jscompat`, `internal/pricing`, `internal/repos`, `internal/resume`, `internal/theme`, `internal/tidy`, `internal/title`, `internal/version`, `internal/watcher`, `internal/webui`, `internal/worktree` | - |
+| 5 | `cmd/recall` | Putting it together: the commands and their flags | `internal/cli`, `internal/config`, `internal/db`, `internal/importer`, `internal/mcp`, `internal/pricing`, `internal/repos`, `internal/resume`, `internal/title`, `internal/tui`, `internal/update`, `internal/version`, `internal/watcher`, `internal/web`, `internal/webui` | `charm.land/bubbletea/v2`, `github.com/spf13/cobra` |
+
+Standard library packages that reach outside the process:
+
+| Package | Only in |
+|---|---|
+| `net` | `cmd/recall`, `internal/web` |
+| `net/http` | `cmd/recall`, `demo/fakeapi`, `internal/update`, `internal/web` |
+| `os/exec` | `cmd/recall`, `demo/gen`, `internal/tui` |
+| `syscall` | `cmd/recall`, `internal/flock`, `internal/parser` |
+<!-- layers:end -->
+
 ## Sync timing
 
 | State | What happens |
