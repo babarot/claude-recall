@@ -49,7 +49,7 @@ func startRunner(t *testing.T, lock string) *runner {
 			r.starts <- struct{}{}
 			<-ctx.Done()
 			r.ends <- struct{}{}
-		}, io.Discard)
+		}, io.Discard, nil)
 	})
 	t.Cleanup(func() { r.stop() })
 	return r

@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -38,21 +40,22 @@ var layers = []layer{
 	{"internal/config", 1, []string{"internal/pricing", "internal/theme"}, []string{"github.com/pelletier/go-toml/v2"}, "Where recall reads and writes, the config file and its mistakes, and the reference of every setting"},
 	{"internal/parser", 1, []string{"internal/jscompat"}, nil, "A Claude Code JSONL transcript as the rows the archive stores"},
 	{"internal/askhistory", 1, []string{"internal/flock"}, nil, "The questions asked in Ask, kept between runs"},
+	{"internal/logging", 1, []string{"internal/flock"}, nil, "The log file every recall process appends to, as JSON lines, and its rotation"},
 	{"internal/cli", 2, []string{"internal/db", "internal/jscompat"}, nil, "What the CLI prints for search, list, export and stats"},
 	{"internal/repos", 2, []string{"internal/db", "internal/worktree"}, nil, "The repository each session directory belongs to"},
 	{"internal/resume", 2, []string{"internal/parser"}, nil, "The commands that go back to a session: claude -r, or a new claude that recalls it"},
 	{"internal/tidy", 2, []string{"internal/db", "internal/worktree"}, nil, "What a session's tools did, to read at a glance: files by where they are, commands by program"},
-	{"internal/importer", 2, []string{"internal/config", "internal/db", "internal/parser", "internal/worktree"}, nil, "Importing transcripts into the archive, one transaction a session"},
+	{"internal/importer", 2, []string{"internal/config", "internal/db", "internal/logging", "internal/parser", "internal/worktree"}, nil, "Importing transcripts into the archive, one transaction a session"},
 	{"internal/api", 3, []string{"internal/cli", "internal/db", "internal/jscompat", "internal/title"}, nil, "The JSON the MCP tools and the web API return"},
 	{"history", 3, []string{"internal/db", "internal/repos", "internal/title"}, nil, "The read-only Go API other modules import, under v1 semver"},
-	{"internal/watcher", 3, []string{"internal/db", "internal/flock", "internal/importer", "internal/parser"}, nil, "Watching the transcript trees and importing what changes, one watcher at a time"},
+	{"internal/watcher", 3, []string{"internal/db", "internal/flock", "internal/importer", "internal/logging", "internal/parser"}, nil, "Watching the transcript trees and importing what changes, one watcher at a time"},
 	{"internal/fixture", 3, []string{"internal/db", "internal/importer"}, nil, "Transcripts made up for the tests"},
 	{"demo/gen", 3, []string{"internal/db", "internal/importer"}, nil, "Makes the demo's archive; never built into recall"},
 	{"internal/mcp", 4, []string{"internal/api", "internal/db", "internal/jscompat", "internal/repos", "internal/version", "internal/worktree"}, []string{"github.com/modelcontextprotocol/go-sdk"}, "The MCP server: the recall tools and the recap prompt over stdio"},
 	{"internal/tui", 4, []string{"internal/askhistory", "internal/config", "internal/db", "internal/filter", "internal/parser", "internal/resume", "internal/theme", "internal/tidy", "internal/title", "internal/update", "internal/version", "internal/worktree"},
 		[]string{"charm.land/bubbles/v2", "charm.land/bubbletea/v2", "charm.land/lipgloss/v2", "github.com/atotto/clipboard", "github.com/charmbracelet/ultraviolet", "github.com/charmbracelet/x/ansi"}, "The terminal UI"},
 	{"internal/web", 4, []string{"internal/api", "internal/db", "internal/filter", "internal/importer", "internal/jscompat", "internal/pricing", "internal/repos", "internal/resume", "internal/theme", "internal/tidy", "internal/title", "internal/version", "internal/watcher", "internal/webui", "internal/worktree"}, nil, "The web UI's server and its API, on this machine"},
-	{"cmd/recall", 5, []string{"internal/cli", "internal/config", "internal/db", "internal/importer", "internal/mcp", "internal/pricing", "internal/repos", "internal/resume", "internal/title", "internal/tui", "internal/update", "internal/version", "internal/watcher", "internal/web", "internal/webui"},
+	{"cmd/recall", 5, []string{"internal/cli", "internal/config", "internal/db", "internal/importer", "internal/logging", "internal/mcp", "internal/pricing", "internal/repos", "internal/resume", "internal/title", "internal/tui", "internal/update", "internal/version", "internal/watcher", "internal/web", "internal/webui"},
 		[]string{"charm.land/bubbletea/v2", "github.com/spf13/cobra"}, "Putting it together: the commands and their flags"},
 }
 
@@ -105,10 +108,34 @@ func goList(t *testing.T, args ...string) []goPackage {
 	return pkgs
 }
 
+// readSources reads every Go file of the module. The imports come from go
+// list, a process of its own, whose reads go test does not see, so it
+// would keep a passing result cached after a file changed; files the test
+// reads itself are part of what the cache is kept by.
+func readSources(t *testing.T) {
+	t.Helper()
+	err := filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() && (strings.HasPrefix(d.Name(), ".") || d.Name() == "node_modules") && path != "." {
+			return filepath.SkipDir
+		}
+		if !d.IsDir() && strings.HasSuffix(path, ".go") {
+			_, err = os.ReadFile(path)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // listPackages are the packages of this module, but for one of test files
 // alone, as this one is.
 func listPackages(t *testing.T) []goPackage {
 	t.Helper()
+	readSources(t)
 	var out []goPackage
 	for _, p := range goList(t, "./...") {
 		if len(p.GoFiles) > 0 {
@@ -202,6 +229,7 @@ func TestNoUnusedImportAllowed(t *testing.T) {
 // library, modernc.org/sqlite and packages of this module, as CLAUDE.md
 // promises. The table checks one step; this follows every one.
 func TestHistoryDependsOnLittle(t *testing.T) {
+	readSources(t)
 	for _, p := range goList(t, "-deps", "./history") {
 		if !inModule(p.ImportPath, module) {
 			continue

@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"slices"
 	"strings"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/parser"
 )
 
@@ -64,6 +66,8 @@ type Watcher struct {
 	// changes before Run looks, and Run would take the change as imported.
 	Started func()
 	Log     io.Writer
+	// Logger is where the watcher says what failed; none when nil.
+	Logger *slog.Logger
 
 	mu     sync.Mutex
 	status Status
@@ -223,6 +227,7 @@ func (w *Watcher) importFile(path string) {
 	if err != nil {
 		w.fail(err.Error())
 		fmt.Fprintf(w.Log, "[watcher] import failed for %s: %v\n", path, err)
+		w.logger().Error("import failed", logging.KeyOp, "watch", logging.KeyPath, path, logging.KeyErr, err.Error())
 		return
 	}
 	if r == nil {
@@ -235,4 +240,11 @@ func (w *Watcher) importFile(path string) {
 	if w.OnChange != nil {
 		w.OnChange(r)
 	}
+}
+
+func (w *Watcher) logger() *slog.Logger {
+	if w.Logger == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return w.Logger
 }

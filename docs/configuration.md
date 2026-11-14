@@ -8,7 +8,7 @@ After an update that adds settings, the TUI says how many in the toast that tell
 
 | Section | What it sets |
 |---|---|
-| `[core]` | `db`, the archive, and `extra_projects_dirs`, more transcript trees to read, for every command, the MCP server and the web UI; `update_check`, whether to look for new releases |
+| `[core]` | `db`, the archive, and `extra_projects_dirs`, more transcript trees to read, for every command, the MCP server and the web UI; `update_check`, whether to look for new releases; `log_level`, how much goes to the log file |
 | `[ui]` | `port`, where the web UI listens, and `prices`, the prices the Stats page estimates costs with |
 | `[tui]` | The TUI: the detail pane, the color scheme, which sessions to start with, `a` (ask Claude), the scrollbar and images |
 | `[keys]` | Which keys do what in the TUI; see [Changing keys](tui.md#changing-keys) |
@@ -48,6 +48,11 @@ extra_projects_dirs = []
 # recall version. Only release builds look. RECALL_NO_UPDATE_CHECK=1 turns it
 # off too.
 update_check = true
+# How much every recall process writes to its log file, which recall log
+# names: "debug", "info" (default), "warn" or "error". The environment
+# variable RECALL_LOG_LEVEL says otherwise. What is said in a session is
+# never logged.
+log_level = "info"
 
 [ui]
 # Where the web UI (recall ui) listens, and where recall ui stop and

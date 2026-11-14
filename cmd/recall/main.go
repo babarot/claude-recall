@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/mcp"
 	"github.com/babarot/claude-recall/internal/pricing"
 	"github.com/babarot/claude-recall/internal/repos"
@@ -94,6 +96,9 @@ type options struct {
 	theme string
 	// prices are [ui.prices], what the Stats page estimates costs with.
 	prices map[string]pricing.Price
+	// log is the logger of this process, writing to the log file; one
+	// that writes nothing until the config file is read.
+	log *slog.Logger
 }
 
 // limitArg is the --limit given, or nil to use the command's default.
@@ -106,7 +111,7 @@ func (o *options) limitArg() *int {
 }
 
 func newRootCmd() *cobra.Command {
-	o := &options{}
+	o := &options{log: logging.Discard()}
 	root := &cobra.Command{
 		Use:   "recall",
 		Short: "Archive and search coding agent sessions",
@@ -149,6 +154,7 @@ Run without a command, it opens the TUI.`,
 		o.updateCheck = cfg.Core.UpdateCheck
 		o.theme = cfg.TUI.Theme
 		o.prices = cfg.UI.Prices
+		o.log = openLog(c, cfg.Core.LogLevel)
 		// recall update has no --port, and restarts the UI on this one.
 		if f := c.Flags().Lookup("port"); f == nil || !f.Changed {
 			o.port = cfg.UI.Port
@@ -358,7 +364,22 @@ edit. It does not read the config file.`, config.TildePath(config.FilePath()), s
 		},
 	})
 
-	root.AddCommand(tuiCmd, importCmd, searchCmd, listCmd, exportCmd, statsCmd, mcpCmd, uiCmd, updateCmd, versionCmd, configCmd)
+	logCmd := &cobra.Command{
+		Use:   "log",
+		Short: "Print the path of the log file",
+		Long: `Print the path of the log file every recall process appends to, as JSON
+lines: the TUI, recall mcp, the web UI and the imports. core.log_level in the
+config file, or RECALL_LOG_LEVEL, sets how much goes to it. What is said in a
+session is never logged.`,
+		Args: cobra.NoArgs,
+		// It reads no config file, so a file with mistakes does not stop it.
+		PersistentPreRunE: func(*cobra.Command, []string) error { return nil },
+		Run: func(c *cobra.Command, _ []string) {
+			fmt.Fprintln(c.OutOrStdout(), logging.DefaultPath())
+		},
+	}
+
+	root.AddCommand(tuiCmd, importCmd, searchCmd, listCmd, exportCmd, statsCmd, mcpCmd, uiCmd, updateCmd, versionCmd, configCmd, logCmd)
 	return root
 }
 
@@ -398,10 +419,10 @@ var catchingUp sync.Mutex
 // take a while, and Claude Code gives an MCP server 30 seconds to start. A
 // failed import is reported and the server keeps running; the watcher
 // imports the session again when it changes.
-func catchUp(d *db.DB, trees []string, w io.Writer) {
+func catchUp(d *db.DB, trees []string, w io.Writer, log *slog.Logger) {
 	catchingUp.Lock()
 	defer catchingUp.Unlock()
-	if err := importer.Run(d, importer.Options{ProjectsDirs: trees}, w); err != nil {
+	if err := importer.Run(d, importer.Options{ProjectsDirs: trees, Log: log.With(logging.KeyOp, "catch up")}, w); err != nil {
 		fmt.Fprintln(os.Stderr, "recall: import:", err)
 	}
 }
@@ -412,6 +433,7 @@ func runImport(o *options, stdout io.Writer) error {
 		Session:      o.session,
 		Project:      o.project,
 		DryRun:       o.dryRun,
+		Log:          o.log,
 	}
 	if o.dryRun {
 		return importer.Run(nil, opts, stdout)
@@ -603,10 +625,10 @@ func runMCP(o *options, pinned bool) error {
 	wg.Go(func() {
 		watcher.RunAlone(watchCtx, watcher.LockPath(o.db, o.trees), func(ctx context.Context) {
 			// The import summary goes to stderr: stdout carries the protocol.
-			(&watcher.Watcher{DB: d, ProjectsDirs: o.trees, Started: func() {
-				go catchUp(d, o.trees, os.Stderr)
+			(&watcher.Watcher{DB: d, ProjectsDirs: o.trees, Logger: o.log, Started: func() {
+				go catchUp(d, o.trees, os.Stderr, o.log)
 			}}).Run(ctx)
-		}, os.Stderr)
+		}, os.Stderr, o.log)
 	})
 	err = mcp.Run(ctx, d, pin)
 	// Let the lock go before exiting, so the next process takes over at
@@ -715,7 +737,7 @@ func serveUI(o *options, stdout io.Writer) error {
 		s.Self[0] = exe
 	}
 	catchUpThen := func() {
-		catchUp(d, o.trees, stdout)
+		catchUp(d, o.trees, stdout, o.log)
 		s.Changed()
 	}
 	if s.Watcher != nil {
@@ -1105,4 +1127,42 @@ func joinAnd(words []string) string {
 		return strings.Join(words, "")
 	}
 	return strings.Join(words[:len(words)-1], ", ") + " and " + words[len(words)-1]
+}
+
+// openLog opens the log file at the level RECALL_LOG_LEVEL, or the config
+// file's core.log_level, says, for the command c runs as. A log file that
+// cannot be opened, or a level from the environment that cannot be read,
+// leaves the command running with no log: the log is for finding out what
+// went wrong, never a reason to stop.
+func openLog(c *cobra.Command, configLevel string) *slog.Logger {
+	level, err := logging.ParseLevel(configLevel)
+	if env := os.Getenv("RECALL_LOG_LEVEL"); env != "" {
+		level, err = logging.ParseLevel(env)
+	}
+	if err != nil {
+		return logging.Discard()
+	}
+	log, _, err := logging.Open(logging.DefaultPath(), level)
+	if err != nil {
+		return logging.Discard()
+	}
+	log = log.With(logging.KeyProc, procOf(c), logging.KeyRun, logging.NewID(), logging.KeyVersion, version.Version)
+	// A line for every start, so the log shows which processes ran, and
+	// that it is written to, before anything else happens.
+	log.Info("started", logging.KeyOp, c.CommandPath())
+	return log
+}
+
+// procOf is what kind of recall process the command c runs as, as the log
+// tells them apart: several recall mcp run at once, one per session.
+func procOf(c *cobra.Command) string {
+	path := strings.Fields(c.CommandPath())
+	if len(path) < 2 {
+		return "tui"
+	}
+	switch path[1] {
+	case "tui", "mcp", "ui", "import":
+		return path[1]
+	}
+	return "cli"
 }
