@@ -27,6 +27,9 @@ type modalSpec struct {
 	// own are the modal's own keys, read after typed characters and before
 	// its parts.
 	own []modalKey
+	// recall goes through what was typed in the field before, on nav's up
+	// and down, which it claims from the field.
+	recall *modalRecall
 	// esc is what esc does, the only key that closes a modal.
 	esc modalKey
 }
@@ -39,6 +42,17 @@ type modalList struct {
 	wrap bool // moving past an end goes round to the other
 	// choose is what the choose keys do with the item at the cursor.
 	choose modalKey
+}
+
+// modalRecall goes through the texts typed in a field before.
+type modalRecall struct {
+	older, newer func(m *Model)
+	// leave is called when the field is edited: a text recalled and
+	// changed is the user's.
+	leave func(m *Model)
+	// any reports whether there is anything to recall, which the hints say
+	// only then.
+	any func(m Model) bool
 }
 
 // modalBody is text to read, scrolled by nav's keys.
@@ -104,6 +118,16 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		}
 	}
 	nav := m.km.Nav
+	if r := s.recall; r != nil {
+		switch {
+		case key.Matches(msg, nav.Up):
+			r.older(&m)
+			return m, nil
+		case key.Matches(msg, nav.Down):
+			r.newer(&m)
+			return m, nil
+		}
+	}
 	if l := s.list; l != nil {
 		n := l.len(m)
 		step := 0
@@ -158,14 +182,18 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 
 func (m Model) typeInModal(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	in := s.field(&m)
+	before := in.Value()
 	var cmd tea.Cmd
 	*in, cmd = in.Update(msg)
+	if r := s.recall; r != nil && in.Value() != before {
+		r.leave(&m)
+	}
 	return m, cmd
 }
 
 // hints are the modal's keys as footer pairs (key hint templates and what
 // they do, see hintKeys), frame alone for those on the box's top edge.
-func (s modalSpec) hints(frame bool) [][2]string {
+func (s modalSpec) hints(m Model, frame bool) [][2]string {
 	var out [][2]string
 	// The way out comes first in the footer, so a terminal too narrow for
 	// the box, or for every hint, still says it; on the box's edge it comes
@@ -195,6 +223,15 @@ func (s modalSpec) hints(frame bool) [][2]string {
 	for _, o := range s.own {
 		add(o)
 	}
+	// The questions asked before show on the box's edge too, where the eye
+	// goes, before the way out.
+	if r := s.recall; r != nil && r.any(m) {
+		word := "earlier questions"
+		if frame {
+			word = "earlier"
+		}
+		out = append(out, [2]string{"{up.0}{down.0}", word})
+	}
 	if frame {
 		add(s.esc)
 	}
@@ -204,7 +241,7 @@ func (s modalSpec) hints(frame bool) [][2]string {
 // frameHint is the hint on the top edge of the modal's box.
 func (m Model) frameHint(s modalSpec) string {
 	var parts []string
-	for _, p := range s.hints(true) {
+	for _, p := range s.hints(m, true) {
 		if k := m.hintKeys(p[0]); k != "" {
 			parts = append(parts, k+" "+p[1])
 		}
@@ -225,8 +262,17 @@ func (s modalSpec) fixedKeys() []string {
 	return append(out, s.esc.keys...)
 }
 
-// readsNav reports whether s moves or scrolls on nav's keys.
-func (s modalSpec) readsNav() bool { return s.list != nil || s.body != nil }
+// navOps are the operations of nav s reads: every move for a list or a
+// body, up and down to recall in a field.
+func (s modalSpec) navOps() []string {
+	switch {
+	case s.list != nil || s.body != nil:
+		return modalNavOps
+	case s.recall != nil:
+		return []string{"up", "down"}
+	}
+	return nil
+}
 
 var modalNavOps = []string{"up", "down", "page_up", "page_down", "top", "bottom"}
 
@@ -256,8 +302,14 @@ func sortNumberKeys() []modalKey {
 
 var askTypingSpec = modalSpec{
 	field: func(m *Model) *textinput.Model { return &m.ask.input },
-	own:   []modalKey{{keys: []string{"enter"}, word: "ask", frame: true, do: func(m *Model) tea.Cmd { return m.startAsk() }}},
-	esc:   closeKey(func(m *Model) { m.closeAsk() }),
+	recall: &modalRecall{
+		older: func(m *Model) { m.recallOlder() },
+		newer: func(m *Model) { m.recallNewer() },
+		leave: func(m *Model) { m.askHist.recall.Leave() },
+		any:   func(m Model) bool { return len(m.askHist.list) > 0 },
+	},
+	own: []modalKey{{keys: []string{"enter"}, word: "ask", frame: true, do: func(m *Model) tea.Cmd { return m.startAsk() }}},
+	esc: closeKey(func(m *Model) { m.closeAsk() }),
 }
 
 var askAnsweredSpec = modalSpec{

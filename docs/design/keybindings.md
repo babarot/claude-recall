@@ -115,7 +115,7 @@ A modal declares the parts it holds (`modalSpec` in `internal/tui/modal.go`): a 
 1. `esc` steps out: it closes the modal, or cancels a running ask
 2. In a field, a key that types a character is typed
 3. The modal's own keys (`1` to `4` in the sort menu, `f` and `r` on Ask's answer, `enter` that asks or starts claude)
-4. A list moves on nav's `up`, `down`, `page_up`, `page_down`, `top` and `bottom`, and chooses on its choose keys; a body scrolls on the same nav keys
+4. A field that recalls what was typed before (Ask's) goes through it on nav's `up` and `down`. A list moves on nav's `up`, `down`, `page_up`, `page_down`, `top` and `bottom`, and chooses on its choose keys; a body scrolls on the same nav keys
 5. What is left goes to the field (←→, backspace and the like)
 
 Nothing else is read: `quit`, `help`, `sort` and the other keys of the panes do nothing over a modal. `esc` alone closes it, not `q` and not the key that opened it, so a key works the same in every modal and a `q` pressed once too often never quits. The hints on the box's edge, its footer and the conflict check are made from the same declaration.
@@ -203,7 +203,7 @@ The shared verbs (scroll, `/` for the conversation search, `n` `N`, `esc`) and t
 | The filter | `enter` | `esc` (closes the suggestions if they show, otherwise clears the filter and closes it) | `↑` `↓` move in the list, or pick a suggestion while they show. `tab` `→` complete a key or a suggestion, `shift+tab` the other way |
 | The folder search | `enter` | `esc` (clears the search) | `↑` `↓` `ctrl+n` `ctrl+p` pick a folder |
 | The conversation search | `enter` | `esc` (clears the search) | None |
-| Ask's question | `enter` (ask) | `esc` (closes the box) | None |
+| Ask's question | `enter` (ask) | `esc` (closes the box) | `up` `down` (`↑` `↓` `ctrl+p` `ctrl+n` by default) go through the questions asked before; the letters among them are typed |
 
 All as before.
 
@@ -213,7 +213,7 @@ All as before.
 |---|---|
 | The key list | Closes with `esc` |
 | The sort menu | `up` `down` (`↑` `↓` `k` `j` `ctrl+p` `ctrl+n` by default) pick, `enter` `space` choose, `1` to `4` choose directly; closes with `esc` |
-| Ask, typing | `enter` asks; closes with `esc` |
+| Ask, typing | `enter` asks, `up` `down` recall the questions asked before; closes with `esc` |
 | Ask, running | `esc` cancels |
 | Ask, answered | `up` `down` pick, `enter` jumps, `f` narrows the list, `r` asks again; closes with `esc` |
 | Ask, failed | `r` `enter` ask again; closes with `esc` |

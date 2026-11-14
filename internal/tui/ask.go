@@ -88,7 +88,8 @@ func (m *Model) openAsk() tea.Cmd {
 	m.ask.input.SetValue(m.ask.question)
 	m.ask.input.CursorEnd()
 	m.ask.input.SetWidth(min(askWidth, m.width-4) - 8)
-	return m.ask.input.Focus()
+	m.askHist.recall.Leave()
+	return tea.Batch(m.ask.input.Focus(), m.loadAskHistory())
 }
 
 // startAsk runs the question in the background.
@@ -110,7 +111,8 @@ func (m *Model) startAsk() tea.Cmd {
 		ch <- askDoneMsg{seq, answer, err}
 		close(ch)
 	}()
-	return tea.Batch(waitAsk(ch), m.askTick(seq))
+	m.askHist.recall.Leave()
+	return tea.Batch(waitAsk(ch), m.askTick(seq), m.keepQuestion(q))
 }
 
 func (m *Model) askTick(seq int) tea.Cmd {
@@ -153,6 +155,7 @@ func (m *Model) askMsg(msg tea.Msg) tea.Cmd {
 		for _, h := range m.ask.hits {
 			m.reasons[h.id] = h.why
 		}
+		return m.keepReply(m.ask.hits)
 	case askTickMsg:
 		if msg.seq == m.ask.seq && m.ask.stage == askRunning {
 			return m.askTick(msg.seq)

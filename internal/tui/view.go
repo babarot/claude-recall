@@ -351,7 +351,7 @@ func (m Model) renderHelp() string {
 	// they are, since they cannot be remapped.
 	var pairs [][2]string
 	if s, ok := m.openModal(); ok {
-		pairs = s.hints(false)
+		pairs = s.hints(m, false)
 	}
 	switch m.uiState() {
 	case uiFilter:
