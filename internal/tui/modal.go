@@ -435,8 +435,12 @@ func (m Model) drawModal(s modalSpec, screen string) string {
 	}
 	lines := strings.Split(screen, "\n")
 	// The footer, the last line, says the modal's keys and keeps its
-	// colors.
+	// colors, and so does a toast on the status line above it, there to
+	// be read for a moment.
 	for i := range len(lines) - 1 {
+		if i == len(lines)-2 && m.toast != "" {
+			continue
+		}
 		lines[i] = m.dim(lines[i])
 	}
 	for i, l := range m.drawBox(s, r.w, m.boxRows()) {
@@ -450,7 +454,8 @@ func (m Model) drawModal(s modalSpec, screen string) string {
 // imageRun is a row of an image as the reading view draws it: Kitty's
 // placeholder cells, each with the diacritics that name its row and
 // column, in a foreground color that is the image's ID (see placeholders).
-var imageRun = regexp.MustCompile(`\x1b\[38;5;\d+m(?:\x{10EEEE}\p{Mn}*)+\x1b\[39m`)
+// The color's end is left optional, so a row cut short still matches.
+var imageRun = regexp.MustCompile(`\x1b\[38;5;\d+m(?:\x{10EEEE}\p{Mn}*)+(?:\x1b\[39m)?`)
 
 // dim draws a line of the screen under a modal in one faint color, so
 // only the box keeps its colors. The rows of an image keep theirs: their
