@@ -117,10 +117,15 @@ type modalBody struct {
 	page   func(m Model) int
 }
 
-// modalKey is a key a modal reads as it is written: esc, a list's choose
-// keys and a modal's own keys, which the config file does not change.
+// modalKey is a key a modal reads: as it is written (esc, a list's choose
+// keys and most of a modal's own keys, which the config file does not
+// change), or as an operation of the keymap sets it (op), which the
+// config file does.
 type modalKey struct {
 	keys []string
+	// op, if set, names the operation whose keys these are, in place of
+	// keys: the key list's whats_new.
+	op string
 	// hint is how the keys show in a hint, when not as written; word is
 	// what they do there.
 	hint, word string
@@ -150,7 +155,7 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	}
 	for _, o := range s.own {
 		// A key that does nothing now is left to the parts after it.
-		if slices.Contains(o.keys, k) && (o.when == nil || o.when(m)) {
+		if slices.Contains(m.keysOf(o), k) && (o.when == nil || o.when(m)) {
 			return m, o.do(&m)
 		}
 	}
@@ -250,7 +255,10 @@ func (s modalSpec) hints(m Model, edge bool) [][2]string {
 			return
 		}
 		h := k.hint
-		if h == "" {
+		switch {
+		case k.op != "":
+			h = "{" + k.op + ".0}"
+		case h == "":
 			h = strings.Join(k.keys, " ")
 		}
 		out = append(out, [2]string{h, k.word})
@@ -304,6 +312,25 @@ func (s modalSpec) fixedKeys() []string {
 		out = append(out, o.keys...)
 	}
 	return append(out, s.esc.keys...)
+}
+
+// ownOps are the operations of the keymap s's own keys are bound to.
+func (s modalSpec) ownOps() []string {
+	var out []string
+	for _, o := range s.own {
+		if o.op != "" {
+			out = append(out, o.op)
+		}
+	}
+	return out
+}
+
+// keysOf are the keys o is read on: its operation's, or its own.
+func (m Model) keysOf(o modalKey) []string {
+	if o.op != "" {
+		return m.km.byName()[o.op].Keys()
+	}
+	return o.keys
 }
 
 // navOps are the operations of nav s reads: every move for a list or a

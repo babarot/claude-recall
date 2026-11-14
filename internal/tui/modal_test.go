@@ -16,7 +16,8 @@ import (
 )
 
 // Over every modal, q and the keys that open the modals neither close it
-// nor quit: esc alone steps out.
+// nor quit: esc alone steps out. The key list's w opens What's new, its
+// own key.
 func TestModalsCloseOnEscAlone(t *testing.T) {
 	for _, c := range footerCases(t) {
 		st := c.m.uiState()
@@ -24,6 +25,9 @@ func TestModalsCloseOnEscAlone(t *testing.T) {
 			continue
 		}
 		for _, k := range []string{"q", "?", "s", "w"} {
+			if st == uiHelp && k == "w" {
+				continue
+			}
 			m := press(t, c.m, k)
 			if m.uiState() != st || m.Result != nil {
 				t.Errorf("%s: %s left it for %q (result %v)", c.name, k, m.uiState(), m.Result)
@@ -124,7 +128,7 @@ func TestModalGoKnowsNoModal(t *testing.T) {
 		"toast": true,
 		// modal.go's own methods.
 		"modalKeyFor": true, "typeInModal": true, "edgeHint": true,
-		"modalRow": true, "placeModal": true, "boxLines": true, "dim": true, "boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true, "wheelModal": true,
+		"modalRow": true, "placeModal": true, "keysOf": true, "boxLines": true, "dim": true, "boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true, "wheelModal": true,
 	}
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "modal.go", nil, 0)
@@ -226,7 +230,7 @@ func TestWheelReachesOnlyTheModal(t *testing.T) {
 // tall for that, and never above the third row (placeModal).
 func TestModalsOpenWhereTheEyeIs(t *testing.T) {
 	for _, h := range []int{12, 16, 24, 34, 46, 60} {
-		for _, k := range []string{"?", "s", "c", "a", "w"} {
+		for _, k := range []string{"?", "s", "c", "a"} {
 			m, _ := newTestModel(t, config.Default().TUI, 140, h)
 			m = press(t, m, k)
 			s, ok := m.openModal()

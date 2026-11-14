@@ -120,7 +120,6 @@ focus_prev = ["shift+tab", "["]
 ask = "a"
 sort = "s"
 scope = "."
-whats_new = "w"
 #
 # The selected session, from the list, a frame or the reading view:
 resume = "enter"
@@ -141,6 +140,9 @@ bottom = ["end", "G"]
 search = "/"
 next_match = "n"
 prev_match = "N"
+#
+# In the key list (?), where What's new opens:
+whats_new = "w"
 #
 # Keys that work in one pane go in its table, after the lines above.
 # The session list:

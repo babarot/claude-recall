@@ -350,7 +350,6 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # ask = "a"
 # sort = "s"
 # scope = "."
-# whats_new = "w"
 #
 # The selected session, from the list, a frame or the reading view:
 # resume = "enter"
@@ -371,6 +370,9 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # search = "/"
 # next_match = "n"
 # prev_match = "N"
+#
+# In the key list (?), where What's new opens:
+# whats_new = "w"
 #
 # Keys that work in one pane go in its table, after the lines above.
 # The session list:

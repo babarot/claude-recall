@@ -15,7 +15,7 @@ In scope: the keyboard in the TUI (`recall` / `recall tui`). Out of scope: the m
 
 | Term | Meaning |
 |---|---|
-| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`), Ask Claude (`a`), the one before recalling a session (`c`) and what's new (`w`). The user-facing docs call it a box; the code and the design docs keep box for what it is drawn as. [modals.md](modals.md) has the words for the parts of the screen around it and how a modal is drawn |
+| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`), Ask Claude (`a`), the one before recalling a session (`c`) and what's new (`w` in the key list). The user-facing docs call it a box; the code and the design docs keep box for what it is drawn as. [modals.md](modals.md) has the words for the parts of the screen around it and how a modal is drawn |
 | Field | Where text is typed: the filter (`/`), the folder search, the conversation search and Ask's question |
 | Pane | An area that can have the focus: the session list, the folder list, the detail frames (Conversation, What was done, Details) and the reading view |
 | Global | Keys that work whatever pane has the focus |
@@ -129,7 +129,7 @@ These are fixed, and the config file in stage 2 cannot change them either:
 - The keys of a field being typed in (submit with `enter`, cancel with `esc`, the letters themselves, a field's own helper keys)
 - A modal's own keys and its list's choose keys (`enter`, and `space` in the sort menu)
 
-What can change are the global keys, the session panes' keys, the folder list's keys and the shared verbs (but `esc`). A modal moves and scrolls on the shared verbs as the config file sets them, as the panes do; it reads no other operation. A field takes every key that types a character before anything else, so `resume = "a"` or `down = ["n"]`, for example, does not get in the way of typing or of Ask.
+What can change are the global keys, the session panes' keys, the folder list's keys and the shared verbs (but `esc`). A modal moves and scrolls on the shared verbs as the config file sets them, as the panes do; it reads no other operation, but for an own key bound to one (the key list's `whats_new`, ADR-014). A field takes every key that types a character before anything else, so `resume = "a"` or `down = ["n"]`, for example, does not get in the way of typing or of Ask.
 
 ## Keys by place
 
@@ -211,7 +211,7 @@ All as before.
 
 | Modal | Keys |
 |---|---|
-| The key list | `up` `down` `page_up` `page_down` `top` `bottom` scroll; closes with `esc` |
+| The key list | `up` `down` `page_up` `page_down` `top` `bottom` scroll, `whats_new` (`w` by default) opens what's new; closes with `esc` |
 | The sort menu | `up` `down` (`↑` `↓` `k` `j` `ctrl+p` `ctrl+n` by default) pick, `enter` `space` choose, `1` to `4` choose directly; closes with `esc` |
 | Ask, typing | `enter` asks, `up` `down` recall the questions asked before, `ctrl+r` searches them, `tab` (and `right` at the end of the text) fills in the question shown faint; closes with `esc` |
 | Ask, searching the questions | `up` `down` `page_up` `page_down` pick, `enter` puts the question in Ask's field; `esc` goes back to it. `home` and `end` move in the search's field |
@@ -219,7 +219,7 @@ All as before.
 | Ask, answered | `up` `down` pick, `enter` jumps, `f` narrows the list, `r` asks again; closes with `esc` |
 | Ask, failed | `r` `enter` ask again; closes with `esc` |
 | Before recalling | `enter` starts claude; closes with `esc` |
-| What's new | `up` `down` `page_up` `page_down` `top` `bottom` scroll; closes with `esc` |
+| What's new | `up` `down` `page_up` `page_down` `top` `bottom` scroll; `esc` goes back to the key list |
 
 The modals' keys were changed after stage 2 (see "Added since" at the end): before, a modal without a field closed with `q` and with the key that opened it, and the sort menu and Ask's answer moved on fixed keys, `tab` and `shift+tab` among them.
 

@@ -729,8 +729,6 @@ func (m *Model) globalKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.openAsk()
 	case key.Matches(msg, g.Sort):
 		m.openSortMenu()
-	case key.Matches(msg, g.WhatsNew):
-		return m.openWhatsNew()
 	}
 	return nil
 }

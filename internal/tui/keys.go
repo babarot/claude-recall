@@ -19,11 +19,18 @@ import (
 // offers. Each operation's keys are ordered: the key hints name them by
 // position ({down.1} is j), so the order is part of how they show. esc,
 // a modal's own keys and the keys of a field being typed in are fixed and
-// not in it; a modal moves and scrolls on nav's keys (see modal.go).
+// not in it, but for a modal's own key bound to an operation (the key
+// list's whats_new); a modal moves and scrolls on nav's keys (see
+// modal.go).
 
 // globalKeys work in any pane.
 type globalKeys struct {
-	Quit, Help, FocusNext, FocusPrev, Ask, Sort, Scope, WhatsNew key.Binding
+	Quit, Help, FocusNext, FocusPrev, Ask, Sort, Scope key.Binding
+}
+
+// helpKeys work in the key list only: What's new opens from there.
+type helpKeys struct {
+	WhatsNew key.Binding
 }
 
 // sessionKeys act on the selected session, from the list, a frame or the
@@ -54,6 +61,7 @@ type keyMap struct {
 	Nav     navKeys
 	List    listKeys
 	Folders folderKeys
+	Help    helpKeys
 }
 
 func keys(k ...string) key.Binding { return key.NewBinding(key.WithKeys(k...)) }
@@ -62,7 +70,7 @@ func defaultKeyMap() keyMap {
 	return keyMap{
 		Global: globalKeys{
 			Quit: keys("q"), Help: keys("?"), FocusNext: keys("tab", "]"), FocusPrev: keys("shift+tab", "["),
-			Ask: keys("a"), Sort: keys("s"), Scope: keys("."), WhatsNew: keys("w"),
+			Ask: keys("a"), Sort: keys("s"), Scope: keys("."),
 		},
 		Session: sessionKeys{
 			Resume: keys("enter"), Recall: keys("c"), Read: keys("space"), CopyID: keys("y"), CopyCommand: keys("Y"),
@@ -76,6 +84,7 @@ func defaultKeyMap() keyMap {
 		},
 		List:    listKeys{FoldersOpen: keys("left", "h"), FoldersClose: keys("right", "l")},
 		Folders: folderKeys{FoldersBack: keys("right", "l", "enter")},
+		Help:    helpKeys{WhatsNew: keys("w")},
 	}
 }
 
@@ -194,7 +203,7 @@ func pick(all map[string]key.Binding, names ...string) []namedKey {
 
 // Operations by layer, as the config file names them.
 var (
-	globalOps  = []string{"quit", "help", "focus_next", "focus_prev", "ask", "sort", "scope", "whats_new"}
+	globalOps  = []string{"quit", "help", "focus_next", "focus_prev", "ask", "sort", "scope"}
 	sessionOps = []string{"resume", "recall", "read", "copy_id", "copy_command", "grow", "shrink"}
 	navOps     = []string{"up", "down", "page_up", "page_down", "top", "bottom", "search", "next_match", "prev_match"}
 )
@@ -238,14 +247,14 @@ func (k keyMap) keyScopes() []struct {
 		{"the folder list", pick(all, opsIn(ctxFolders)...), []string{"esc"}},
 	}
 	// A modal reads nav's keys if it has a list, a body or a field that
-	// recalls, beside the keys it reads as written (see modal.go); it reads
-	// no other operation.
+	// recalls, the operations its own keys are bound to (the key list's
+	// whats_new), and the keys it reads as written (see modal.go).
 	for st := range numUIStates {
 		s, ok := specOf(st)
 		if !ok {
 			continue
 		}
-		ops := pick(all, s.navOps()...)
+		ops := pick(all, append(s.navOps(), s.ownOps()...)...)
 		out = append(out, scope{"the " + st.String(), ops, s.fixedKeys()})
 	}
 	return out
