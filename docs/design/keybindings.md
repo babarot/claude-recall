@@ -127,7 +127,7 @@ These are fixed, and the config file in stage 2 cannot change them either:
 - `ctrl+c`
 - `esc` (back), so that it means "go back a step" everywhere
 - The keys of a field being typed in (submit with `enter`, cancel with `esc`, the letters themselves, a field's own helper keys)
-- A modal's own keys and its list's choose keys (`enter`, and `space` in the sort menu)
+- A modal's own keys and its list's choose keys (`enter`, and `space` in the sort menu), but for an own key bound to an operation (the key list's `whats_new`, ADR-014), which is set as that operation
 
 What can change are the global keys, the session panes' keys, the folder list's keys and the shared verbs (but `esc`). A modal moves and scrolls on the shared verbs as the config file sets them, as the panes do; it reads no other operation, but for an own key bound to one (the key list's `whats_new`, ADR-014). A field takes every key that types a character before anything else, so `resume = "a"` or `down = ["n"]`, for example, does not get in the way of typing or of Ask.
 

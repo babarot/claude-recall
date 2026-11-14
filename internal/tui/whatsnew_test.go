@@ -35,7 +35,8 @@ func notesModel(t *testing.T, h int, fetch func(string) ([]selfupdate.Release, e
 	}), &tags
 }
 
-// openNotes presses w and delivers what the fetch returns.
+// openNotes opens What's new, as w in the key list does, and delivers
+// what the fetch returns.
 func openNotes(t *testing.T, m Model) Model {
 	t.Helper()
 	cmd := m.openWhatsNew()
@@ -73,14 +74,16 @@ func TestWhatsNew(t *testing.T) {
 		t.Errorf("fetched %v, want the newer release's", *tags)
 	}
 
-	// Closed by esc alone, not by w or q; open again without fetching
-	// again.
+	// Left by esc alone, back to the key list, not by w or q; open
+	// again without fetching again.
 	for _, k := range []string{"w", "q"} {
 		if got := press(t, m, k).uiState(); got != uiWhatsNew {
 			t.Errorf("%s closed it", k)
 		}
 	}
-	m = press(t, m, "esc")
+	if m = press(t, m, "esc"); m.uiState() != uiHelp {
+		t.Errorf("esc: %v, want the key list", m.uiState())
+	}
 	if m.openWhatsNew() != nil {
 		t.Error("fetched again")
 	}
@@ -310,5 +313,17 @@ func TestWhatsNewKeyIsSet(t *testing.T) {
 	// It is not one in the panes, where whats_new is not read.
 	if _, err := m.WithKeys(config.Keys{"whats_new": {Keys: []string{"x"}}, "sort": {Keys: []string{"x"}}}); err != nil {
 		t.Errorf("whats_new and sort on x: %v", err)
+	}
+	// w given to an operation of the panes is not taken from whats_new,
+	// which it never meets.
+	sortW, err := m.WithKeys(config.Keys{"sort": {Keys: []string{"w"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := press(t, sortW, "w"); got.uiState() != uiSort {
+		t.Errorf("w with sort on w: %v", got.uiState())
+	}
+	if got := press(t, sortW, "?", "w"); got.uiState() != uiWhatsNew {
+		t.Errorf("? w with sort on w: %v", got.uiState())
 	}
 }

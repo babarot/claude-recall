@@ -22,4 +22,4 @@ gh-desk reads its release notes from its key list for the same reason (its ADR-0
 ## Consequences
 
 - With `help = []`, What's new cannot be opened, and nothing tells of it.
-- `w` does nothing in the panes now. Given to an operation of the panes, it is taken from `whats_new` too, as a key given is taken from the operation that has it by default; `whats_new` then needs a key of its own.
+- `w` does nothing in the panes now, and can be given to an operation of the panes (`sort = "w"`) while `whats_new` keeps it: a key written in the file is taken only from an operation it meets, and `whats_new` meets only the moves the key list reads (`up`, `down`, `page_up`, `page_down`, `top`, `bottom`). Given to one of those, `w` is taken from `whats_new`, which then needs a key of its own. The other way, `whats_new = "j"` takes `j` from `down` in every pane, as any key written takes it from the operation that has it.

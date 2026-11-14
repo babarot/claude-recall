@@ -33,7 +33,7 @@ Parsing, in `internal/update` (`ParseChangelog`): a `## [<version>](<url>) - <da
 A modal, opened with `w` (`whats_new` under `[keys]`) from the key list, and from there only ([ADR-014](../adr/014-whats-new-is-read-from-the-key-list.md)); `esc` goes back to the key list. It lists every version, newest first, scrolled to the top:
 
 ```
-╭─ What's new ──────────────────────────────────── esc close ─╮
+╭─ What's new ───────────────────────────────────── esc back ─╮
 │ 1.8.0  2026-10-12  not installed · recall update            │
 │   New Features                                              │
 │   · Add recall update to replace recall with the latest ... │
@@ -47,10 +47,10 @@ A modal, opened with `w` (`whats_new` under `[keys]`) from the key list, and fro
 
 - A version newer than the running one is marked `not installed`, with how to update this install (the text of #76's notice); the running one `installed`
 - A long title wraps under itself, so nothing is cut; the box is at most 76 columns wide
-- `j` `k`, the page keys, `g` `G` scroll; `esc` `q` `w` close, as the other modals close
+- `j` `k`, the page keys, `g` `G` scroll; `esc` goes back to the key list
 - It is a new `uiState`, `uiWhatsNew`, with a footer case, a `?` entry and no `?` over it, as `internal/tui/uistate_test.go` asks
 
-`w` works whether or not a newer release is known: with none, it shows the notes up to the running version.
+`w` in the key list works whether or not a newer release is known: with none, it shows the notes up to the running version.
 
 ## After an update
 
@@ -92,7 +92,7 @@ A modal, opened with `w` (`whats_new` under `[keys]`) from the key list, and fro
 - The modal: loading, loaded, failed; markers on newer and installed versions; scrolling; closing keys
 - `uistate_test.go` cases for `uiWhatsNew`
 - The start: each row of the `last_version` table
-- The notice with and without room for `w what's new`, with the key moved, and with it turned off
+- The notice with and without room for `? w what's new`, with the key moved, and with it turned off
 
 ## Open questions
 
