@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -105,10 +107,34 @@ func goList(t *testing.T, args ...string) []goPackage {
 	return pkgs
 }
 
+// readSources reads every Go file of the module. The imports come from go
+// list, a process of its own, whose reads go test does not see, so it
+// would keep a passing result cached after a file changed; files the test
+// reads itself are part of what the cache is kept by.
+func readSources(t *testing.T) {
+	t.Helper()
+	err := filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() && (strings.HasPrefix(d.Name(), ".") || d.Name() == "node_modules") && path != "." {
+			return filepath.SkipDir
+		}
+		if !d.IsDir() && strings.HasSuffix(path, ".go") {
+			_, err = os.ReadFile(path)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // listPackages are the packages of this module, but for one of test files
 // alone, as this one is.
 func listPackages(t *testing.T) []goPackage {
 	t.Helper()
+	readSources(t)
 	var out []goPackage
 	for _, p := range goList(t, "./...") {
 		if len(p.GoFiles) > 0 {
@@ -202,6 +228,7 @@ func TestNoUnusedImportAllowed(t *testing.T) {
 // library, modernc.org/sqlite and packages of this module, as CLAUDE.md
 // promises. The table checks one step; this follows every one.
 func TestHistoryDependsOnLittle(t *testing.T) {
+	readSources(t)
 	for _, p := range goList(t, "-deps", "./history") {
 		if !inModule(p.ImportPath, module) {
 			continue
