@@ -306,3 +306,66 @@ func TestAskSearchWithNothingToFind(t *testing.T) {
 		t.Errorf("ctrl+r opened %q", m.uiState())
 	}
 }
+
+func completeModel(t *testing.T) Model {
+	t.Helper()
+	m := askModel(t, &fakeAsk{}, config.Default().TUI)
+	m.askHist.list = []askhistory.Entry{
+		{ID: "3", Question: "Parser work in the importer"},
+		{ID: "2", Question: "ログインのバグを直したセッション"},
+		{ID: "1", Question: "parser bug"},
+	}
+	return press(t, m, "a")
+}
+
+// What follows the typed text in the newest question that starts with it
+// shows faint after the cursor, and tab or → fills it in.
+func TestAskCompletes(t *testing.T) {
+	m := typeText(t, completeModel(t), "pars")
+	if g := m.askGhost(); g != "er work in the importer" {
+		t.Fatalf("ghost %q", g)
+	}
+	s, cur := m.renderWithCursor()
+	line := ansi.Strip(strings.Split(s, "\n")[cur.Y])
+	if !strings.Contains(line, "› parser work in the importer") {
+		t.Errorf("no faint rest on the field's line: %q", line)
+	}
+	if left := ansi.Truncate(line, cur.X, ""); !strings.HasSuffix(left, "› pars") {
+		t.Errorf("the cursor is not at the end of the typed text: %q", left)
+	}
+	if !strings.Contains(ansi.Strip(m.renderHelp()), "tab complete") {
+		t.Errorf("footer %q", ansi.Strip(m.renderHelp()))
+	}
+	for _, k := range []rune{tea.KeyTab, tea.KeyRight} {
+		got := pressCode(t, m, k)
+		if v := got.ask.input.Value(); v != "parser work in the importer" || got.askGhost() != "" {
+			t.Errorf("%v filled in %q, ghost %q", k, v, got.askGhost())
+		}
+	}
+	// A question in Japanese completes too.
+	m = typeText(t, completeModel(t), "ログイン")
+	if g := m.askGhost(); g != "のバグを直したセッション" {
+		t.Errorf("ghost %q", g)
+	}
+}
+
+// Nothing is offered with nothing typed, with the cursor inside the text,
+// or while a question is recalled; → then moves the cursor.
+func TestAskCompletesOnlyAtTheEnd(t *testing.T) {
+	m := completeModel(t)
+	if m.askGhost() != "" || strings.Contains(ansi.Strip(m.renderHelp()), "tab complete") {
+		t.Errorf("offered with nothing typed: %q", m.askGhost())
+	}
+	m = pressCode(t, typeText(t, m, "pars"), tea.KeyLeft)
+	if g := m.askGhost(); g != "" {
+		t.Errorf("offered with the cursor inside: %q", g)
+	}
+	m = typeText(t, pressCode(t, m, tea.KeyRight), "!")
+	if v := m.ask.input.Value(); v != "pars!" {
+		t.Errorf("→ inside the text did not move the cursor: %q", v)
+	}
+	m = pressCode(t, completeModel(t), tea.KeyUp)
+	if g := m.askGhost(); g != "" {
+		t.Errorf("offered while recalling: %q", g)
+	}
+}

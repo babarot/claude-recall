@@ -269,7 +269,7 @@ func (m Model) withAsk(screen string) string {
 			body = m.askSearchBody(inner)
 			break
 		}
-		body = []string{m.inputView(uiAskTyping, m.ask.input),
+		body = []string{m.askFieldLine(),
 			m.st.muted.Render(`  e.g. "the session where we fixed the terraform state" · "who looked at PR #7427"`), "",
 			m.st.dim.Render(fmt.Sprintf("  claude -p · %s · searches with recall only (no files, no shell)", config.ModelID(m.cfg.AskModel))),
 			m.st.dim.Render("  uses your Claude plan, as Claude Code does")}
