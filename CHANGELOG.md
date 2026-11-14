@@ -1,5 +1,18 @@
 # Changelog
 
+## [v1.16.1](https://github.com/babarot/claude-recall/compare/v1.16.0...v1.16.1) - 2026-11-14
+### Improvements
+- Draw every modal's frame the same way, in the accent color where the user types by @babarot in https://github.com/babarot/claude-recall/pull/162
+- Send the wheel only to the modal that shows by @babarot in https://github.com/babarot/claude-recall/pull/163
+- Open every modal where the eye is, and keep it there by @babarot in https://github.com/babarot/claude-recall/pull/164
+- Dim the screen under a modal, and frame every modal in the accent color by @babarot in https://github.com/babarot/claude-recall/pull/165
+- Scroll the key list, tell the version at its top, and head its groups with a rule by @babarot in https://github.com/babarot/claude-recall/pull/166
+- Open What's new from the key list only by @babarot in https://github.com/babarot/claude-recall/pull/167
+### Refactorings
+- Hold the modal that shows in one field by @babarot in https://github.com/babarot/claude-recall/pull/158
+- Declare each modal in its own file by @babarot in https://github.com/babarot/claude-recall/pull/159
+- Draw, place and click every modal from its declaration by @babarot in https://github.com/babarot/claude-recall/pull/161
+
 ## [v1.16.0](https://github.com/babarot/claude-recall/compare/v1.15.0...v1.16.0) - 2026-11-14
 ### New Features
 - Search Ask's questions with ctrl+r by @babarot in https://github.com/babarot/claude-recall/pull/148
