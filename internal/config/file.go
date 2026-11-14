@@ -250,9 +250,11 @@ func FilePath() string {
 	return filepath.Join(dir, "claude-recall", "config.toml")
 }
 
-// Template is the config file written on first run: every setting at its
-// default, commented out, so a default changed later still applies until
-// the user picks a value.
+// Template is every setting with what it does and its default, commented
+// out, as recall config reference prints it and docs/configuration.md shows
+// it. It is the running version's: a file written from it once would keep
+// the words and defaults of that version, so the first run writes
+// FirstRun instead.
 const Template = `# claude-recall settings. Uncomment a line to change it.
 
 [core]
@@ -369,8 +371,29 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # back = ["right", "l", "enter"]
 `
 
-// WriteTemplate writes Template to path unless a file is already there.
-func WriteTemplate(path string) error {
+// FirstRun is the config file written on the TUI's first run: where every
+// setting is described, and no setting. A file holds what the user
+// changed; the words of every setting come from the running recall, since
+// a copy written once goes stale as settings are added, renamed and change
+// their defaults.
+const FirstRun = `# claude-recall settings, read by every recall command.
+#
+# Write here only what you change, under its table:
+#
+#   [tui]
+#   theme = "nord"
+#
+# Every setting, what it does and its default:
+#
+#   recall config reference          (all of them)
+#   recall config reference tui      (one table: core, ui, tui or keys)
+#
+# recall config reference > this file fills it with every setting,
+# commented out, to uncomment and edit.
+`
+
+// WriteFirstRun writes FirstRun to path unless a file is already there.
+func WriteFirstRun(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -378,12 +401,40 @@ func WriteTemplate(path string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := f.WriteString(Template); err != nil {
+	if _, err := f.WriteString(FirstRun); err != nil {
 		f.Close()
 		return err
 	}
 	return f.Close()
 }
+
+// Tables are the tables of the config file, as Reference names them.
+var Tables = []string{"core", "ui", "tui", "keys"}
+
+// Reference is Template, or the part of it for one table: its header, the
+// words under it and its settings, up to the next table (the pane tables
+// of [keys] included in it).
+func Reference(table string) (string, error) {
+	if table == "" {
+		return Template, nil
+	}
+	if !slices.Contains(Tables, table) {
+		return "", fmt.Errorf("unknown table %q (known: %s)", table, strings.Join(Tables, ", "))
+	}
+	lines := strings.SplitAfter(Template, "\n")
+	start := slices.Index(lines, "["+table+"]\n")
+	end := len(lines)
+	for i := start + 1; i < len(lines); i++ {
+		if topTable.MatchString(lines[i]) {
+			end = i
+			break
+		}
+	}
+	return strings.TrimRight(strings.Join(lines[start:end], ""), "\n") + "\n", nil
+}
+
+// topTable is the header of a table of the file, as Template writes it.
+var topTable = regexp.MustCompile(`^\[[a-z]+\]\n$`)
 
 // Load reads the config file at path for the TUI. A missing file yields the
 // defaults; keys left out of the file keep their defaults. A key it does not

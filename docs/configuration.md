@@ -1,11 +1,13 @@
 # Configuration
 
-`~/.config/claude-recall/config.toml` (or `$XDG_CONFIG_HOME/claude-recall/config.toml`). `recall` writes it the first time the TUI runs, with every setting at its default and commented out; uncomment a line to change it. A setting left out, or commented out, is its default, so the file needs only the settings you change. [Every setting](#every-setting) is below with its default.
+`~/.config/claude-recall/config.toml` (or `$XDG_CONFIG_HOME/claude-recall/config.toml`). A setting left out is its default, so the file holds only the settings you change. The first time the TUI runs, `recall` writes a short file that says where the settings are described, and sets nothing; a file that is there is never written to.
+
+`recall config reference` prints [every setting](#every-setting), with what it does and its default, as the running version reads them, and `recall config reference tui` those of one table (`core`, `ui`, `tui` or `keys`). It does not read the config file, so it works when the file has a mistake. Redirected into a new file (`recall config reference > ~/.config/claude-recall/config.toml`), it gives every setting commented out, to uncomment and edit. A file written that way, or on the first run of an earlier `recall`, keeps the words and defaults of the version that wrote it: settings added since are not in it, and a key renamed since is written under its old name.
 
 | Section | What it sets |
 |---|---|
 | `[core]` | `db`, the archive, and `extra_projects_dirs`, more transcript trees to read, for every command, the MCP server and the web UI; `update_check`, whether to look for new releases |
-| `[ui]` | `port`, where the web UI listens |
+| `[ui]` | `port`, where the web UI listens, and `prices`, the prices the Stats page estimates costs with |
 | `[tui]` | The TUI: the detail pane, the color scheme, which sessions to start with, `a` (ask Claude), the scrollbar and images |
 | `[keys]` | Which keys do what in the TUI; see [Changing keys](tui.md#changing-keys) |
 
@@ -23,11 +25,11 @@ $ recall
   |                  ^~~~~~~~~
 ```
 
-A mistake under `[tui]` or `[keys]` stops only the TUI; the MCP server, the web UI and the other commands still run.
+A value out of range under `[tui]` (an unknown theme, a detail pane too short) and any mistake under `[keys]` stop only the TUI; the MCP server, the web UI and the other commands still run. An unknown key or a value of the wrong type stops every command, wherever it is, since the file cannot be read.
 
 ## Every setting
 
-Each at its default, so a line copied from here changes nothing until its value is edited. Under `[keys]`, copy only the lines you change: a key you give an operation is taken from the operations that have it by default, but two operations written in the file cannot share one, so `recall = "enter"` alone works, while the same next to `resume = "enter"` is an error.
+As `recall config reference` prints it, uncommented: each at its default, so a line copied from here changes nothing until its value is edited. Under `[keys]`, copy only the lines you change: a key you give an operation is taken from the operations that have it by default, but two operations written in the file cannot share one, so `recall = "enter"` alone works, while the same next to `resume = "enter"` is an error.
 
 ```toml
 [core]

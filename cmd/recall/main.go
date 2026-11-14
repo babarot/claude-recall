@@ -322,7 +322,38 @@ updated the way it was installed; recall says how.`,
 	}
 	updateCmd.Flags().BoolVar(&o.check, "check", false, "only say whether a newer release is out")
 
-	root.AddCommand(tuiCmd, importCmd, searchCmd, listCmd, exportCmd, statsCmd, mcpCmd, uiCmd, updateCmd, versionCmd)
+	configCmd := &cobra.Command{
+		Use:   "config",
+		Short: "Describe the config file",
+		Args:  cobra.NoArgs,
+		// It reads no config file, so a file with mistakes does not stop
+		// what tells how to write it.
+		PersistentPreRunE: func(*cobra.Command, []string) error { return nil },
+	}
+	configCmd.AddCommand(&cobra.Command{
+		Use:   "reference [table]",
+		Short: "Print every setting with what it does and its default",
+		Long: fmt.Sprintf(`Print every setting of %s, or those of one table (%s),
+with what it does and its default, commented out, as this version of recall
+reads them. Redirected into a new config file, it gives one to uncomment and
+edit. It does not read the config file.`, config.TildePath(config.FilePath()), strings.Join(config.Tables, ", ")),
+		Args:      cobra.MaximumNArgs(1),
+		ValidArgs: config.Tables,
+		RunE: func(c *cobra.Command, args []string) error {
+			table := ""
+			if len(args) == 1 {
+				table = args[0]
+			}
+			ref, err := config.Reference(table)
+			if err != nil {
+				return err
+			}
+			_, err = io.WriteString(c.OutOrStdout(), ref)
+			return err
+		},
+	})
+
+	root.AddCommand(tuiCmd, importCmd, searchCmd, listCmd, exportCmd, statsCmd, mcpCmd, uiCmd, updateCmd, versionCmd, configCmd)
 	return root
 }
 
@@ -951,11 +982,11 @@ func runsAs(path, ver string) error {
 }
 
 // tuiConfig reads the TUI's settings, with --all, or --all=false, in place
-// of tui.scope for this run. The first run leaves a commented config to
-// edit; one that is there, or a directory that cannot be written, is left
-// alone.
+// of tui.scope for this run. The first run leaves a short config that says
+// where every setting is described; one that is there, or a directory that
+// cannot be written, is left alone.
 func tuiConfig(c *cobra.Command) (config.File, error) {
-	_ = config.WriteTemplate(config.FilePath())
+	_ = config.WriteFirstRun(config.FilePath())
 	cfg, err := config.Load(config.FilePath())
 	if err != nil {
 		return config.File{}, err

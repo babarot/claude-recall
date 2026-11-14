@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/babarot/claude-recall/internal/pricing"
+	"github.com/babarot/claude-recall/internal/theme"
 )
 
 func TestLoadMissingFileUsesDefaults(t *testing.T) {
@@ -131,23 +133,13 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 }
 
 func TestTemplateLoadsAsTheDefaults(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "sub", "config.toml")
-	if err := WriteTemplate(path); err != nil {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(Template), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	got, err := Load(path)
 	if err != nil || !reflect.DeepEqual(got, Default()) {
 		t.Fatalf("got %+v, %v", got, err)
-	}
-	// It never replaces a file that is there.
-	if err := os.WriteFile(path, []byte("[tui]\nscope = \"all\"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteTemplate(path); err == nil {
-		t.Fatal("expected an error for an existing file")
-	}
-	if got, _ := Load(path); got.TUI.Scope != ScopeAll {
-		t.Fatal("the existing file was replaced")
 	}
 	// Every setting is in the template, and docs/configuration.md shows it.
 	for _, k := range knownKeys() {
@@ -377,5 +369,81 @@ func TestLoadPrices(t *testing.T) {
 	}
 	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), `ui.prices."claude-opus-5-5" must not be negative`) {
 		t.Errorf("a negative price: %v", err)
+	}
+}
+
+// The first run writes a file that says where every setting is described,
+// sets nothing, and never replaces a file that is there.
+func TestFirstRun(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sub", "config.toml")
+	if err := WriteFirstRun(path); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path)
+	if err != nil || !reflect.DeepEqual(got, Default()) {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if b, _ := os.ReadFile(path); !strings.Contains(string(b), "recall config reference") {
+		t.Errorf("the file does not say where the settings are:\n%s", b)
+	}
+	if err := os.WriteFile(path, []byte("[tui]\nscope = \"all\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteFirstRun(path); err == nil {
+		t.Fatal("expected an error for an existing file")
+	}
+	if got, _ := Load(path); got.TUI.Scope != ScopeAll {
+		t.Fatal("the existing file was replaced")
+	}
+}
+
+// Each table's part of the reference has its header and its settings and
+// no other table's, and the parts together are the whole.
+func TestReference(t *testing.T) {
+	if r, err := Reference(""); err != nil || r != Template {
+		t.Fatalf("the whole reference: %v", err)
+	}
+	var all strings.Builder
+	for _, table := range Tables {
+		r, err := Reference(table)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(r, "["+table+"]\n") {
+			t.Errorf("%s starts %q", table, r[:min(len(r), 20)])
+		}
+		for _, other := range Tables {
+			if other != table && strings.Contains(r, "\n["+other+"]\n") {
+				t.Errorf("%s holds [%s]", table, other)
+			}
+		}
+		for _, k := range knownKeys() {
+			if section, name, _ := strings.Cut(k, "."); section == table && !strings.Contains(r, "# "+name+" = ") {
+				t.Errorf("%s lacks %s", table, k)
+			}
+		}
+		all.WriteString(r + "\n")
+	}
+	_, body, _ := strings.Cut(Template, "\n\n")
+	if strings.TrimSpace(all.String()) != strings.TrimSpace(body) {
+		t.Error("the tables together are not the reference")
+	}
+	if _, err := Reference("tuii"); err == nil || !strings.Contains(err.Error(), "core, ui, tui, keys") {
+		t.Errorf("an unknown table: %v", err)
+	}
+}
+
+// The words of the reference name every value the checks take, so the two
+// cannot part: the color schemes, each choice and the least height.
+func TestTemplateNamesTheChoices(t *testing.T) {
+	words := append(theme.Names(), DetailBottom, DetailRight, DetailAuto, ScopeFolder, ScopeAll,
+		ThumbThin, ThumbHeavy, ThumbBlock, ImagesAuto)
+	for _, w := range words {
+		if !strings.Contains(Template, `"`+w+`"`) && !strings.Contains(Template, " "+w+",") && !strings.Contains(Template, " "+w+" ") {
+			t.Errorf("the reference does not name %q", w)
+		}
+	}
+	if !strings.Contains(Template, fmt.Sprintf("at least %d", MinDetailHeight)) {
+		t.Errorf("the reference does not say the least height, %d", MinDetailHeight)
 	}
 }

@@ -589,3 +589,20 @@ func serverPort(t *testing.T, srv *httptest.Server) int {
 	}
 	return a.Port
 }
+
+// recall config reference prints the settings, or one table's, without
+// reading the config file, so a file with mistakes does not stop it.
+func TestConfigReference(t *testing.T) {
+	writeConfig(t, "[tui]\ntheme = 123\n")
+	out, err := runArgs("config", "reference")
+	if err != nil || out != config.Template {
+		t.Fatalf("config reference: %v\n%s", err, out)
+	}
+	out, err = runArgs("config", "reference", "ui")
+	if err != nil || !strings.HasPrefix(out, "[ui]\n") || strings.Contains(out, "[tui]") {
+		t.Errorf("config reference ui: %v\n%s", err, out)
+	}
+	if _, err := runArgs("config", "reference", "nope"); err == nil {
+		t.Error("an unknown table should be an error")
+	}
+}
