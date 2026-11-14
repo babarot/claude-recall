@@ -148,18 +148,22 @@ func (w *Watcher) Run(ctx context.Context) {
 		if _, err := os.Stat(primary); err != nil {
 			w.fail(primary + " not found")
 			fmt.Fprintf(w.Log, "[watcher] %s not found; watcher disabled.\n", primary)
+			w.logger().Warn("not watching: the transcripts are not there", logging.KeyPath, primary)
 		} else {
 			w.fail(primary + " is not a directory")
 			fmt.Fprintf(w.Log, "[watcher] %s is not a directory; watcher disabled.\n", primary)
+			w.logger().Warn("not watching: the transcripts are not a directory", logging.KeyPath, primary)
 		}
 		return
 	case len(gone) == len(dirs):
 		w.fail("none of " + strings.Join(dirs, ", ") + " found")
 		fmt.Fprintf(w.Log, "[watcher] none of %s found; watcher disabled.\n", strings.Join(dirs, ", "))
+		w.logger().Warn("not watching: none of the transcript trees is there", logging.KeyPath, strings.Join(dirs, ", "))
 		return
 	}
 	for _, d := range gone {
 		fmt.Fprintf(w.Log, "[watcher] %s not found; watching the others.\n", d)
+		w.logger().Warn("a transcript tree is not there; watching the others", logging.KeyPath, d)
 	}
 
 	w.update(func(s *Status) { s.Running, s.MissingDirs = true, gone })

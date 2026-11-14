@@ -1,10 +1,12 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +17,7 @@ import (
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/fixture"
 	"github.com/babarot/claude-recall/internal/importer"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/repos"
 )
 
@@ -350,5 +353,35 @@ func TestPinnedServer(t *testing.T) {
 		if got := sessions(tool, args); !only(got) {
 			t.Errorf(`%s repo "." from outside the repository = %v, want the pinned session`, tool, got)
 		}
+	}
+}
+
+// Each call is logged by the tool's name, never by what it was asked, and
+// the error of a search, which may hold its words, is left out.
+func TestCallsLogged(t *testing.T) {
+	path := fixture.Archive(t)
+	d := openDB(t, path)
+	var log bytes.Buffer
+	ctx := context.Background()
+	st, ct := mcp.NewInMemoryTransports()
+	if _, err := newServer(d, nil, logging.New(&log, slog.LevelDebug)).Connect(ctx, st, nil); err != nil {
+		t.Fatal(err)
+	}
+	cs, err := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "0"}, nil).Connect(ctx, ct, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cs.Close() })
+	call(t, cs, "recall_search", map[string]any{"query": "terraform secretword"})
+	if !strings.Contains(log.String(), `"tool":"recall_search"`) {
+		t.Errorf("the call is not logged:\n%s", log.String())
+	}
+	d.Close() // every query now fails
+	call(t, cs, "recall_search", map[string]any{"query": "secretword"})
+	if !strings.Contains(log.String(), `"msg":"tool failed"`) {
+		t.Errorf("the failure is not logged:\n%s", log.String())
+	}
+	if strings.Contains(log.String(), "secretword") || strings.Contains(log.String(), "terraform") {
+		t.Errorf("what was searched for is in the log:\n%s", log.String())
 	}
 }

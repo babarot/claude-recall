@@ -40,6 +40,11 @@ const (
 	KeyErr        = "err"
 	KeyPort       = "port"
 	KeyTool       = "tool"
+	KeyModel      = "model"
+	KeyCost       = "cost"
+	KeyFrom       = "from"
+	KeyTo         = "to"
+	KeyLatest     = "latest"
 )
 
 // The log file is moved aside when it is over maxSize as a process starts,

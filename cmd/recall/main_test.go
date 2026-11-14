@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +22,7 @@ import (
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
 	"github.com/babarot/claude-recall/internal/fixture"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/update"
 	"github.com/babarot/claude-recall/internal/version"
 )
@@ -561,22 +563,22 @@ func TestReleaseNotice(t *testing.T) {
 	if err := update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now(), Latest: "98.0.0"}); err != nil {
 		t.Fatal(err)
 	}
-	r, ok := releaseNotice(true)
+	r, ok := releaseNotice(true, logging.Discard())
 	if !ok || r.Version != "98.0.0" || r.How != "recall update" || !r.Command || r.Check != nil {
 		t.Errorf("fresh cache: %+v, %v", r, ok)
 	}
 	if err := update.SaveCache(config.UpdateCachePath(), update.Cache{CheckedAt: time.Now().Add(-48 * time.Hour), Latest: "98.0.0"}); err != nil {
 		t.Fatal(err)
 	}
-	r, _ = releaseNotice(true)
+	r, _ = releaseNotice(true, logging.Discard())
 	if r.Check == nil || r.Check() != "99.0.0" {
 		t.Errorf("stale cache: %+v", r)
 	}
-	if _, ok := releaseNotice(false); ok {
+	if _, ok := releaseNotice(false, logging.Discard()); ok {
 		t.Error("update_check = false")
 	}
 	version.Source = ""
-	if _, ok := releaseNotice(true); ok {
+	if _, ok := releaseNotice(true, logging.Discard()); ok {
 		t.Error("a build from source")
 	}
 }
@@ -649,8 +651,32 @@ func TestLog(t *testing.T) {
 	if strings.Contains(string(b), "terraform") || strings.Contains(string(b), "cookie") {
 		t.Errorf("what was said is in the log:\n%s", b)
 	}
+	// A failure of recall import, which runs where no one reads it, is
+	// logged.
+	if _, err := runArgs("import", "--db", filepath.Join(t.TempDir(), "no", "such", "dir", "vault.db")); err == nil {
+		t.Fatal("expected the import to fail")
+	}
+	if b, _ := os.ReadFile(want); !strings.Contains(string(b), `"msg":"failed","proc":"import"`) {
+		t.Errorf("the failure is not logged:\n%s", b)
+	}
 	writeConfig(t, "[core]\nlog_level = \"loud\"\n")
 	if _, err := runArgs("list", "--db", path); err == nil || !strings.Contains(err.Error(), "core.log_level") {
 		t.Errorf("a wrong level: %v", err)
+	}
+}
+
+// The end of an MCP connection is logged without its words, which can hold
+// what the client sent.
+func TestConnErrorLeftOut(t *testing.T) {
+	var log bytes.Buffer
+	o := &options{log: logging.New(&log, slog.LevelInfo)}
+	err := logFailure(o, connError{errors.New(`invalid message version tag "a secret question"; expected "2.0"`)})
+	if err == nil || !strings.Contains(log.String(), `"msg":"failed"`) || strings.Contains(log.String(), "secret") {
+		t.Errorf("log:\n%s", log.String())
+	}
+	log.Reset()
+	_ = logFailure(o, errors.New("open the archive: disk full"))
+	if !strings.Contains(log.String(), "disk full") {
+		t.Errorf("a failure to start is not logged with its words:\n%s", log.String())
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
+	"github.com/babarot/claude-recall/internal/logging"
 )
 
 // a asks Claude to find sessions, in a box over the screen: type a
@@ -148,6 +149,7 @@ func (m *Model) askMsg(msg tea.Msg) tea.Cmd {
 		m.ask.took = m.now().Sub(m.ask.started)
 		if msg.err != nil {
 			m.ask.stage, m.ask.err = askFailed, msg.err.Error()
+			m.logger().Warn("ask failed", logging.KeyDurationMS, m.ask.took.Milliseconds(), logging.KeyErr, askErrForLog(msg.err))
 			return nil
 		}
 		m.ask.stage, m.ask.sel = askAnswered, 0
@@ -156,6 +158,8 @@ func (m *Model) askMsg(msg tea.Msg) tea.Cmd {
 		for _, h := range m.ask.hits {
 			m.reasons[h.id] = h.why
 		}
+		m.logger().Info("asked", logging.KeyCount, len(m.ask.hits), logging.KeyDurationMS, m.ask.took.Milliseconds(),
+			logging.KeyModel, m.ask.model, logging.KeyCost, m.ask.cost)
 		return m.keepReply(m.ask.hits)
 	case askTickMsg:
 		if msg.seq == m.ask.seq && m.ask.stage == askRunning {
@@ -393,4 +397,13 @@ func (m Model) askItem(h askHit, w int, sel bool) []string {
 		lines[i] = lead + ansi.Truncate(lines[i], w-2, ellipsis)
 	}
 	return lines
+}
+
+// askErrForLog is a failure of Ask as the log keeps it. What claude says
+// when it fails is left out, since it may hold its answer or the question.
+func askErrForLog(err error) string {
+	if strings.HasPrefix(err.Error(), "claude: ") {
+		return "claude failed (what it said is left out: it may hold the question or its answer)"
+	}
+	return err.Error()
 }
