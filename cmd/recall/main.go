@@ -135,6 +135,15 @@ Run without a command, it opens the TUI.`,
 		}
 		if !c.Flags().Changed("db") {
 			o.db = cfg.DBPath()
+		} else if o.db != "" {
+			// The TUI hands the archive to processes that run elsewhere: the
+			// MCP server of Ask runs in a directory of its own, and a
+			// relative path would name no archive there.
+			abs, err := filepath.Abs(o.db)
+			if err != nil {
+				return err
+			}
+			o.db = abs
 		}
 		o.trees = cfg.ProjectsDirs()
 		o.updateCheck = cfg.Core.UpdateCheck

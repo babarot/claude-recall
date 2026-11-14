@@ -150,6 +150,19 @@ func TestConfigDB(t *testing.T) {
 	}
 }
 
+// A relative --db is taken from the directory recall runs in, and handed
+// on as an absolute path, so that the MCP server Ask runs in a directory
+// of its own reads the same archive.
+func TestRelativeDB(t *testing.T) {
+	t.Chdir(t.TempDir())
+	out, err := runArgs("list", "--db", "missing.db")
+	wd, _ := os.Getwd() // dir, as the OS names it after following links
+	want := filepath.Join(wd, "missing.db")
+	if err == nil || !strings.Contains(out, want) {
+		t.Errorf("list --db missing.db: %v, want the archive named as %s:\n%s", err, want, out)
+	}
+}
+
 // port under [ui] is where ui status looks unless --port says otherwise.
 func TestConfigPort(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
