@@ -101,7 +101,10 @@ func TestOpeningAModalClosesTheOther(t *testing.T) {
 
 // modal.go is the mechanism every modal shares, and knows none of them:
 // it reaches a Model only for the keymap, the key hints and its own
-// methods, never a modal's fields. A modal declares itself in its own
+// methods, never a modal's fields. The test reads names, not types: it
+// follows the parameters and receivers declared as Model or *Model, in
+// functions, func literals and package variables alike, and would miss a
+// Model reached through another name, which review is left to catch. A modal declares itself in its own
 // file, and uistate.go says which state is which modal.
 func TestModalGoKnowsNoModal(t *testing.T) {
 	allowed := map[string]bool{"km": true, "hintKeys": true, "modalKeyFor": true, "typeInModal": true, "edgeHint": true}
@@ -133,14 +136,17 @@ func TestModalGoKnowsNoModal(t *testing.T) {
 		}
 		return out
 	}
-	check := func(models map[string]bool, body ast.Node) {
+	var check func(models map[string]bool, body ast.Node)
+	check = func(models map[string]bool, body ast.Node) {
 		ast.Inspect(body, func(n ast.Node) bool {
-			if lit, ok := n.(*ast.FuncLit); ok {
+			// A func literal's own Model params count inside it alone.
+			if lit, ok := n.(*ast.FuncLit); ok && n != body {
 				inner := names(lit.Type.Params)
 				for k := range models {
 					inner[k] = true
 				}
-				models = inner
+				check(inner, lit)
+				return false
 			}
 			sel, ok := n.(*ast.SelectorExpr)
 			if !ok {
@@ -153,10 +159,15 @@ func TestModalGoKnowsNoModal(t *testing.T) {
 		})
 	}
 	for _, d := range f.Decls {
-		fd, ok := d.(*ast.FuncDecl)
-		if !ok || fd.Body == nil {
-			continue
+		switch d := d.(type) {
+		case *ast.FuncDecl:
+			if d.Body != nil {
+				check(names(d.Recv, d.Type.Params), d.Body)
+			}
+		default:
+			// A package variable's funcs too, as the declarations were
+			// before they moved out.
+			check(map[string]bool{}, d)
 		}
-		check(names(fd.Recv, fd.Type.Params), fd.Body)
 	}
 }
