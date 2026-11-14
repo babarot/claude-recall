@@ -203,11 +203,11 @@ func TestNoUnusedImportAllowed(t *testing.T) {
 // promises. The table checks one step; this follows every one.
 func TestHistoryDependsOnLittle(t *testing.T) {
 	for _, p := range goList(t, "-deps", "./history") {
-		if !strings.HasPrefix(p.ImportPath, module) {
+		if !inModule(p.ImportPath, module) {
 			continue
 		}
 		for _, imp := range p.Imports {
-			if outside(imp) && !strings.HasPrefix(imp, module) && !inModule(imp, "modernc.org/sqlite") {
+			if outside(imp) && !inModule(imp, module) && !inModule(imp, "modernc.org/sqlite") {
 				t.Errorf("history reaches %s, which imports %s", p.ImportPath, imp)
 			}
 		}
