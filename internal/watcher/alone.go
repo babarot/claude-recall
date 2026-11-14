@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/babarot/claude-recall/internal/flock"
+	"github.com/babarot/claude-recall/internal/logging"
 )
 
 // Variables so a test can shorten them.
@@ -49,21 +51,28 @@ func LockPath(dbPath string, dirs []string) string {
 // itself watched around, as one does after the machine sleeps, cancels run
 // and waits with the others. When no lock can be taken at all, run is
 // called anyway, as watching in every process is better than in none.
-func RunAlone(ctx context.Context, lockPath string, run func(context.Context), log io.Writer) {
+// What happens is said on log, as before, and on logger, which may be nil.
+func RunAlone(ctx context.Context, lockPath string, run func(context.Context), log io.Writer, logger *slog.Logger) {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
 	tick := time.NewTicker(aloneRetry)
 	defer tick.Stop()
 	for {
 		l, i, err := takeSlot(lockPath)
 		if err != nil {
 			fmt.Fprintf(log, "[watcher] %v; watching without the lock.\n", err)
+			logger.Warn("watching without the lock", logging.KeyErr, err.Error())
 			run(ctx)
 			return
 		}
 		if l != nil {
+			logger.Info("watching", logging.KeyPath, slotPath(lockPath, i))
 			if !hold(ctx, l, lockPath, i, run) {
 				return
 			}
 			fmt.Fprintln(log, "[watcher] another process watches; waiting.")
+			logger.Info("another process watches; waiting")
 		}
 		select {
 		case <-ctx.Done():

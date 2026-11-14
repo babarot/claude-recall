@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/babarot/claude-recall/internal/db"
+
+	"github.com/babarot/claude-recall/internal/logging"
 )
 
 func userLine(text, uuid, ts string) string {
@@ -514,5 +517,22 @@ func TestImportStoresUsage(t *testing.T) {
 	if len(got) != 2 || got[0].MessageID != "msg_1" || got[0].Agent != "" || got[0].Output != 10 ||
 		got[1].MessageID != "msg_2" || got[1].Agent != "agent-a1" || got[1].Output != 5 {
 		t.Fatalf("usage %+v, want msg_1 of the session and msg_2 of agent-a1", got)
+	}
+}
+
+// Run logs what it imported, and names a session by its ID, never by what
+// was said in it.
+func TestRunLogs(t *testing.T) {
+	e := newEnv(t, userLine("a secret said in the session", "u1", "2026-01-01T00:00:00Z"))
+	projects := filepath.Dir(filepath.Dir(e.path))
+	var log bytes.Buffer
+	if err := Run(e.db, Options{ProjectsDirs: []string{projects}, Log: logging.New(&log, slog.LevelDebug)}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(log.String(), `"msg":"imported"`) || !strings.Contains(log.String(), `"count":1`) {
+		t.Errorf("log:\n%s", log.String())
+	}
+	if strings.Contains(log.String(), "secret") {
+		t.Errorf("what was said is in the log:\n%s", log.String())
 	}
 }

@@ -118,6 +118,14 @@ recall config reference [table]   Print every setting, or one table's (core, ui,
 
 It prints what each setting does and its default, commented out, as this version reads them, without reading the config file. See [configuration.md](configuration.md).
 
+## Log
+
+```
+recall log   Print the path of the log file
+```
+
+Every recall process (the TUI, `recall mcp`, the web UI, the imports) appends JSON lines to one file, `~/.local/state/claude-recall/logs/recall.log` (under `$XDG_STATE_HOME` when it is set): what was imported, what failed and why, which process watches the transcripts. `core.log_level` in the config file, or `RECALL_LOG_LEVEL`, sets how much (`debug`, `info`, `warn`, `error`; `info` by default). A session is named by its ID; what is said in it, Ask's questions and the words searched for are never logged. The file is moved aside past 10 MB as a process starts, and three old ones are kept.
+
 ## Global options
 
 ```

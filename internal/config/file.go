@@ -124,7 +124,14 @@ type Core struct {
 	// UpdateCheck looks for a new release once a day, to say so in the TUI
 	// and in recall version.
 	UpdateCheck bool `toml:"update_check"`
+	// LogLevel is how much every recall process writes to its log file:
+	// one of LogLevels. RECALL_LOG_LEVEL says otherwise.
+	LogLevel string `toml:"log_level"`
 }
+
+// LogLevels are the levels core.log_level takes, as package logging
+// reads them.
+var LogLevels = []string{"debug", "info", "warn", "error"}
 
 // UI configures the web UI.
 type UI struct {
@@ -190,7 +197,7 @@ func (t TUI) ImagesMode() string {
 
 // Default returns the settings used when the config file is absent.
 func Default() File {
-	return File{Core: Core{UpdateCheck: true}, UI: UI{Port: DefaultPort}, TUI: TUI{DetailPosition: DetailBottom, DetailAutoWidth: 160, Theme: theme.Auto, DetailHeight: 16, Scope: ScopeFolder,
+	return File{Core: Core{UpdateCheck: true, LogLevel: "info"}, UI: UI{Port: DefaultPort}, TUI: TUI{DetailPosition: DetailBottom, DetailAutoWidth: 160, Theme: theme.Auto, DetailHeight: 16, Scope: ScopeFolder,
 		AskModel: "sonnet-5.5", AskShowCost: true, AskReasons: true, ScrollbarThumb: ThumbHeavy, Images: ImagesAuto}}
 }
 
@@ -271,6 +278,11 @@ const Template = `# claude-recall settings. Uncomment a line to change it.
 # recall version. Only release builds look. RECALL_NO_UPDATE_CHECK=1 turns it
 # off too.
 # update_check = true
+# How much every recall process writes to its log file, which recall log
+# names: "debug", "info" (default), "warn" or "error". The environment
+# variable RECALL_LOG_LEVEL says otherwise. What is said in a session is
+# never logged.
+# log_level = "info"
 
 [ui]
 # Where the web UI (recall ui) listens, and where recall ui stop and
@@ -500,6 +512,9 @@ func LoadCore(path string) (File, error) {
 			listed = append(listed, expandHome(d))
 		}
 	}
+	if !slices.Contains(LogLevels, cfg.Core.LogLevel) {
+		ps = append(ps, problem("core.log_level", "core.log_level must be %s, got %q", quoteAll(LogLevels), cfg.Core.LogLevel))
+	}
 	if p := cfg.UI.Port; p < 1 || p > 65535 {
 		ps = append(ps, problem("ui.port", "ui.port must be between 1 and 65535, got %d", p))
 	}
@@ -670,4 +685,13 @@ func ModelID(name string) string {
 		return fmt.Sprintf("claude-%s-%s-%s", m[1], m[2], m[3])
 	}
 	return name
+}
+
+// quoteAll writes words as a list to choose from: "a", "b" or "c".
+func quoteAll(words []string) string {
+	q := make([]string, len(words))
+	for i, w := range words {
+		q[i] = strconv.Quote(w)
+	}
+	return strings.Join(q[:len(q)-1], ", ") + " or " + q[len(q)-1]
 }

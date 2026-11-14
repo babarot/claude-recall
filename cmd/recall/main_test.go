@@ -20,6 +20,7 @@ import (
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/fixture"
 	"github.com/babarot/claude-recall/internal/update"
 	"github.com/babarot/claude-recall/internal/version"
 )
@@ -620,5 +621,36 @@ func TestConfigReferenceMarksNewSettings(t *testing.T) {
 	out, err := runArgs("config", "reference", "tui")
 	if err != nil || !strings.Contains(out, "# (new in 1.1.0)\n# images = ") || strings.Count(out, "(new in") != 1 {
 		t.Errorf("config reference tui: %v\n%s", err, out)
+	}
+}
+
+// recall log names the log file without reading the config file, and the
+// other commands write to it, a line a run with the kind of process.
+func TestLog(t *testing.T) {
+	state := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", state)
+	writeConfig(t, "[tui]\ntheme = 123\n")
+	out, err := runArgs("log")
+	want := filepath.Join(state, "claude-recall", "logs", "recall.log")
+	if err != nil || strings.TrimSpace(out) != want {
+		t.Fatalf("recall log: %q, %v; want %s", out, err, want)
+	}
+	writeConfig(t, "[core]\nlog_level = \"debug\"\n")
+	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Dir(fixture.Projects(t)))
+	path := emptyDB(t)
+	if _, err := runArgs("import", "--db", path); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(want)
+	if err != nil || !strings.Contains(string(b), `"proc":"import"`) || !strings.Contains(string(b), `"msg":"imported"`) {
+		t.Errorf("log after an import: %v\n%s", err, b)
+	}
+	// What was said in the sessions imported is not in it.
+	if strings.Contains(string(b), "terraform") || strings.Contains(string(b), "cookie") {
+		t.Errorf("what was said is in the log:\n%s", b)
+	}
+	writeConfig(t, "[core]\nlog_level = \"loud\"\n")
+	if _, err := runArgs("list", "--db", path); err == nil || !strings.Contains(err.Error(), "core.log_level") {
+		t.Errorf("a wrong level: %v", err)
 	}
 }

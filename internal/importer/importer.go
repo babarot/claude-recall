@@ -6,17 +6,21 @@ package importer
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/babarot/claude-recall/internal/config"
 	"github.com/babarot/claude-recall/internal/db"
+	"github.com/babarot/claude-recall/internal/logging"
 	"github.com/babarot/claude-recall/internal/parser"
 	"github.com/babarot/claude-recall/internal/worktree"
 )
@@ -283,12 +287,20 @@ type Options struct {
 	Session      string // a session ID or its prefix
 	Project      string // case-insensitive substring of the project dir name
 	DryRun       bool
+	// Log is where Run says what it imported and what failed; none when
+	// nil. Sessions are named by their IDs, never by what was said.
+	Log *slog.Logger
 }
 
 // Run imports every transcript that matches opts and prints a summary. d
 // may be nil for a dry run. A session that fails to import does not stop the
 // others; Run reports how many failed and returns the first error.
 func Run(vault *db.DB, opts Options, w io.Writer) error {
+	log := opts.Log
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
+	start := time.Now()
 	found := parser.Discover(opts.ProjectsDirs...)
 	if len(opts.ProjectsDirs) > 1 {
 		for i, files := range parser.Trees(opts.ProjectsDirs, found) {
@@ -366,6 +378,7 @@ func Run(vault *db.DB, opts Options, w io.Writer) error {
 		for _, f := range byProject[project] {
 			r, err := ImportFile(vault, f.Path, index[f.SessionID], opts.ProjectsDirs)
 			if err != nil {
+				log.Error("import failed", logging.KeySession, f.SessionID, logging.KeyPath, f.Path, logging.KeyErr, err.Error())
 				failed++
 				if firstErr == nil {
 					firstErr = fmt.Errorf("import %s: %w", f.SessionID, err)
@@ -395,6 +408,12 @@ func Run(vault *db.DB, opts Options, w io.Writer) error {
 		parts = append(parts, fmt.Sprintf("Failed to import %d sessions.", failed))
 	}
 	fmt.Fprintln(w, strings.Join(parts, " "))
+	level := slog.LevelInfo
+	if failed > 0 {
+		level = slog.LevelWarn
+	}
+	log.Log(context.Background(), level, "imported", logging.KeyCount, imported, "unchanged", unchanged, "skipped", skipped,
+		logging.KeyFailed, failed, logging.KeyDurationMS, time.Since(start).Milliseconds())
 	return firstErr
 }
 
