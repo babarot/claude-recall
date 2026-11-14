@@ -1,6 +1,6 @@
 # Modals
 
-What a modal is in `internal/tui`, the words used for the parts of the screen around it, which modals there are, what each holds, and how they are drawn and read keys. The rules are in [ADR-006](../adr/006-a-modal-reads-the-keys-of-what-it-holds.md) (a modal reads the keys of what it holds, and closes with `esc` alone); the keys of each place are in [keybindings.md](keybindings.md).
+What a modal is in `internal/tui`, the words used for the parts of the screen around it, which modals there are, what each holds, and how they are drawn and read keys. The rules are in [ADR-006](../adr/006-a-modal-reads-the-keys-of-what-it-holds.md) (a modal reads the keys of what it holds, and closes with `esc` alone), [ADR-012](../adr/012-a-modal-is-one-declaration-and-one-shows-at-a-time.md) (a modal is one declaration, and one shows at a time) and [ADR-013](../adr/013-a-modal-opens-where-the-eye-is.md) (where its box is placed); the keys of each place are in [keybindings.md](keybindings.md).
 
 ## Words
 
@@ -21,36 +21,38 @@ The state of the screen, which of these takes the keys, is `uiState` in [uistate
 
 ## The modals
 
-| Modal | `uiState` | Opened by | Parts (its declaration, in its own file) | Placed | Width |
-|---|---|---|---|---|---|
-| key list | `uiHelp` | `help` | none; it does not scroll | centered top to bottom | up to 64 |
-| sort menu | `uiSort` | `sort` | list; own keys `1` to `4` | centered top to bottom | up to 44 |
-| Ask, typing | `uiAskTyping` | `ask` | field; recalls questions on `up` `down`; own keys `enter`, `ctrl+r`, `tab`, `right` | the third row | up to 96 |
-| Ask, searching the questions | `uiAskSearch` | `ctrl+r` in Ask | field and list | the third row | up to 96 |
-| Ask, running | `uiAskRunning` | `enter` in Ask | none | the third row | up to 96 |
-| Ask, answered | `uiAskAnswered` | the answer | list; own keys `f`, `r` | the third row | up to 96 |
-| Ask, failed | `uiAskFailed` | the failure | own key `r` | the third row | up to 96 |
-| before recalling | `uiRecall` | `recall` | field; own key `enter` | the third row | up to 96 |
-| what's new | `uiWhatsNew` | `whats_new` | body | centered top to bottom | up to 76 |
+| Modal | `uiState` | Opened by | Parts (its declaration, in its own file) | Width |
+|---|---|---|---|---|
+| key list | `uiHelp` | `help` | none; it does not scroll | up to 64 |
+| sort menu | `uiSort` | `sort` | list; own keys `1` to `4` | up to 44 |
+| Ask, typing | `uiAskTyping` | `ask` | field; recalls questions on `up` `down`; own keys `enter`, `ctrl+r`, `tab`, `right` | up to 96 |
+| Ask, searching the questions | `uiAskSearch` | `ctrl+r` in Ask | field and list | up to 96 |
+| Ask, running | `uiAskRunning` | `enter` in Ask | none | up to 96 |
+| Ask, answered | `uiAskAnswered` | the answer | list; own keys `f`, `r` | up to 96 |
+| Ask, failed | `uiAskFailed` | the failure | own key `r` | up to 96 |
+| before recalling | `uiRecall` | `recall` | field; own key `enter` | up to 96 |
+| what's new | `uiWhatsNew` | `whats_new` | body | up to 76 |
 
 A width is the most a box takes, a constant; a narrower terminal narrows it, and a terminal narrower than a box can be (30 columns, 24 for the sort menu) leaves it undrawn, with the footer still saying how out (`esc` first).
 
-The Ask box keeps one height from typing to running: its body is five rows in both, and the search of the questions fills the same five. The box of the answer grows to the height of the screen, which is why it sits near the top.
+The Ask box keeps one height from typing to running: its body is five rows in both, and the search of the questions fills the same five. The box of the answer grows down from the row the box opened on, as far as the screen goes.
 
 ## Where a modal is written
 
-- [modal.go](../../internal/tui/modal.go) is the mechanism every modal shares: the declaration's types, the layer that reads keys from it (`modalKeyFor`), the hints (`hints`, `edgeHint`) and what the conflict check takes (`fixedKeys`, `navOps`). It knows no modal: it reaches a `Model` only for the keymap, the key hints and its own methods. `TestModalGoKnowsNoModal` checks it by the names of the parameters and receivers declared as a `Model`, in functions, func literals and package variables; a `Model` reached through another name is left to review.
+- [modal.go](../../internal/tui/modal.go) is the mechanism every modal shares: the declaration's types, the layer that reads keys from it (`modalKeyFor`), the hints (`hints`, `edgeHint`) and what the conflict check takes (`fixedKeys`, `navOps`). It knows no modal: it reaches a `Model` only for the keymap, the key hints, the screen's size and styles, which modal shows (`openModal`, `closeModal`), the row modals are drawn from (`modalTop`) and its own methods. `TestModalGoKnowsNoModal` checks it by the names of the parameters and receivers declared as a `Model`, in functions, func literals and package variables; a `Model` reached through another name is left to review.
 - Each modal declares itself in its own file, as a function (`helpSpec` in help.go, `sortSpec` in sortmenu.go, the Ask stages in ask.go and the search in askhistory.go, `recallSpec` in recall.go, `whatsNewSpec` in whatsnew.go). A function, not a package variable: a declaration's funcs reach Model methods, and as variables Go's initialization order would follow them into a cycle as soon as one reached the registry.
 - [uistate.go](../../internal/tui/uistate.go) says which state is which modal (`specOf`), and which modal shows (`Model.modal`, `openModalKind`, `closeModal`). It is the one file that names every modal, as the list of states is. The conflict check in keys.go walks the states through `specOf`, with no Model.
 
 ## How a modal is drawn
 
-A modal's declaration holds its box (`modalBox` in modal.go): its title, how wide it gets, the narrowest it is drawn at, its frame's color, where it is placed, what a click does, and its rows (`lines`), with what goes on its edges when not the hint. The boxes differ where the user sees it, and those differences are values of the declaration, not code of their own:
+A modal's declaration holds its box (`modalBox` in modal.go): its title, how wide it gets, the narrowest it is drawn at, its frame's color, what a click does, and its rows (`lines`), with what goes on its edges when not the hint. The boxes differ where the user sees it, and those differences are values of the declaration, not code of their own:
 
-| | Frame | Placed | Click |
-|---|---|---|---|
-| key list, sort menu, what's new | border color (`frameRule`) | centered (`placeCenter`) | the key list and what's new close; the sort menu chooses the row clicked and closes outside (`clickList`) |
-| Ask, before recalling | accent color (`frameAccent`), as boxes the user types in | third row (`placeTop`) | nothing |
+| | Frame | Click |
+|---|---|---|
+| key list, sort menu, what's new | border color (`frameRule`) | the key list and what's new close; the sort menu chooses the row clicked and closes outside (`clickList`) |
+| Ask, before recalling | accent color (`frameAccent`), as boxes the user types in | nothing |
+
+Where a box is placed is not a value of the declaration: every box is placed by one rule (below).
 
 Every box has the same frame otherwise, its top edge ending in `─╮`, and leaves two cells of the terminal's width (`boxMargin`).
 
@@ -60,9 +62,16 @@ A selected row is drawn by each modal in its rows, but for two things a row tell
 2. If a modal shows, `drawModal` in modal.go places its box (`boxRect`) and draws it (`drawBox`) over the screen with `overlay`. The screen under it is not dimmed.
 3. `View` takes the cursor's mark out of the drawn screen and puts the terminal's cursor there, when a field is typed in ([input.go](../../internal/tui/input.go)).
 
-How many rows a box may hold (`boxRows`) is decided from where it is placed and the screen's height, before it is placed, since a centered box's row depends on its height. A centered box is centered on the terminal's height, not on how many lines the screen drew: below 16 rows the list draws more lines than the terminal shows, and centering on those put the bottom of the key list and of what's new past the last row. A click goes to the modal that shows (`clickModal`), with the same `boxRect`. The wheel goes to it too, wherever the pointer is (`wheelModal`): it moves a list, without going round an end, or scrolls a body three rows a turn, and does nothing to a modal with neither. What's new reads the same rows for its scrolling, its page and the position on its bottom edge (`whatsNewRows`).
+## Where a box is placed
 
-Placing every modal by one rule, as gh-desk places its popups a quarter down the screen, was looked at and left for later: the Ask answer's box would show fewer sessions. It is now a change of `place` in the declarations.
+Every box is placed by one rule ([ADR-013](../adr/013-a-modal-opens-where-the-eye-is.md)), decided by `placeModal` in modal.go:
+
+- When a modal opens with none showing, its box goes a quarter down the terminal, where the eye rests. A box tall enough that it would leave less room under it than above it there goes higher, centered, and none goes above the third row (`modalTopMost`). The height is the box's then, measured as if it stood on the third row. It is centered on the terminal's height, not on how many lines the screen drew: below 16 rows the list draws more lines than the terminal shows.
+- The row is kept in `Model.modalTop` while a modal shows. A modal taking the place of another opens on it, and a box whose height changes (Ask's answer, What's new once its notes come) grows or shrinks downward from it, so its title and field stay where they were.
+- It is decided after every message, in the step `Update` takes after `update`: no modal showing sets it to 0, and a modal showing with no row yet is placed. A modal's opener sets the state the box is drawn from after `openModalKind`, so placing it inside the opener would measure a box not built yet. A resize sets it to 0, and the modal showing is placed again for the new height.
+- A box holds at most `boxRows` rows: from its row down to above the status line and the footer, which stay in sight under it, inside its frame.
+
+A click goes to the modal that shows (`clickModal`), with the same `boxRect`. The wheel goes to it too, wherever the pointer is (`wheelModal`): it moves a list, without going round an end, or scrolls a body three rows a turn, and does nothing to a modal with neither. What's new reads the same rows for its scrolling, its page and the position on its bottom edge (`whatsNewRows`).
 
 ## How a modal reads keys
 

@@ -176,8 +176,12 @@ type Model struct {
 	// read and the place among them.
 	askStore askStore
 	askHist  askHistory
-	// modal is the modal that shows, if any (see uistate.go).
-	modal modalKind
+	// modal is the modal that shows, if any (see uistate.go), and
+	// modalTop the row its box is drawn from: decided when a modal opens
+	// with none showing, kept while one shows, 0 while none does (see
+	// placeModal).
+	modal    modalKind
+	modalTop int
 	// updated is set when this run is the first after an update, and
 	// newSettings are the settings it added, told of then.
 	updated     bool
@@ -540,6 +544,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if nm.focus == focusFolders && !nm.sidebarShown() {
 			nm.focus = focusList
 		}
+		nm.placeModal()
 		load := nm.loadDetail()
 		nm.readLines()
 		return nm, tea.Batch(cmd, load, nm.scheduleTextSearch(), nm.convLoadCmd(), nm.imageLoadCmd(), nm.imageOut())
@@ -603,6 +608,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.settling = false
 		}
 		m.width, m.height = msg.Width, msg.Height
+		m.modalTop = 0 // placed again for the new height
 		m.filter.SetWidth(max(10, m.width-30))
 		m.clamp()
 		return m, m.imagesResized()

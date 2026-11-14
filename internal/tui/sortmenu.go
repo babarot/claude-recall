@@ -73,7 +73,7 @@ func sortSpec() modalSpec {
 		box: &modalBox{
 			title: func(Model) string { return "Sort by" },
 			width: sortMenuWidth, minWidth: 24,
-			place: placeCenter, click: clickList,
+			click: clickList,
 			lines: func(m Model, inner, _ int) []boxLine { return m.sortLines(inner) },
 		},
 	}

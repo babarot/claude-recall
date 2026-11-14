@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 
@@ -35,20 +36,20 @@ type modalSpec struct {
 	edited func(m *Model)
 	// esc is what esc does, the only key that closes a modal.
 	esc modalKey
-	// box is how the modal is drawn, placed and clicked.
+	// box is how the modal is drawn and clicked.
 	box *modalBox
 }
 
-// modalBox is how a modal is drawn as a box, where it is placed and what a
-// click does. The boxes differ in a few ways the user sees (the frame's
-// color, a selected row); those are values here, drawn by one drawBox.
+// modalBox is how a modal is drawn as a box and what a click does. The
+// boxes differ in a few ways the user sees (the frame's color, a selected
+// row); those are values here, drawn by one drawBox. Every box is placed
+// by one rule (placeModal).
 type modalBox struct {
 	title func(m Model) string
 	// width is the widest the box gets, and minWidth the narrowest it is
 	// drawn at; it leaves boxMargin of the terminal's width.
 	width, minWidth int
 	frame           boxFrame
-	place           boxPlace
 	click           boxClick
 	// lines are the box's rows, inner cells wide, at most rows of them.
 	lines func(m Model, inner, rows int) []boxLine
@@ -66,15 +67,6 @@ type boxFrame int
 const (
 	frameRule boxFrame = iota
 	frameAccent
-)
-
-// boxPlace is where a box is placed: centered top to bottom, or on the
-// third row.
-type boxPlace int
-
-const (
-	placeCenter boxPlace = iota
-	placeTop
 )
 
 // boxClick is what a click does while the box shows.
@@ -340,14 +332,38 @@ func (s modalSpec) navOps() []string {
 
 var modalNavOps = []string{"up", "down", "page_up", "page_down", "top", "bottom"}
 
-// boxRows is how many rows a box placed at p may hold, decided from the
-// screen's height before the box is placed: a centered box's row depends
-// on its height.
-func (m Model) boxRows(p boxPlace) int {
-	if p == placeTop {
-		return m.height - 6
+// modalTopMost is the highest row a box is drawn from: under the header
+// and its rule.
+const modalTopMost = 2
+
+// modalRow is the row the modal's box is drawn from: the one placeModal
+// decided, or the highest before it has.
+func (m Model) modalRow() int { return cmp.Or(m.modalTop, modalTopMost) }
+
+// boxRows is how many rows a box may hold: from its row down to above the
+// status line and the footer, which stay in sight under it, inside its
+// frame.
+func (m Model) boxRows() int { return max(1, m.height-m.modalRow()-4) }
+
+// placeModal decides the row modals are drawn from when one opens with
+// none showing: a quarter down the screen, where the eye rests, or
+// centered for a box that would leave less room under it than above it
+// there, and never above modalTopMost. The row holds while modals show,
+// one taking the place of another or its box growing or shrinking, so
+// nothing in it moves; it is decided again after all have closed and on a
+// resize (which sets it to 0). It runs after every message, once the
+// modal opened has the state it is drawn from.
+func (m *Model) placeModal() {
+	s, ok := m.openModal()
+	if !ok || s.box == nil {
+		m.modalTop = 0
+		return
 	}
-	return m.height - 4
+	if m.modalTop != 0 {
+		return
+	}
+	h := len(s.box.lines(*m, m.boxWidth(s.box)-4, m.boxRows())) + 2
+	m.modalTop = max(modalTopMost, min(m.height/4, (m.height-h)/2))
 }
 
 // boxWidth is how wide the box is drawn on this terminal.
@@ -364,12 +380,8 @@ func (m Model) boxRect(s modalSpec) (rect, bool) {
 		return rect{}, false
 	}
 	w := m.boxWidth(b)
-	h := len(b.lines(m, w-4, m.boxRows(b.place))) + 2
-	y := 2
-	if b.place == placeCenter {
-		y = max(0, (m.height-h)/2)
-	}
-	return rect{(m.width - w) / 2, y, w, h}, true
+	h := len(b.lines(m, w-4, m.boxRows())) + 2
+	return rect{(m.width - w) / 2, m.modalRow(), w, h}, true
 }
 
 // drawBox draws the modal's box w cells wide, holding at most rows rows.
@@ -417,7 +429,7 @@ func (m Model) drawModal(s modalSpec, screen string) string {
 		return screen
 	}
 	lines := strings.Split(screen, "\n")
-	for i, l := range m.drawBox(s, r.w, m.boxRows(s.box.place)) {
+	for i, l := range m.drawBox(s, r.w, m.boxRows()) {
 		if j := r.y + i; j < len(lines) {
 			lines[j] = overlay(lines[j], l, r.x)
 		}

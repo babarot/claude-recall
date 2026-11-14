@@ -267,8 +267,8 @@ func (m Model) reasonLine(id string, w int) string {
 	return ansi.Truncate(m.st.worktree.Render("↳ ")+m.st.subtle.Render(why), w, ellipsis)
 }
 
-// askBox is how Ask is drawn in every stage: near the top, as its answer
-// grows to the height of the screen.
+// askBox is how Ask is drawn in every stage. Its answer grows down from
+// the row the box opened on, as far as the screen goes.
 func askBox() *modalBox {
 	return &modalBox{
 		title: func(m Model) string {
@@ -278,7 +278,7 @@ func askBox() *modalBox {
 			return "Ask Claude"
 		},
 		width: askWidth, minWidth: 30,
-		frame: frameAccent, place: placeTop,
+		frame: frameAccent,
 		lines: func(m Model, inner, rows int) []boxLine {
 			body := m.askLines(inner, rows)
 			out := make([]boxLine, len(body))

@@ -134,7 +134,13 @@ func TestWhatsNewScrolls(t *testing.T) {
 	m, _ := notesModel(t, 24, func(string) ([]selfupdate.Release, error) { return many, nil })
 	m = openNotes(t, m)
 	n := len(m.whatsNewBody(m.whatsNewInner()))
-	if !strings.Contains(screen(m), fmt.Sprintf("1-20/%d", n)) {
+	// From row 2 down to above the status line and the footer, inside
+	// the frame.
+	rows := m.whatsNewRows()
+	if rows != 24-2-4 {
+		t.Errorf("rows %d, want %d", rows, 24-2-4)
+	}
+	if !strings.Contains(screen(m), fmt.Sprintf("1-%d/%d", rows, n)) {
 		t.Fatalf("no position:\n%s", screen(m))
 	}
 	m = press(t, m, "j", "j")
@@ -142,8 +148,8 @@ func TestWhatsNewScrolls(t *testing.T) {
 		t.Errorf("j j: offset %d", m.whatsNew.offset)
 	}
 	m = press(t, m, "G")
-	if m.whatsNew.offset != n-20 {
-		t.Errorf("G: offset %d, want %d", m.whatsNew.offset, n-20)
+	if m.whatsNew.offset != n-rows {
+		t.Errorf("G: offset %d, want %d", m.whatsNew.offset, n-rows)
 	}
 	m = press(t, m, "j", "g")
 	if m.whatsNew.offset != 0 {
