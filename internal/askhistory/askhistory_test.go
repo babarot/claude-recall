@@ -98,7 +98,8 @@ func TestOtherFormatLeftAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.WriteString(`{"v":2,"id":"x","q":"from a newer recall","more":true}` + "\n"); err != nil {
+	// Its at is a number, which this version cannot read as a time.
+	if _, err := f.WriteString(`{"v":2,"id":"x","at":1730000000,"q":"from a newer recall"}` + "\n"); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.Close(); err != nil {

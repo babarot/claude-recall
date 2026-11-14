@@ -151,13 +151,24 @@ func parse(b []byte) (out []Entry, n int, other bool) {
 	replies := map[string]string{}
 	for l := range bytes.Lines(b) {
 		n++
+		// The version first: a line of another one may hold its fields in
+		// another form, which must not make it read as one that cannot be
+		// read, and be dropped when the file is written back.
+		var v struct {
+			V int `json:"v"`
+		}
+		if json.Unmarshal(l, &v) != nil {
+			continue
+		}
+		if v.V != version {
+			other = true
+			continue
+		}
 		var x line
 		if json.Unmarshal(l, &x) != nil {
 			continue
 		}
 		switch {
-		case x.V != version:
-			other = true
 		case x.Q != "":
 			asked = append(asked, x)
 		case x.Reply != "":
