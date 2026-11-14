@@ -4,6 +4,8 @@
 
 `recall config reference` prints [every setting](#every-setting), with what it does and its default, as the running version reads them, and `recall config reference tui` those of one table (`core`, `ui`, `tui` or `keys`). It does not read the config file, so it works when the file has a mistake. Redirected into a new file (`recall config reference > ~/.config/claude-recall/config.toml`), it gives every setting commented out, to uncomment and edit. A file written that way, or on the first run of an earlier `recall`, keeps the words and defaults of the version that wrote it: settings added since are not in it, and a key renamed since is written under its old name.
 
+After an update that adds settings, the TUI says how many in the toast that tells of the update, and `w` (What's new) lists them first, with the command that describes them. `recall config reference` marks them with a line `# (new in <version>)` above each, until an update adds others. The settings known are kept in `settings.json` in the state directory (`$XDG_STATE_HOME/claude-recall`, or `~/.local/state/claude-recall`); a new install, or the update to the first version that keeps it, tells of none.
+
 | Section | What it sets |
 |---|---|
 | `[core]` | `db`, the archive, and `extra_projects_dirs`, more transcript trees to read, for every command, the MCP server and the web UI; `update_check`, whether to look for new releases |

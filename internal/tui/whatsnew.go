@@ -62,9 +62,13 @@ func (m Model) RememberVersionIn(path string) Model {
 	// Rendered when drawn, so it takes the colors the terminal's
 	// background picks.
 	v := m.version
+	m.updated = true
 	m.toast, m.toastKind = "Updated to "+v, toastOK
 	m.toastRender = func(m Model) string {
 		s := m.st.ok.Render("Updated to " + v)
+		if n := len(m.newSettings); n > 0 {
+			s += m.st.subtle.Render(" · ") + m.st.ok.Render(plural(n, "new setting"))
+		}
 		if k := m.hintKeys("{whats_new.0}"); k != "" {
 			s += m.st.subtle.Render(" · ") + m.st.key.Render(k) + m.st.subtle.Render(" what's new")
 		}
@@ -157,7 +161,7 @@ func (m Model) whatsNewBody(inner int) []string {
 			m.st.muted.Render("They are also at ") + m.st.id.Render(releasesPage),
 		}
 	}
-	var out []string
+	out := m.newSettingsLines()
 	for i, r := range w.notes {
 		if i > 0 {
 			out = append(out, "")
@@ -256,4 +260,45 @@ func (m Model) withWhatsNew(screen string) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// TellOfNewSettings has an update tell of the settings it added, in the
+// toast after it and at the top of What's new, for this run. A run that
+// is not an update tells of nothing: a build from source adds settings
+// without a release to tell of.
+func (m Model) TellOfNewSettings(names []string) Model {
+	if m.updated {
+		m.newSettings = names
+	}
+	return m
+}
+
+// newSettingsLines head What's new with the settings the update added, a
+// line a table, with the command that describes them.
+func (m Model) newSettingsLines() []string {
+	if len(m.newSettings) == 0 {
+		return nil
+	}
+	out := []string{m.st.title.Render("New settings in " + m.version)}
+	byTable := map[string][]string{}
+	var tables []string
+	for _, n := range m.newSettings {
+		table, key, _ := strings.Cut(n, ".")
+		if _, ok := byTable[table]; !ok {
+			tables = append(tables, table)
+		}
+		byTable[table] = append(byTable[table], key)
+	}
+	for _, t := range tables {
+		out = append(out, "  "+m.st.strong.Render("["+t+"] "+strings.Join(byTable[t], ", "))+
+			m.st.muted.Render(" · recall config reference "+t))
+	}
+	return append(out, "")
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
