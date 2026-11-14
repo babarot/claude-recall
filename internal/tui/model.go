@@ -577,9 +577,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Button == tea.MouseWheelUp {
 			step = -1
 		}
-		if m.modal == modalWhatsNew {
-			m.scrollWhatsNew(3 * step)
-		} else if r, _, _, _, ok := m.suggestRect(); ok && r.contains(msg.X, msg.Y) {
+		if s, ok := m.openModal(); ok {
+			return m.wheelModal(s, step), nil
+		}
+		if r, _, _, _, ok := m.suggestRect(); ok && r.contains(msg.X, msg.Y) {
 			m.scrollSuggestions(step)
 		} else if m.sidebarAt(msg.X, msg.Y) >= 0 {
 			m.scrollSidebar(3 * step)

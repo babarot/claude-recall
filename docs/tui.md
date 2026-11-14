@@ -130,7 +130,7 @@ The first time the TUI starts after recall is updated, it says `Updated to 1.8.0
 
 ## Mouse
 
-Click a session to select it, click a frame to focus it, scroll the wheel over the list or over a frame, and drag the pane's top edge (or the row count line just above it) to resize the pane. While the TUI has the mouse, most terminals still select text when you hold Shift (Option in iTerm2) while dragging.
+Click a session to select it, click a frame to focus it, scroll the wheel over the list or over a frame, and drag the pane's top edge (or the row count line just above it) to resize the pane. While a box shows, the wheel reaches it alone, wherever the pointer is: it moves the sort menu, Ask's answer and the questions found by `ctrl+r`, and scrolls what's new. While the TUI has the mouse, most terminals still select text when you hold Shift (Option in iTerm2) while dragging.
 
 ## Changing keys
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/babarot/claude-recall/internal/config"
@@ -147,6 +148,10 @@ func TestWhatsNewScrolls(t *testing.T) {
 	m = press(t, m, "j", "g")
 	if m.whatsNew.offset != 0 {
 		t.Errorf("g: offset %d", m.whatsNew.offset)
+	}
+	m = update(t, m, tea.MouseWheelMsg{X: 1, Y: 1, Button: tea.MouseWheelDown})
+	if m.whatsNew.offset != 3 {
+		t.Errorf("the wheel, anywhere: offset %d, want 3", m.whatsNew.offset)
 	}
 }
 

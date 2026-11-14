@@ -117,7 +117,7 @@ func TestModalGoKnowsNoModal(t *testing.T) {
 		"closeModal": true,
 		// modal.go's own methods.
 		"modalKeyFor": true, "typeInModal": true, "edgeHint": true,
-		"boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true,
+		"boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true, "wheelModal": true,
 	}
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "modal.go", nil, 0)
@@ -180,5 +180,37 @@ func TestModalGoKnowsNoModal(t *testing.T) {
 			// before they moved out.
 			check(map[string]bool{}, d)
 		}
+	}
+}
+
+// While a modal shows, the wheel reaches it alone: its list moves without
+// going round an end, its body scrolls, and a modal with neither leaves
+// the list under it where it was.
+func TestWheelReachesOnlyTheModal(t *testing.T) {
+	down := tea.MouseWheelMsg{X: 10, Y: 10, Button: tea.MouseWheelDown}
+	up := tea.MouseWheelMsg{X: 10, Y: 10, Button: tea.MouseWheelUp}
+
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	m = press(t, m, "s")
+	at, cursor := m.sortSel, m.cursor
+	if m = update(t, m, down); m.sortSel != at+1 || m.cursor != cursor {
+		t.Errorf("the wheel did not move the sort menu alone: sel %d, cursor %d", m.sortSel, m.cursor)
+	}
+	m.sortSel = 0
+	if m = update(t, m, up); m.sortSel != 0 {
+		t.Errorf("the wheel went round the sort menu's top: %d", m.sortSel)
+	}
+
+	m, _ = newTestModel(t, config.Default().TUI, 140, 40)
+	m = press(t, m, "?")
+	cursor = m.cursor
+	if m = update(t, m, down); m.cursor != cursor || m.uiState() != uiHelp {
+		t.Errorf("the wheel over the key list reached the list: cursor %d, state %v", m.cursor, m.uiState())
+	}
+
+	f := &fakeAsk{hits: []askHit{{"cccccccc", "talked about the parser"}, {"aaaaaaaa", "the login bug"}}}
+	m = ask(t, askModel(t, f, config.Default().TUI), "parser work")
+	if m = update(t, m, down); m.ask.sel != 1 {
+		t.Errorf("the wheel did not move Ask's answer: %d", m.ask.sel)
 	}
 }
