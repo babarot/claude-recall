@@ -348,6 +348,11 @@ edit. It does not read the config file.`, config.TildePath(config.FilePath()), s
 			if err != nil {
 				return err
 			}
+			// The settings the last update added are marked, from the
+			// TUI's record, not the config file.
+			if r, ok := config.LoadSettingsRecord(config.SettingsPath()); ok {
+				ref = config.MarkNew(ref, r)
+			}
 			_, err = io.WriteString(c.OutOrStdout(), ref)
 			return err
 		},
@@ -1039,6 +1044,11 @@ func runTUI(o *options, c *cobra.Command) error {
 		model = model.TellOfRelease(r)
 	}
 	model = model.RememberVersionIn(config.LastVersionPath()).NotesFrom(releaseNotes)
+	// Recorded on every run, told of only after an update; a failure only
+	// leaves them untold.
+	if added, err := config.RecordSettings(config.SettingsPath(), config.KnownSettings(), version.Version); err == nil {
+		model = model.TellOfNewSettings(added)
+	}
 	final, err := tea.NewProgram(model).Run()
 	if err != nil {
 		return err

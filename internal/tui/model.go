@@ -176,9 +176,13 @@ type Model struct {
 	// read and the place among them.
 	askStore askStore
 	askHist  askHistory
-	reasons  map[string]string
-	asked    map[string]int
-	askedFor string
+	// updated is set when this run is the first after an update, and
+	// newSettings are the settings it added, told of then.
+	updated     bool
+	newSettings []string
+	reasons     map[string]string
+	asked       map[string]int
+	askedFor    string
 	// sortMenu is set while the sort menu shows, sortSel its highlight.
 	sortMenu bool
 	sortSel  int

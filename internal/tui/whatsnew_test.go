@@ -196,3 +196,41 @@ func TestUpdatedToast(t *testing.T) {
 		}
 	}
 }
+
+// An update that added settings tells of them in its toast and at the top
+// of What's new; a run that is no update tells of none.
+func TestNewSettingsAfterAnUpdate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "last_version")
+	if err := config.SaveLastVersion(path, "1.7.2"); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := newTestModel(t, config.Default().TUI, 110, 24)
+	m.version = "1.8.0"
+	m = m.RememberVersionIn(path).TellOfNewSettings([]string{"tui.images", "tui.theme", "ui.port"})
+	if got := statusLine(m); got != " Updated to 1.8.0 · 3 new settings · w what's new" {
+		t.Errorf("toast %q", got)
+	}
+	m.whatsNew.notes = []selfupdate.Release{{Version: "1.8.0"}}
+	body := ansi.Strip(strings.Join(m.whatsNewBody(70), "\n"))
+	for _, want := range []string{"New settings in 1.8.0", "[tui] images, theme · recall config reference tui", "[ui] port · recall config reference ui"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("What's new lacks %q:\n%s", want, body)
+		}
+	}
+
+	// While the notes come, and when they could not, the settings show.
+	m.whatsNew.notes, m.whatsNew.loading = nil, true
+	if body := ansi.Strip(strings.Join(m.whatsNewBody(70), "\n")); !strings.Contains(body, "New settings in 1.8.0") {
+		t.Errorf("not while loading:\n%s", body)
+	}
+	m.whatsNew.loading, m.whatsNew.err = false, errors.New("offline")
+	if body := ansi.Strip(strings.Join(m.whatsNewBody(70), "\n")); !strings.Contains(body, "New settings in 1.8.0") || !strings.Contains(body, "offline") {
+		t.Errorf("not when the notes could not be read:\n%s", body)
+	}
+
+	m, _ = newTestModel(t, config.Default().TUI, 110, 24)
+	m = m.TellOfNewSettings([]string{"tui.images"})
+	if len(m.newSettings) != 0 {
+		t.Errorf("told of %v without an update", m.newSettings)
+	}
+}

@@ -124,7 +124,7 @@ When a newer release of recall is out, the line above the footer says so, how to
 
 ## What's new
 
-`w` shows the release notes, every release newest first, from the `CHANGELOG.md` of the repository at the latest release recall knows of. A release newer than the running one is marked `not installed`, with how to update; the running one `installed`. They are fetched from GitHub the first time the box opens and kept until the TUI quits; if they cannot be, the box says why and where they are. `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` scroll it, the wheel too; `Esc` closes it.
+`w` shows the release notes, every release newest first, from the `CHANGELOG.md` of the repository at the latest release recall knows of. A release newer than the running one is marked `not installed`, with how to update; the running one `installed`. They are fetched from GitHub the first time the box opens and kept until the TUI quits; if they cannot be, the box says why and where they are. After an update that added settings, the box lists them first, with `recall config reference <table>` to read them (see [Configuration](configuration.md)). `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` scroll it, the wheel too; `Esc` closes it.
 
 The first time the TUI starts after recall is updated, it says `Updated to 1.8.0 · w what's new` for a few seconds. It remembers the version of the last run in `~/.local/state/claude-recall/last_version`.
 

@@ -606,3 +606,19 @@ func TestConfigReference(t *testing.T) {
 		t.Error("an unknown table should be an error")
 	}
 }
+
+// recall config reference marks the settings the last update added, from
+// the TUI's record.
+func TestConfigReferenceMarksNewSettings(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	if _, err := config.RecordSettings(config.SettingsPath(), []string{"tui.theme"}, "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := config.RecordSettings(config.SettingsPath(), []string{"tui.theme", "tui.images"}, "1.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runArgs("config", "reference", "tui")
+	if err != nil || !strings.Contains(out, "# (new in 1.1.0)\n# images = ") || strings.Count(out, "(new in") != 1 {
+		t.Errorf("config reference tui: %v\n%s", err, out)
+	}
+}
