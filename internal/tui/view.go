@@ -419,7 +419,7 @@ func (m Model) renderFooter() string {
 			parts = append(parts, m.st.key.Render(k)+" "+m.st.muted.Render(p[1]))
 		}
 	}
-	return " " + ansi.Truncate(strings.Join(parts, m.st.helpSep.Render(" · ")), m.width-2, ellipsis)
+	return " " + ansi.Truncate(strings.Join(parts, m.st.footerSep.Render(" · ")), m.width-2, ellipsis)
 }
 
 // byDefaultKey orders the footer's hints by where their keys stand by
