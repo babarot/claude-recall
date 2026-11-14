@@ -23,7 +23,7 @@ The state of the screen, which of these takes the keys, is `uiState` in [uistate
 
 | Modal | `uiState` | Opened by | Parts (its declaration, in its own file) | Width |
 |---|---|---|---|---|
-| key list | `uiHelp` | `help` | body | up to 64 |
+| key list | `uiHelp` | `help` | body; own key `whats_new`, bound to the operation | up to 64 |
 | sort menu | `uiSort` | `sort` | list; own keys `1` to `4` | up to 44 |
 | Ask, typing | `uiAskTyping` | `ask` | field; recalls questions on `up` `down`; own keys `enter`, `ctrl+r`, `tab`, `right` | up to 96 |
 | Ask, searching the questions | `uiAskSearch` | `ctrl+r` in Ask | field and list | up to 96 |
@@ -31,7 +31,7 @@ The state of the screen, which of these takes the keys, is `uiState` in [uistate
 | Ask, answered | `uiAskAnswered` | the answer | list; own keys `f`, `r` | up to 96 |
 | Ask, failed | `uiAskFailed` | the failure | own key `r` | up to 96 |
 | before recalling | `uiRecall` | `recall` | field; own key `enter` | up to 96 |
-| what's new | `uiWhatsNew` | `whats_new` | body | up to 76 |
+| what's new | `uiWhatsNew` | `whats_new` in the key list | body; `esc` goes back to the key list | up to 76 |
 
 A width is the most a box takes, a constant; a narrower terminal narrows it, and a terminal narrower than a box can be (30 columns, 24 for the sort menu) leaves it undrawn, with the footer still saying how out (`esc` first).
 

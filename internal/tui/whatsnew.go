@@ -69,7 +69,7 @@ func (m Model) RememberVersionIn(path string) Model {
 		if n := len(m.newSettings); n > 0 {
 			s += m.st.subtle.Render(" · ") + m.st.ok.Render(plural(n, "new setting"))
 		}
-		if k := m.hintKeys("{whats_new.0}"); k != "" {
+		if k := m.whatsNewKeys(); k != "" {
 			s += m.st.subtle.Render(" · ") + m.st.key.Render(k) + m.st.subtle.Render(" what's new")
 		}
 		return s
@@ -282,14 +282,28 @@ func plural(n int, word string) string {
 	return fmt.Sprintf("%d %ss", n, word)
 }
 
-// whatsNewSpec declares What's new: the release notes to scroll.
+// whatsNewKeys is how What's new is opened, as a hint: the key list's key
+// and then its own, or empty when either is turned off.
+func (m Model) whatsNewKeys() string {
+	help, wn := m.hintKeys("{help.0}"), m.hintKeys("{whats_new.0}")
+	if help == "" || wn == "" {
+		return ""
+	}
+	return help + " " + wn
+}
+
+// whatsNewSpec declares What's new: the release notes to scroll. It opens
+// from the key list, and esc goes back to it, where it was scrolled to.
 func whatsNewSpec() modalSpec {
 	return modalSpec{
 		body: &modalBody{
 			scroll: func(m *Model, step int) { m.scrollWhatsNew(step) },
 			page:   func(m Model) int { return max(1, m.whatsNewRows()-1) },
 		},
-		esc: closeKey(func(m *Model) { m.closeModal() }),
+		esc: modalKey{keys: []string{"esc"}, word: "back", edge: true, do: func(m *Model) tea.Cmd {
+			m.openModalKind(modalHelp)
+			return nil
+		}},
 		box: &modalBox{
 			title: func(Model) string { return "What's new" },
 			width: whatsNewWidth, minWidth: 30,

@@ -67,7 +67,7 @@ func footerCases(t *testing.T) []footerCase {
 	add("key list", press(t, m, "?"))
 	add("sort menu", press(t, m, "s"))
 	add("recall", press(t, m, "c"))
-	add("what's new", press(t, m, "w"))
+	add("what's new", press(t, m, "?", "w"))
 
 	f := newFolderFixture(t)
 	fm := folderModel(t, config.Default().TUI, f, 140, 40)
@@ -115,7 +115,7 @@ func TestKeyHints(t *testing.T) {
 		add("? key list: "+c.name, strings.Join(hm.drawBox(helpSpec(), 100, 78), "\n"))
 	}
 	topLine("sort menu top edge", press(t, m, "s"), "Sort by")
-	topLine("what's new top edge", press(t, m, "w"), "What's new")
+	topLine("what's new top edge", press(t, m, "?", "w"), "What's new")
 	for _, st := range []askStage{askTyping, askRunning, askFailed} {
 		a := base()
 		a.ask.stage, a.modal = st, modalAsk

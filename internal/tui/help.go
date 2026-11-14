@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -51,7 +52,6 @@ var helpGroups = []helpGroup{
 		{"{ask.0}", "ask Claude to find sessions (claude -p)", everywhere},
 		{"{sort.0}", "choose the sort order", everywhere},
 		{"{scope.0}", "this folder or all folders", everywhere},
-		{"{whats_new.0}", "what's new in recall: the release notes", everywhere},
 		{"{list.folders_open.0} {list.folders_open.1}", "open the folder list, then move into it", nil},
 		{"{list.folders_close.0} {list.folders_close.1}", "close the folder list", nil},
 		{"{focus_next.0}  {focus_prev.0}", "next or previous frame ({focus_prev.1} and {focus_next.1} too)", notReading},
@@ -134,7 +134,8 @@ const homepage = "github.com/babarot/claude-recall"
 const helpWidth = 64
 
 // helpTop are the key list's first lines, right-aligned: the version and
-// the homepage, and a newer release with how to update to it.
+// the homepage, a newer release with how to update to it, and the key that
+// opens What's new.
 func (m Model) helpTop(inner int) []string {
 	right := func(s string) string {
 		s = ansi.Truncate(s, inner, ellipsis)
@@ -147,6 +148,10 @@ func (m Model) helpTop(inner int) []string {
 			how = m.st.key.Render(m.release.How)
 		}
 		out = append(out, right(m.st.ok.Render(v+" is out")+m.st.dim.Render(" · ")+how))
+	}
+	// What's new opens from here, on its key.
+	if k := m.hintKeys("{whats_new.0}"); k != "" {
+		out = append(out, right(m.st.key.Render(k)+m.st.subtle.Render(" what's new")))
 	}
 	return out
 }
@@ -209,13 +214,15 @@ func (m *Model) scrollHelp(step int) {
 	m.helpOffset = max(0, min(min(m.helpOffset, most)+step, most))
 }
 
-// helpSpec declares the key list: a body to scroll, and esc.
+// helpSpec declares the key list: a body to scroll, the key that opens
+// What's new, and esc.
 func helpSpec() modalSpec {
 	return modalSpec{
 		body: &modalBody{
 			scroll: func(m *Model, step int) { m.scrollHelp(step) },
 			page:   func(m Model) int { return max(1, m.boxRows()-1) },
 		},
+		own: []modalKey{{op: "whats_new", word: "what's new", do: func(m *Model) tea.Cmd { return m.openWhatsNew() }}},
 		esc: closeKey(func(m *Model) { m.closeModal() }),
 		box: &modalBox{
 			title: func(Model) string { return "Keys" },

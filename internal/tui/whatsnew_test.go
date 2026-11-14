@@ -35,7 +35,8 @@ func notesModel(t *testing.T, h int, fetch func(string) ([]selfupdate.Release, e
 	}), &tags
 }
 
-// openNotes presses w and delivers what the fetch returns.
+// openNotes opens What's new, as w in the key list does, and delivers
+// what the fetch returns.
 func openNotes(t *testing.T, m Model) Model {
 	t.Helper()
 	cmd := m.openWhatsNew()
@@ -73,14 +74,16 @@ func TestWhatsNew(t *testing.T) {
 		t.Errorf("fetched %v, want the newer release's", *tags)
 	}
 
-	// Closed by esc alone, not by w or q; open again without fetching
-	// again.
+	// Left by esc alone, back to the key list, not by w or q; open
+	// again without fetching again.
 	for _, k := range []string{"w", "q"} {
 		if got := press(t, m, k).uiState(); got != uiWhatsNew {
 			t.Errorf("%s closed it", k)
 		}
 	}
-	m = press(t, m, "esc")
+	if m = press(t, m, "esc"); m.uiState() != uiHelp {
+		t.Errorf("esc: %v, want the key list", m.uiState())
+	}
 	if m.openWhatsNew() != nil {
 		t.Error("fetched again")
 	}
@@ -195,7 +198,7 @@ func TestUpdatedToast(t *testing.T) {
 		m.version = "1.8.0"
 		m = m.RememberVersionIn(path)
 		got := statusLine(m)
-		if want := " Updated to 1.8.0 · w what's new"; (got == want) != c.toast {
+		if want := " Updated to 1.8.0 · ? w what's new"; (got == want) != c.toast {
 			t.Errorf("last %q: status %q, toast %v", c.last, got, c.toast)
 		}
 		if c.toast && m.startToast != updatedToastFor {
@@ -218,7 +221,7 @@ func TestNewSettingsAfterAnUpdate(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 110, 24)
 	m.version = "1.8.0"
 	m = m.RememberVersionIn(path).TellOfNewSettings([]string{"tui.images", "tui.theme", "ui.port"})
-	if got := statusLine(m); got != " Updated to 1.8.0 · 3 new settings · w what's new" {
+	if got := statusLine(m); got != " Updated to 1.8.0 · 3 new settings · ? w what's new" {
 		t.Errorf("toast %q", got)
 	}
 	m.whatsNew.notes = []selfupdate.Release{{Version: "1.8.0"}}
@@ -243,5 +246,84 @@ func TestNewSettingsAfterAnUpdate(t *testing.T) {
 	m = m.TellOfNewSettings([]string{"tui.images"})
 	if len(m.newSettings) != 0 {
 		t.Errorf("told of %v without an update", m.newSettings)
+	}
+}
+
+// What's new opens from the key list only, on the same row, and esc goes
+// back to the key list where it was scrolled to.
+func TestWhatsNewOpensFromTheKeyList(t *testing.T) {
+	m, _ := notesModel(t, 24, func(string) ([]selfupdate.Release, error) { return testNotes(), nil })
+	if got := press(t, m, "w"); got.modal != modalNone {
+		t.Fatalf("w on the list opened %v", got.uiState())
+	}
+	m = press(t, m, "?")
+	if !strings.Contains(screen(m), "w what's new") {
+		t.Errorf("the key list does not tell its key:\n%s", screen(m))
+	}
+	m = press(t, m, "j", "j")
+	top, offset := m.modalTop, m.helpOffset
+	next, cmd := m.Update(tea.KeyPressMsg{Code: 'w', Text: "w"})
+	m = asModel(t, next)
+	if cmd != nil {
+		m = update(t, m, cmd())
+	}
+	if m.uiState() != uiWhatsNew || m.modalTop != top {
+		t.Fatalf("w in the key list: %v on row %d, want what's new on row %d", m.uiState(), m.modalTop, top)
+	}
+	if m = press(t, m, "esc"); m.uiState() != uiHelp || m.modalTop != top || m.helpOffset != offset {
+		t.Errorf("esc: %v on row %d at offset %d, want the key list on row %d at offset %d", m.uiState(), m.modalTop, m.helpOffset, top, offset)
+	}
+	if m = press(t, m, "esc"); m.modal != modalNone {
+		t.Errorf("esc in the key list: %v", m.uiState())
+	}
+}
+
+// whats_new is set under [keys] as before; turned off, nothing tells of
+// it, and a key it shares with the key list's own is a conflict there.
+func TestWhatsNewKeyIsSet(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	moved, err := m.WithKeys(config.Keys{"whats_new": {Keys: []string{"n"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := press(t, moved, "?", "n"); got.uiState() != uiWhatsNew {
+		t.Errorf("? n: %v", got.uiState())
+	}
+	off, err := m.WithKeys(config.Keys{"whats_new": {Keys: []string{}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := screen(press(t, off.TellOfRelease(Release{Version: "9.9.9", How: "recall update", Command: true}), "?")); strings.Contains(s, "what's new") {
+		t.Errorf("turned off, still told:\n%s", s)
+	}
+	// Given down's j, it takes it in the key list, as any key given takes
+	// it from the operations that have it by default.
+	took, err := m.WithKeys(config.Keys{"whats_new": {Keys: []string{"j"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := press(t, took, "?", "j"); got.uiState() != uiWhatsNew {
+		t.Errorf("? j with whats_new on j: %v", got.uiState())
+	}
+	// Set to the same key as down, both in the file, it is a conflict in
+	// the key list, where both are read.
+	if _, err := m.WithKeys(config.Keys{"whats_new": {Keys: []string{"x"}}, "down": {Keys: []string{"x"}}}); err == nil || !strings.Contains(err.Error(), "key list") {
+		t.Errorf("whats_new and down on x: %v", err)
+	}
+	// It is not one in the panes, where whats_new is not read.
+	if _, err := m.WithKeys(config.Keys{"whats_new": {Keys: []string{"x"}}, "sort": {Keys: []string{"x"}}}); err != nil {
+		t.Errorf("whats_new and sort on x: %v", err)
+	}
+	// w given to an operation of the panes is not taken from whats_new,
+	// which it never meets.
+	sortW, err := m.WithKeys(config.Keys{"sort": {Keys: []string{"w"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := press(t, sortW, "w"); got.uiState() != uiSort {
+		t.Errorf("w with sort on w: %v", got.uiState())
+	}
+	if got := press(t, sortW, "?", "w"); got.uiState() != uiWhatsNew {
+		t.Errorf("? w with sort on w: %v", got.uiState())
 	}
 }

@@ -57,7 +57,7 @@ func (m Model) renderRelease() string {
 	}
 	s := m.st.subtle.Render("recall ") + m.st.ok.Render(m.release.Version) + m.st.subtle.Render(" is available · ") + how
 	// The key to the notes goes first when the line is short.
-	if k := m.hintKeys("{whats_new.0}"); k != "" {
+	if k := m.whatsNewKeys(); k != "" {
 		withKey := s + m.st.subtle.Render(" · ") + m.st.key.Render(k) + m.st.subtle.Render(" what's new")
 		if ansi.StringWidth(withKey) <= m.width-2 {
 			s = withKey

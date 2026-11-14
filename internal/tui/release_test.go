@@ -20,7 +20,7 @@ func TestReleaseNotice(t *testing.T) {
 	}
 
 	m = m.TellOfRelease(Release{Version: "1.8.0", How: "recall update", Command: true})
-	if got, want := statusLine(m), " recall 1.8.0 is available · recall update · w what's new"; got != want {
+	if got, want := statusLine(m), " recall 1.8.0 is available · recall update · ? w what's new"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 
@@ -40,7 +40,7 @@ func TestReleaseCheck(t *testing.T) {
 	m = m.TellOfRelease(Release{How: "update it with Nix", Check: func() string { return "1.8.0" }})
 	msg := m.checkRelease()()
 	m = update(t, m, msg)
-	if got, want := statusLine(m), " recall 1.8.0 is available · update it with Nix · w what's new"; got != want {
+	if got, want := statusLine(m), " recall 1.8.0 is available · update it with Nix · ? w what's new"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 	// A look that finds nothing leaves the known release.
@@ -68,7 +68,7 @@ func TestReleaseNoticeKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := statusLine(m.TellOfRelease(r)); !strings.HasSuffix(got, "· W what's new") {
+	if got := statusLine(m.TellOfRelease(r)); !strings.HasSuffix(got, "· ? W what's new") {
 		t.Errorf("moved: %q", got)
 	}
 	m, _ = newTestModel(t, config.Default().TUI, 110, 24)

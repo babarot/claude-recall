@@ -71,7 +71,7 @@ func TestHelpOpensWhereItShould(t *testing.T) {
 
 // TestHelpCovers checks that the key list has a group for every pane and
 // names every operation, and that every operation is reachable from some
-// pane, so the conflict check sees it.
+// pane or from a modal's own keys, so the conflict check sees it.
 func TestHelpCovers(t *testing.T) {
 	for c := range numKeyContexts {
 		if !slices.ContainsFunc(helpGroups, func(g helpGroup) bool { return slices.Contains(g.in, c) }) {
@@ -79,7 +79,8 @@ func TestHelpCovers(t *testing.T) {
 		}
 	}
 	named := map[string]bool{
-		"help": true, // on the key list's own frame and in the footers
+		"help":      true, // on the key list's own frame and in the footers
+		"whats_new": true, // at the key list's top, where it is read
 	}
 	for _, g := range helpGroups {
 		for _, r := range g.rows {
@@ -96,12 +97,19 @@ func TestHelpCovers(t *testing.T) {
 			reachable[op] = true
 		}
 	}
+	for st := range numUIStates {
+		if s, ok := specOf(st); ok {
+			for _, op := range s.ownOps() {
+				reachable[op] = true
+			}
+		}
+	}
 	for name := range defaultKeyMap().byName() {
 		if !named[name] {
 			t.Errorf("the key list does not name %s: add a row to helpGroups", name)
 		}
 		if !reachable[name] {
-			t.Errorf("%s is in no pane's opsIn, so no key reaches it and the conflict check misses it", name)
+			t.Errorf("%s is in no pane's opsIn nor a modal's own keys, so no key reaches it and the conflict check misses it", name)
 		}
 	}
 }
