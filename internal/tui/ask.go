@@ -14,7 +14,7 @@ import (
 	"github.com/babarot/claude-recall/internal/logging"
 )
 
-// a asks Claude to find sessions, in a box over the screen: type a
+// a asks Claude to find sessions, in a modal: type a
 // question, watch it search, pick one of the sessions it found to jump to,
 // or f to narrow the list to all of them. Why Claude picked each stays
 // under its row and in Conversation (tui.ask_reasons).
@@ -83,7 +83,7 @@ func newAskInput() textinput.Model {
 	return in
 }
 
-// openAsk shows the box with the last question to edit.
+// openAsk opens the modal with the last question to edit.
 func (m *Model) openAsk() tea.Cmd {
 	m.ask.stage = askTyping
 	m.ask.input.SetValue(m.ask.question)
@@ -120,7 +120,7 @@ func (m *Model) askTick(seq int) tea.Cmd {
 	return tea.Tick(askTickEvery, func(time.Time) tea.Msg { return askTickMsg{seq} })
 }
 
-// closeAsk hides the box, stopping a run.
+// closeAsk closes the modal, stopping a run.
 func (m *Model) closeAsk() {
 	m.askHist.search = askSearch{}
 	if m.ask.cancel != nil {
@@ -364,7 +364,7 @@ func (m Model) askSummary() string {
 	return strings.Join(parts, " · ")
 }
 
-// askItem is a found session in the box: its title and where it is, then
+// askItem is a found session in the modal's list: its title and where it is, then
 // Claude's reason in up to two lines.
 func (m Model) askItem(h askHit, w int, sel bool) []string {
 	var r *row

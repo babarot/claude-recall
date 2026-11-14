@@ -347,7 +347,7 @@ func (m Model) renderStatus() string {
 
 func (m Model) renderHelp() string {
 	// Each pair is a key hint template (see hintKeys) and what it does;
-	// esc and the keys of a box or a field being typed in are written as
+	// esc and the keys of a modal or a field being typed in are written as
 	// they are, since they cannot be remapped.
 	var pairs [][2]string
 	if s, ok := m.openModal(); ok {

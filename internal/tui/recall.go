@@ -12,8 +12,7 @@ import (
 
 // c recalls the selected session in a new claude, for a session claude -r
 // cannot resume (its folder or transcript is gone, or the transcript is in
-// a tree claude -r does not read): a box over the screen
-// takes what to recall about it, empty for where it left off, then the TUI
+// a tree claude -r does not read): a modal takes what to recall about it, empty for where it left off, then the TUI
 // quits and the caller starts claude in the folder recall was started in,
 // asking it to recall the session through recall's MCP server.
 
@@ -49,7 +48,7 @@ func newRecallInput() textinput.Model {
 	return in
 }
 
-// openRecall shows the box for session id.
+// openRecall opens the modal for session id.
 func (m *Model) openRecall(id string) tea.Cmd {
 	m.recall.open, m.recall.id = true, id
 	m.recall.input.SetValue("")

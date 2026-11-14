@@ -169,7 +169,7 @@ type Model struct {
 	settling bool
 	sizes    int
 
-	// ask is the ask-Claude box, askRun how it asks. reasons are why Claude
+	// ask is the Ask modal, askRun how it asks. reasons are why Claude
 	// picked each session found so far; asked narrows the list to the last
 	// answer's sessions, in Claude's order, for the question askedFor.
 	ask    askState
@@ -197,7 +197,7 @@ type Model struct {
 	toastKind toastKind
 	toastID   int
 
-	// recall is the box that recalls a session in a new claude.
+	// recall is the modal that recalls a session in a new claude.
 	recall recallState
 
 	// Result is set when the user picks a session to resume, Recall when
@@ -214,7 +214,7 @@ type Model struct {
 	// version is the running release; versionPath records it for the
 	// next run (RememberVersionIn).
 	version, versionPath string
-	// whatsNew is the What's new box, and fetchNotes how it gets the
+	// whatsNew is the What's new modal, and fetchNotes how it gets the
 	// release notes.
 	whatsNew   whatsNewState
 	fetchNotes func(tag string) ([]selfupdate.Release, error)

@@ -23,7 +23,7 @@ const whatsNewWidth = 76
 // other toasts, since it is read once and its key is the point.
 const updatedToastFor = 6 * time.Second
 
-// whatsNewState is the What's new box: the release notes from CHANGELOG.md,
+// whatsNewState is the What's new modal: the release notes from CHANGELOG.md,
 // fetched the first time it opens and kept for the run.
 type whatsNewState struct {
 	open    bool
@@ -42,7 +42,7 @@ type whatsNewLoaded struct {
 	err   error
 }
 
-// NotesFrom has the What's new box fetch CHANGELOG.md as of a tag with
+// NotesFrom has the What's new modal fetch CHANGELOG.md as of a tag with
 // fetch, which runs in the background.
 func (m Model) NotesFrom(fetch func(tag string) ([]selfupdate.Release, error)) Model {
 	m.fetchNotes = fetch

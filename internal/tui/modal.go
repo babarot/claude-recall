@@ -9,8 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// A modal is a box over the screen that takes every key while it shows:
-// the key list, the sort menu, Ask, the box before recalling a session and
+// A modal opens over the screen, drawn as a box, and takes every key while
+// it shows: the key list, the sort menu, Ask, the one before recalling a session and
 // what's new. Each declares the parts it holds, and one layer reads their
 // keys, the same in every modal, so the keys, the hints on the box's edge,
 // the footer and the conflict check all come from the declaration. See
@@ -215,7 +215,7 @@ func (s modalSpec) hints(m Model, frame bool) [][2]string {
 	var out [][2]string
 	// The way out comes first in the footer, so a terminal too narrow for
 	// the box, or for every hint, still says it; on the box's edge it comes
-	// last, after what the box is for.
+	// last, after what the modal is for.
 	if !frame {
 		out = append(out, [2]string{"esc", s.esc.word})
 	}

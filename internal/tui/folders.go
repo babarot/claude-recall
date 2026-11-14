@@ -347,11 +347,11 @@ func (m Model) renderSidebar(n int) []string {
 	title := name.Render("  Folders") + m.st.muted.Render(fmt.Sprintf(" %d", len(m.folders)))
 	if m.sideTyping || m.sideSearch.Value() != "" {
 		count := m.st.muted.Render(fmt.Sprintf(" %d/%d", len(es), len(m.folders)))
-		box := m.inputView(uiFolderSearch, m.sideSearch)
+		field := m.inputView(uiFolderSearch, m.sideSearch)
 		if !m.sideTyping {
-			box = m.st.filter.Render("/ " + m.sideSearch.Value())
+			field = m.st.filter.Render("/ " + m.sideSearch.Value())
 		}
-		title = " " + ansi.Truncate(box, w-1-ansi.StringWidth(count), ellipsis)
+		title = " " + ansi.Truncate(field, w-1-ansi.StringWidth(count), ellipsis)
 		title += strings.Repeat(" ", max(0, w-ansi.StringWidth(title)-ansi.StringWidth(count))) + count
 	}
 	lines := []string{rule.Render(strings.Repeat("╌", w)), title, rule.Render(strings.Repeat("╌", w))}
