@@ -19,6 +19,7 @@ const (
 	uiHelp                        // the key list
 	uiSort                        // the sort menu
 	uiAskTyping
+	uiAskSearch // searching the questions asked before, in place of Ask's field
 	uiAskRunning
 	uiAskAnswered
 	uiAskFailed
@@ -29,7 +30,7 @@ const (
 
 var uiStateNames = [numUIStates]string{
 	"list", "frame", "reading", "reading, list focused", "folder list", "folder search", "conversation search", "filter",
-	"key list", "sort menu", "ask typing", "ask running", "ask answered", "ask failed", "recall", "what's new",
+	"key list", "sort menu", "ask typing", "ask search", "ask running", "ask answered", "ask failed", "recall", "what's new",
 }
 
 func (s uiState) String() string { return uiStateNames[s] }
@@ -38,6 +39,8 @@ func (m Model) uiState() uiState {
 	switch {
 	case m.recall.open:
 		return uiRecall
+	case m.ask.stage == askTyping && m.askHist.search.open:
+		return uiAskSearch
 	case m.ask.stage != askClosed:
 		return map[askStage]uiState{askTyping: uiAskTyping, askRunning: uiAskRunning, askAnswered: uiAskAnswered, askFailed: uiAskFailed}[m.ask.stage]
 	case m.sortMenu:
@@ -80,7 +83,7 @@ func (s uiState) opensHelp() bool {
 // typing reports whether a field is being typed in, the one a key goes to.
 func (s uiState) typing() bool {
 	switch s {
-	case uiRecall, uiAskTyping, uiFilter, uiFolderSearch, uiConvSearch:
+	case uiRecall, uiAskTyping, uiAskSearch, uiFilter, uiFolderSearch, uiConvSearch:
 		return true
 	}
 	return false

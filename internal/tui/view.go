@@ -116,7 +116,7 @@ func (m Model) draw() string {
 	switch m.uiState() {
 	case uiRecall:
 		return m.withRecall(m.renderScreen())
-	case uiAskTyping, uiAskRunning, uiAskAnswered, uiAskFailed:
+	case uiAskTyping, uiAskSearch, uiAskRunning, uiAskAnswered, uiAskFailed:
 		return m.withAsk(m.renderScreen())
 	case uiHelp:
 		return m.withHelp(m.renderScreen())

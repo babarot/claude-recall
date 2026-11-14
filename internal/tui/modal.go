@@ -30,6 +30,8 @@ type modalSpec struct {
 	// recall goes through what was typed in the field before, on nav's up
 	// and down, which it claims from the field.
 	recall *modalRecall
+	// edited is called when the field's text changes.
+	edited func(m *Model)
 	// esc is what esc does, the only key that closes a modal.
 	esc modalKey
 }
@@ -70,7 +72,10 @@ type modalKey struct {
 	hint, word string
 	// frame puts the key on the box's top edge as well as the footer.
 	frame bool
-	do    func(m *Model) tea.Cmd
+	// when, if set, says whether the key does anything now; its hint
+	// shows only then.
+	when func(m Model) bool
+	do   func(m *Model) tea.Cmd
 }
 
 func closeKey(do func(m *Model)) modalKey {
@@ -90,6 +95,7 @@ var modalSpecs = map[uiState]modalSpec{
 	uiHelp:        {esc: closeKey(func(m *Model) { m.helpOpen = false })},
 	uiSort:        sortSpec,
 	uiAskTyping:   askTypingSpec,
+	uiAskSearch:   askSearchSpec,
 	uiAskRunning:  {esc: modalKey{keys: []string{"esc"}, word: "cancel", frame: true, do: func(m *Model) tea.Cmd { m.closeAsk(); return nil }}},
 	uiAskAnswered: askAnsweredSpec,
 	uiAskFailed: {
@@ -130,7 +136,9 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	}
 	if l := s.list; l != nil {
 		n := l.len(m)
-		step := 0
+		step, taken := 0, true
+		// Beside a field, top and bottom are left to it, whose home and
+		// end move to the start and the end of the text.
 		switch {
 		case slices.Contains(l.choose.keys, k):
 			return m, l.choose.do(&m)
@@ -142,10 +150,12 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 			step = n
 		case key.Matches(msg, nav.PageUp):
 			step = -n
-		case key.Matches(msg, nav.Top):
+		case s.field == nil && key.Matches(msg, nav.Top):
 			l.set(&m, 0)
-		case key.Matches(msg, nav.Bottom):
+		case s.field == nil && key.Matches(msg, nav.Bottom):
 			l.set(&m, max(0, n-1))
+		default:
+			taken = false
 		}
 		if step != 0 && n > 0 {
 			i := l.at(m) + step
@@ -154,7 +164,9 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 			}
 			l.set(&m, max(0, min(i, n-1)))
 		}
-		return m, nil
+		if taken || s.field == nil {
+			return m, nil
+		}
 	}
 	if b := s.body; b != nil {
 		page := b.page(m)
@@ -185,8 +197,13 @@ func (m Model) typeInModal(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	before := in.Value()
 	var cmd tea.Cmd
 	*in, cmd = in.Update(msg)
-	if r := s.recall; r != nil && in.Value() != before {
-		r.leave(&m)
+	if in.Value() != before {
+		if r := s.recall; r != nil {
+			r.leave(&m)
+		}
+		if s.edited != nil {
+			s.edited(&m)
+		}
 	}
 	return m, cmd
 }
@@ -202,7 +219,7 @@ func (s modalSpec) hints(m Model, frame bool) [][2]string {
 		out = append(out, [2]string{"esc", s.esc.word})
 	}
 	add := func(k modalKey) {
-		if k.word == "" || frame && !k.frame {
+		if k.word == "" || frame && !k.frame || k.when != nil && !k.when(m) {
 			return
 		}
 		h := k.hint
@@ -266,6 +283,8 @@ func (s modalSpec) fixedKeys() []string {
 // body, up and down to recall in a field.
 func (s modalSpec) navOps() []string {
 	switch {
+	case s.list != nil && s.field != nil:
+		return []string{"up", "down", "page_up", "page_down"}
 	case s.list != nil || s.body != nil:
 		return modalNavOps
 	case s.recall != nil:
@@ -308,8 +327,27 @@ var askTypingSpec = modalSpec{
 		leave: func(m *Model) { m.askHist.recall.Leave() },
 		any:   func(m Model) bool { return len(m.askHist.list) > 0 },
 	},
-	own: []modalKey{{keys: []string{"enter"}, word: "ask", frame: true, do: func(m *Model) tea.Cmd { return m.startAsk() }}},
+	own: []modalKey{
+		{keys: []string{"enter"}, word: "ask", frame: true, do: func(m *Model) tea.Cmd { return m.startAsk() }},
+		{keys: []string{"ctrl+r"}, word: "search", frame: true,
+			when: func(m Model) bool { return len(m.askHist.list) > 0 },
+			do:   func(m *Model) tea.Cmd { return m.openAskSearch() }},
+	},
 	esc: closeKey(func(m *Model) { m.closeAsk() }),
+}
+
+var askSearchSpec = modalSpec{
+	field: func(m *Model) *textinput.Model { return &m.askHist.search.input },
+	list: &modalList{
+		len: func(m Model) int { return len(m.askSearchHits()) },
+		at:  func(m Model) int { return m.askHist.search.at },
+		set: func(m *Model, i int) { m.askHist.search.at = i },
+		choose: modalKey{keys: []string{"enter"}, word: "use", frame: true,
+			do: func(m *Model) tea.Cmd { return m.useAskSearch() }},
+	},
+	edited: func(m *Model) { m.askHist.search.at = 0 },
+	esc: modalKey{keys: []string{"esc"}, word: "back", frame: true,
+		do: func(m *Model) tea.Cmd { return m.closeAskSearch() }},
 }
 
 var askAnsweredSpec = modalSpec{

@@ -149,7 +149,7 @@ func TestAskKeepsAndRecallsQuestions(t *testing.T) {
 	if !strings.Contains(ansi.Strip(m.renderHelp()), "↑↓ earlier questions") {
 		t.Errorf("footer %q", ansi.Strip(m.renderHelp()))
 	}
-	if !strings.Contains(screen(m), "enter ask · ↑↓ earlier · esc close") {
+	if !strings.Contains(screen(m), "enter ask · ctrl+r search · ↑↓ earlier · esc close") {
 		t.Errorf("no ↑↓ earlier on the box's edge:\n%s", screen(m))
 	}
 	// With no question asked before, neither says it.
@@ -189,8 +189,8 @@ func TestReplyWaitsForItsQuestion(t *testing.T) {
 	m = drive(t, asModel(t, next), cmd)
 	m = typeText(t, m, "q")
 	next, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	done := make(chan Model)
-	go func() { done <- drive(t, asModel(t, next), cmd) }()
+	done := make(chan struct{})
+	go func() { drive(t, asModel(t, next), cmd); close(done) }()
 	// The answer comes at once, and its reply waits on the question still
 	// held: nothing is written meanwhile.
 	time.Sleep(100 * time.Millisecond)
@@ -219,5 +219,90 @@ func TestAskWithoutItsHistory(t *testing.T) {
 	}
 	if !strings.Contains(m.toast, "disk full") {
 		t.Errorf("toast %q", m.toast)
+	}
+}
+
+func ctrlR(t *testing.T, m Model) Model {
+	t.Helper()
+	return update(t, m, tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+}
+
+func pressCode(t *testing.T, m Model, code rune) Model {
+	t.Helper()
+	return update(t, m, tea.KeyPressMsg{Code: code})
+}
+
+func TestAskSearch(t *testing.T) {
+	f := &fakeAsk{}
+	m := askModel(t, f, config.Default().TUI)
+	m.askHist.list = []askhistory.Entry{
+		{ID: "3", Question: "ログインのバグを直したセッション", Reply: "1 session · fixed the login"},
+		{ID: "2", Question: "parser work"},
+		{ID: "1", Question: "terraform state"},
+	}
+	m = typeText(t, press(t, m, "a"), "draft")
+
+	// A word in the middle of a question in Japanese finds it.
+	m = typeText(t, ctrlR(t, m), "バグ")
+	if m.uiState() != uiAskSearch {
+		t.Fatalf("ctrl+r opened %q", m.uiState())
+	}
+	if hits := m.askSearchHits(); len(hits) != 1 || hits[0].ID != "3" {
+		t.Fatalf("hits %+v", hits)
+	}
+	if s := screen(m); !strings.Contains(s, "→ 1 session · fixed the login") || !strings.Contains(s, "enter use · esc back") {
+		t.Errorf("the answer of the one chosen is not shown:\n%s", s)
+	}
+	// enter puts it in the field and sends nothing.
+	m = pressCode(t, m, tea.KeyEnter)
+	if m.uiState() != uiAskTyping || m.ask.input.Value() != "ログインのバグを直したセッション" || len(f.asked) != 0 {
+		t.Fatalf("after enter: %q in %q, asked %q", m.ask.input.Value(), m.uiState(), f.asked)
+	}
+
+	// esc goes back to the field as it was.
+	m.ask.input.SetValue("draft")
+	m = pressCode(t, typeText(t, ctrlR(t, m), "parser"), tea.KeyEscape)
+	if m.uiState() != uiAskTyping || m.ask.input.Value() != "draft" {
+		t.Fatalf("after esc: %q in %q", m.ask.input.Value(), m.uiState())
+	}
+
+	// j and k are typed; the arrows move.
+	m = ctrlR(t, m)
+	if m = pressCode(t, m, tea.KeyDown); m.askHist.search.at != 1 {
+		t.Errorf("down did not move: %d", m.askHist.search.at)
+	}
+	if m = typeText(t, m, "jk"); m.askHist.search.input.Value() != "jk" || m.askHist.search.at != 0 {
+		t.Errorf("j k: %q at %d", m.askHist.search.input.Value(), m.askHist.search.at)
+	}
+	if s := screen(m); !strings.Contains(s, "no question matches") {
+		t.Errorf("nothing found is not said:\n%s", s)
+	}
+}
+
+// The search's field edits as any field does: the list beside it leaves
+// it backspace, the arrows across and home and end.
+func TestAskSearchEdits(t *testing.T) {
+	m := askSearchOpen(t)
+	m = typeText(t, m, "parser")
+	m = pressCode(t, m, tea.KeyBackspace)
+	m = pressCode(t, m, tea.KeyLeft)
+	m = typeText(t, m, "X")
+	m = pressCode(t, m, tea.KeyHome)
+	m = typeText(t, m, "<")
+	m = pressCode(t, m, tea.KeyEnd)
+	m = typeText(t, m, ">")
+	if got := m.askHist.search.input.Value(); got != "<parsXe>" {
+		t.Errorf("edited to %q", got)
+	}
+}
+
+// With no question asked before, ctrl+r does nothing and is not told.
+func TestAskSearchWithNothingToFind(t *testing.T) {
+	m := press(t, askModel(t, &fakeAsk{}, config.Default().TUI), "a")
+	if strings.Contains(screen(m), "ctrl+r") || strings.Contains(ansi.Strip(m.renderHelp()), "ctrl+r") {
+		t.Errorf("ctrl+r told with nothing to find:\n%s", screen(m))
+	}
+	if m = ctrlR(t, m); m.uiState() != uiAskTyping {
+		t.Errorf("ctrl+r opened %q", m.uiState())
 	}
 }

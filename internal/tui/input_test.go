@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/babarot/claude-recall/internal/askhistory"
 	"github.com/babarot/claude-recall/internal/config"
 )
 
@@ -25,6 +26,7 @@ func typingCases(t *testing.T) map[uiState]Model {
 		uiFilter:       press(t, base(), "/"),
 		uiConvSearch:   press(t, base(), "space", "/"),
 		uiAskTyping:    press(t, askModel(t, &fakeAsk{}, config.Default().TUI), "a"),
+		uiAskSearch:    askSearchOpen(t),
 		uiRecall:       press(t, base(), "c"),
 		uiFolderSearch: press(t, fm, "left", "left", "/"),
 	}
@@ -195,4 +197,13 @@ func TestTypedWhereTheCursorStands(t *testing.T) {
 			}
 		}
 	}
+}
+
+// askSearchOpen is Ask with the search of the questions open.
+func askSearchOpen(t *testing.T) Model {
+	t.Helper()
+	m := askModel(t, &fakeAsk{}, config.Default().TUI)
+	m.askHist.list = []askhistory.Entry{{ID: "1", Question: "parser work"}}
+	m = press(t, m, "a")
+	return update(t, m, tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
 }

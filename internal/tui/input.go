@@ -78,6 +78,8 @@ func (m Model) typingInput() (textinput.Model, bool) {
 		return m.recall.input, true
 	case uiAskTyping:
 		return m.ask.input, true
+	case uiAskSearch:
+		return m.askHist.search.input, true
 	case uiFilter:
 		return m.filter, true
 	case uiFolderSearch:
