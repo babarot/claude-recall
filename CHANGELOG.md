@@ -1,5 +1,18 @@
 # Changelog
 
+## [v1.16.0](https://github.com/babarot/claude-recall/compare/v1.15.0...v1.16.0) - 2026-11-14
+### New Features
+- Search Ask's questions with ctrl+r by @babarot in https://github.com/babarot/claude-recall/pull/148
+- Complete Ask's field from the questions asked before by @babarot in https://github.com/babarot/claude-recall/pull/150
+- Describe every setting with recall config reference, and write only that on first run by @babarot in https://github.com/babarot/claude-recall/pull/151
+- Tell of the settings an update added by @babarot in https://github.com/babarot/claude-recall/pull/152
+- Log what every recall process does to one file by @babarot in https://github.com/babarot/claude-recall/pull/154
+- Log the web UI, the MCP tools, Ask, recall update and the TUI's actions by @babarot in https://github.com/babarot/claude-recall/pull/155
+### Bug fixes
+- Wait for the watcher to take the files present, in its tests by @babarot in https://github.com/babarot/claude-recall/pull/157
+### Refactorings
+- Name the parts of the screen around a modal, and use the names alike by @babarot in https://github.com/babarot/claude-recall/pull/156
+
 ## [v1.15.0](https://github.com/babarot/claude-recall/compare/v1.14.0...v1.15.0) - 2026-11-14
 ### New Features
 - Keep Ask's questions, and recall them with up and down by @babarot in https://github.com/babarot/claude-recall/pull/146
