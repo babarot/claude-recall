@@ -170,8 +170,12 @@ type Model struct {
 	// ask is the ask-Claude box, askRun how it asks. reasons are why Claude
 	// picked each session found so far; asked narrows the list to the last
 	// answer's sessions, in Claude's order, for the question askedFor.
-	ask      askState
-	askRun   askRunner
+	ask    askState
+	askRun askRunner
+	// askStore keeps Ask's questions between launches, askHist the ones
+	// read and the place among them.
+	askStore askStore
+	askHist  askHistory
 	reasons  map[string]string
 	asked    map[string]int
 	askedFor string
@@ -604,6 +608,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.imagesResized()
 	case askStepMsg, askDoneMsg, askTickMsg:
 		return m, m.askMsg(msg)
+	case askHistoryLoaded, askHistoryWritten:
+		return m, m.askHistoryMsg(msg)
 	case convTick, convLoaded:
 		m.convMsg(msg)
 		return m, nil

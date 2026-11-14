@@ -237,17 +237,15 @@ func (k keyMap) keyScopes() []struct {
 		{"a frame or the reading view", pick(all, opsIn(ctxFrame)...), []string{"esc"}},
 		{"the folder list", pick(all, opsIn(ctxFolders)...), []string{"esc"}},
 	}
-	// A modal reads nav's keys if it has a list or a body, beside the keys
-	// it reads as written (see modal.go); it reads no other operation.
+	// A modal reads nav's keys if it has a list, a body or a field that
+	// recalls, beside the keys it reads as written (see modal.go); it reads
+	// no other operation.
 	for st := range numUIStates {
 		s, ok := modalSpecs[st]
 		if !ok {
 			continue
 		}
-		var ops []namedKey
-		if s.readsNav() {
-			ops = pick(all, modalNavOps...)
-		}
+		ops := pick(all, s.navOps()...)
 		out = append(out, scope{"the " + st.String(), ops, s.fixedKeys()})
 	}
 	return out

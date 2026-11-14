@@ -1001,7 +1001,7 @@ func runTUI(o *options, c *cobra.Command) error {
 	self := []string{"recall", "mcp", "--db", o.db}
 	if exe, err := os.Executable(); err == nil {
 		self[0] = exe
-		model = model.AskWith(self, filepath.Join(filepath.Dir(config.StatePath()), "ask"))
+		model = model.AskWith(self, filepath.Join(filepath.Dir(config.StatePath()), "ask")).AskHistoryIn(filepath.Dir(config.StatePath()))
 	}
 	model = model.RecallWith(self).TranscriptsIn(o.trees...)
 	if r, ok := releaseNotice(cfg.Core.UpdateCheck); ok {
