@@ -244,7 +244,7 @@ func (m Model) withWhatsNew(screen string) string {
 
 	b := m.st.rule
 	title := " What's new "
-	hint := " " + m.edgeHint(whatsNewSpec) + " "
+	hint := " " + m.edgeHint(whatsNewSpec()) + " "
 	fill := max(0, w-4-len(title)-ansi.StringWidth(hint))
 	box := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for _, l := range shown {
@@ -307,4 +307,15 @@ func plural(n int, word string) string {
 		return "1 " + word
 	}
 	return fmt.Sprintf("%d %ss", n, word)
+}
+
+// whatsNewSpec declares What's new: the release notes to scroll.
+func whatsNewSpec() modalSpec {
+	return modalSpec{
+		body: &modalBody{
+			scroll: func(m *Model, step int) { m.scrollWhatsNew(step) },
+			page:   func(m Model) int { return max(1, m.whatsNewRows()-1) },
+		},
+		esc: closeKey(func(m *Model) { m.closeModal() }),
+	}
 }

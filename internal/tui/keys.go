@@ -241,7 +241,7 @@ func (k keyMap) keyScopes() []struct {
 	// recalls, beside the keys it reads as written (see modal.go); it reads
 	// no other operation.
 	for st := range numUIStates {
-		s, ok := modalSpecs[st]
+		s, ok := specOf(st)
 		if !ok {
 			continue
 		}

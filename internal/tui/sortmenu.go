@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -63,7 +64,7 @@ func (m Model) withSortMenu(screen string) string {
 	}
 	b := m.st.rule
 	inner := r.w - 4
-	title, hint := " Sort by ", " "+m.edgeHint(sortSpec)+" "
+	title, hint := " Sort by ", " "+m.edgeHint(sortSpec())+" "
 	fill := max(0, r.w-4-len(title)-ansi.StringWidth(hint))
 	box := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for i, s := range sorts {
@@ -91,4 +92,31 @@ func (m Model) withSortMenu(screen string) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// sortSpec declares the sort menu: a list of the orders, chosen by number too.
+func sortSpec() modalSpec {
+	return modalSpec{
+		list: &modalList{
+			len:  func(Model) int { return len(sorts) },
+			at:   func(m Model) int { return m.sortSel },
+			set:  func(m *Model, i int) { m.sortSel = i },
+			wrap: true,
+			choose: modalKey{keys: []string{"enter", "space"}, hint: "enter", word: "apply", edge: true,
+				do: func(m *Model) tea.Cmd { m.applySort(m.sortSel); return nil }},
+		},
+		own: sortNumberKeys(),
+		esc: closeKey(func(m *Model) { m.closeModal() }),
+	}
+}
+
+// sortNumberKeys choose an order by its number, 1 for the first.
+func sortNumberKeys() []modalKey {
+	out := make([]modalKey, len(sorts))
+	for i := range sorts {
+		out[i] = modalKey{keys: []string{string(rune('1' + i))}, do: func(m *Model) tea.Cmd { m.applySort(i); return nil }}
+	}
+	// One hint for all of them.
+	out[0].hint, out[0].word = "1-"+string(rune('0'+len(sorts))), "apply that one"
+	return out
 }

@@ -337,3 +337,20 @@ func (m Model) askFieldLine() string {
 	}
 	return v
 }
+
+// askSearchSpec declares the search of the questions asked before, in place of Ask's field.
+func askSearchSpec() modalSpec {
+	return modalSpec{
+		field: func(m *Model) *textinput.Model { return &m.askHist.search.input },
+		list: &modalList{
+			len: func(m Model) int { return len(m.askSearchHits()) },
+			at:  func(m Model) int { return m.askHist.search.at },
+			set: func(m *Model, i int) { m.askHist.search.at = i },
+			choose: modalKey{keys: []string{"enter"}, word: "use", edge: true,
+				do: func(m *Model) tea.Cmd { return m.useAskSearch() }},
+		},
+		edited: func(m *Model) { m.askHist.search.at = 0 },
+		esc: modalKey{keys: []string{"esc"}, word: "back", edge: true,
+			do: func(m *Model) tea.Cmd { return m.closeAskSearch() }},
+	}
+}

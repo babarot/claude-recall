@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -85,5 +86,18 @@ func (m Model) withRecall(screen string) string {
 		where += ", in " + worktree.TildePath(m.startDir, m.home)
 	}
 	body = append(body, m.st.dim.Render(where))
-	return m.boxOver(screen, w, "Recall in a new claude", m.edgeHint(recallSpec), body)
+	return m.boxOver(screen, w, "Recall in a new claude", m.edgeHint(recallSpec()), body)
+}
+
+// recallSpec declares the modal before recalling a session: what to recall about it.
+func recallSpec() modalSpec {
+	return modalSpec{
+		field: func(m *Model) *textinput.Model { return &m.recall.input },
+		own: []modalKey{{keys: []string{"enter"}, word: "start claude", edge: true, do: func(m *Model) tea.Cmd {
+			m.Recall = &Recall{SessionID: m.recall.id, Topic: strings.TrimSpace(m.recall.input.Value())}
+			m.closeRecall()
+			return m.imagesQuit()
+		}}},
+		esc: closeKey(func(m *Model) { m.closeRecall() }),
+	}
 }

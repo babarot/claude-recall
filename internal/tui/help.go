@@ -180,7 +180,7 @@ func (m Model) helpBox(w, h int) []string {
 		body = append(body[:max(0, h-3)], helpLine{text: m.st.muted.Render("… a taller terminal shows the rest")})
 	}
 	title := " Keys "
-	hint := " " + m.edgeHint(modalSpecs[uiHelp]) + " "
+	hint := " " + m.edgeHint(helpSpec()) + " "
 	fill := max(0, w-4-len(title)-ansi.StringWidth(hint))
 	out := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for _, l := range body {
@@ -210,4 +210,9 @@ func (m Model) withHelp(screen string) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// helpSpec declares the key list: nothing to read keys for but esc.
+func helpSpec() modalSpec {
+	return modalSpec{esc: closeKey(func(m *Model) { m.closeModal() })}
 }
