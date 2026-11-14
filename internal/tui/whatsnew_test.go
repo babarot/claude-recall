@@ -218,6 +218,16 @@ func TestNewSettingsAfterAnUpdate(t *testing.T) {
 		}
 	}
 
+	// While the notes come, and when they could not, the settings show.
+	m.whatsNew.notes, m.whatsNew.loading = nil, true
+	if body := ansi.Strip(strings.Join(m.whatsNewBody(70), "\n")); !strings.Contains(body, "New settings in 1.8.0") {
+		t.Errorf("not while loading:\n%s", body)
+	}
+	m.whatsNew.loading, m.whatsNew.err = false, errors.New("offline")
+	if body := ansi.Strip(strings.Join(m.whatsNewBody(70), "\n")); !strings.Contains(body, "New settings in 1.8.0") || !strings.Contains(body, "offline") {
+		t.Errorf("not when the notes could not be read:\n%s", body)
+	}
+
 	m, _ = newTestModel(t, config.Default().TUI, 110, 24)
 	m = m.TellOfNewSettings([]string{"tui.images"})
 	if len(m.newSettings) != 0 {

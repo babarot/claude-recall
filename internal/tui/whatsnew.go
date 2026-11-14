@@ -151,17 +151,19 @@ func (m Model) whatsNewRows() int { return max(1, m.height-4) }
 // whatsNewBody is every line of the box's content, at inner columns.
 func (m Model) whatsNewBody(inner int) []string {
 	w := m.whatsNew
+	// The settings the update added are known here, so they show whether
+	// the release notes have come, are coming or could not.
+	out := m.newSettingsLines()
 	switch {
 	case w.loading:
-		return []string{m.st.muted.Render("Loading the release notes…")}
+		return append(out, m.st.muted.Render("Loading the release notes…"))
 	case w.err != nil && w.notes == nil:
-		return []string{
-			m.st.warn.Render("Could not load the release notes: " + w.err.Error()),
+		return append(out,
+			m.st.warn.Render("Could not load the release notes: "+w.err.Error()),
 			"",
-			m.st.muted.Render("They are also at ") + m.st.id.Render(releasesPage),
-		}
+			m.st.muted.Render("They are also at ")+m.st.id.Render(releasesPage),
+		)
 	}
-	out := m.newSettingsLines()
 	for i, r := range w.notes {
 		if i > 0 {
 			out = append(out, "")
