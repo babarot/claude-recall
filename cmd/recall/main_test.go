@@ -642,7 +642,7 @@ func TestLog(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, err := os.ReadFile(want)
-	if err != nil || !strings.Contains(string(b), `"proc":"import"`) || !strings.Contains(string(b), `"msg":"imported"`) {
+	if err != nil || !strings.Contains(string(b), `"msg":"started","proc":"import"`) || !strings.Contains(string(b), `"msg":"imported"`) {
 		t.Errorf("log after an import: %v\n%s", err, b)
 	}
 	// What was said in the sessions imported is not in it.

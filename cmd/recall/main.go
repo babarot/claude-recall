@@ -1146,7 +1146,11 @@ func openLog(c *cobra.Command, configLevel string) *slog.Logger {
 	if err != nil {
 		return logging.Discard()
 	}
-	return log.With(logging.KeyProc, procOf(c), logging.KeyRun, logging.NewID(), logging.KeyVersion, version.Version)
+	log = log.With(logging.KeyProc, procOf(c), logging.KeyRun, logging.NewID(), logging.KeyVersion, version.Version)
+	// A line for every start, so the log shows which processes ran, and
+	// that it is written to, before anything else happens.
+	log.Info("started", logging.KeyOp, c.CommandPath())
+	return log
 }
 
 // procOf is what kind of recall process the command c runs as, as the log
