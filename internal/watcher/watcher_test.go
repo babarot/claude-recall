@@ -58,16 +58,15 @@ func TestWatcherImportsNewAndChangedTranscripts(t *testing.T) {
 	}
 	defer d.Close()
 
+	started := make(chan struct{})
 	rec := &recorder{}
-	w := &Watcher{DB: d, ProjectsDirs: []string{projects}, Debounce: 50 * time.Millisecond, OnImport: rec.add}
+	w := &Watcher{DB: d, ProjectsDirs: []string{projects}, Debounce: 50 * time.Millisecond, OnImport: rec.add, Started: func() { close(started) }}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { w.Run(ctx); close(done) }()
 	defer func() { cancel(); <-done }()
 
-	for !w.Status().Running {
-		time.Sleep(10 * time.Millisecond)
-	}
+	<-started
 
 	// A project directory that did not exist when the watcher started.
 	dir := filepath.Join(projects, "-home-user-new")
@@ -115,16 +114,15 @@ func TestWatcherTellsOfChangesImportedElsewhere(t *testing.T) {
 	}
 	defer other.Close()
 
+	started := make(chan struct{})
 	imported, changed := &recorder{}, &recorder{}
 	w := &Watcher{DB: d, ProjectsDirs: []string{projects}, Debounce: 300 * time.Millisecond,
-		OnImport: imported.add, OnChange: changed.add, Log: io.Discard}
+		OnImport: imported.add, OnChange: changed.add, Log: io.Discard, Started: func() { close(started) }}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { w.Run(ctx); close(done) }()
 	defer func() { cancel(); <-done }()
-	for !w.Status().Running {
-		time.Sleep(10 * time.Millisecond)
-	}
+	<-started
 
 	dir := filepath.Join(projects, "-p")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -168,15 +166,14 @@ func TestWatcherTrees(t *testing.T) {
 	}
 	defer d.Close()
 
+	started := make(chan struct{})
 	rec := &recorder{}
-	w := &Watcher{DB: d, ProjectsDirs: []string{primary, extra}, Debounce: 50 * time.Millisecond, OnImport: rec.add, Log: io.Discard}
+	w := &Watcher{DB: d, ProjectsDirs: []string{primary, extra}, Debounce: 50 * time.Millisecond, OnImport: rec.add, Log: io.Discard, Started: func() { close(started) }}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { w.Run(ctx); close(done) }()
 	defer func() { cancel(); <-done }()
-	for !w.Status().Running {
-		time.Sleep(10 * time.Millisecond)
-	}
+	<-started
 	if st := w.Status(); st.ProjectsDir != primary || !slices.Equal(st.ProjectsDirs, []string{primary, extra}) || !slices.Equal(st.MissingDirs, []string{extra}) {
 		t.Fatalf("status %+v", st)
 	}
