@@ -371,6 +371,7 @@ func (m *Model) placeModal() {
 // row saying there is more, so the box never covers the status line and
 // the footer.
 func (m Model) boxLines(b *modalBox, inner, rows int) []boxLine {
+	rows = max(1, rows)
 	ls := b.lines(m, inner, rows)
 	if len(ls) <= rows {
 		return ls
@@ -462,7 +463,13 @@ func (m Model) clickModal(s modalSpec, x, y int) Model {
 	case clickList:
 		r, ok := m.boxRect(s)
 		i := y - r.y - 1
-		if !ok || !r.contains(x, y) || i < 0 || i >= s.list.len(m) {
+		// Only the rows drawn are chosen; a box cut short ends with an
+		// ellipsis, which is not one of them.
+		shown := r.h - 2
+		if len(s.box.lines(m, r.w-4, m.boxRows())) > m.boxRows() {
+			shown--
+		}
+		if !ok || !r.contains(x, y) || i < 0 || i >= min(s.list.len(m), shown) {
 			m.closeModal()
 			return m
 		}

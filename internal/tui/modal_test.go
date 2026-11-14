@@ -296,3 +296,20 @@ func TestBoxStopsAboveTheStatusLine(t *testing.T) {
 		t.Errorf("drawn %d rows, placed as %d", len(m.drawBox(s, r.w, m.boxRows())), r.h)
 	}
 }
+
+// On a terminal too short for the sort menu, a click on its ellipsis or
+// its bottom edge closes it rather than choosing an order not drawn.
+func TestClickChoosesOnlyRowsDrawn(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 8)
+	m = press(t, m, "s")
+	s, _ := m.openModal()
+	r, _ := m.boxRect(s)
+	if len(s.box.lines(m, r.w-4, m.boxRows())) <= m.boxRows() {
+		t.Fatalf("the sort menu is not cut on 8 rows (holds %d)", m.boxRows())
+	}
+	sel := m.sortSel
+	m = update(t, m, tea.MouseClickMsg{X: r.x + 4, Y: r.y + r.h - 2, Button: tea.MouseLeft})
+	if m.modal != modalNone || m.sortSel != sel {
+		t.Errorf("a click on the ellipsis: modal %v, sort %d (was %d)", m.modal, m.sortSel, sel)
+	}
+}
