@@ -36,7 +36,6 @@ func (m Model) RecallWith(self []string) Model {
 func (m Model) recallCommand(id string) string { return resume.RecallCommand(m.recallSelf, id) }
 
 type recallState struct {
-	open  bool
 	id    string
 	input textinput.Model
 }
@@ -50,15 +49,17 @@ func newRecallInput() textinput.Model {
 
 // openRecall opens the modal for session id.
 func (m *Model) openRecall(id string) tea.Cmd {
-	m.recall.open, m.recall.id = true, id
+	m.openModalKind(modalRecall)
+	m.recall.id = id
 	m.recall.input.SetValue("")
 	m.recall.input.SetWidth(min(askWidth, m.width-4) - 8)
 	return m.recall.input.Focus()
 }
 
 func (m *Model) closeRecall() {
-	m.recall.open = false
-	m.recall.input.Blur()
+	if m.modal == modalRecall {
+		m.closeModal()
+	}
 }
 
 // withRecall lays the box over the screen.

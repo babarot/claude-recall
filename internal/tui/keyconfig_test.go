@@ -60,11 +60,11 @@ func TestWithKeys(t *testing.T) {
 	if r := press(t, m, "enter"); !r.expanded {
 		t.Fatal("enter should read")
 	}
-	if r := press(t, m, "s"); r.sortMenu {
+	if r := press(t, m, "s"); r.modal == modalSort {
 		t.Fatal("sort = [] should leave s doing nothing")
 	}
 	// The rest keep their keys.
-	if r := press(t, m, "?"); !r.helpOpen {
+	if r := press(t, m, "?"); r.modal != modalHelp {
 		t.Fatal("? should still open the key list")
 	}
 }
@@ -117,8 +117,8 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 	if got := m.km.Folders.FoldersBack.Keys(); !slices.Contains(got, "enter") {
 		t.Fatalf("folders.back is %q", got)
 	}
-	if r := press(t, m, "enter"); !r.recall.open || r.Result != nil {
-		t.Fatalf("enter should recall: modal %v result %+v", r.recall.open, r.Result)
+	if r := press(t, m, "enter"); r.modal != modalRecall || r.Result != nil {
+		t.Fatalf("enter should recall: modal %v result %+v", (r.modal == modalRecall), r.Result)
 	}
 	// resume, without a key, leaves the footer and the key list.
 	footer := ansi.Strip(m.renderFooter())

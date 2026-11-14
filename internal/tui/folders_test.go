@@ -397,7 +397,7 @@ func TestSortFromFolderList(t *testing.T) {
 	if m.focus != focusFolders {
 		t.Fatalf("focus %v", m.focus)
 	}
-	if m = press(t, m, "s"); !m.sortMenu {
+	if m = press(t, m, "s"); m.modal != modalSort {
 		t.Fatal("s should open the sort menu from the folder list")
 	}
 }

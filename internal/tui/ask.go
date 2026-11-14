@@ -21,6 +21,9 @@ import (
 
 type askStage int
 
+// The stage is read only while Ask shows (m.modal is modalAsk); askClosed
+// is the stage before Ask is first opened and after it is closed, not
+// what tells whether it shows.
 const (
 	askClosed askStage = iota
 	askTyping
@@ -85,6 +88,7 @@ func newAskInput() textinput.Model {
 
 // openAsk opens the modal with the last question to edit.
 func (m *Model) openAsk() tea.Cmd {
+	m.openModalKind(modalAsk)
 	m.ask.stage = askTyping
 	m.ask.input.SetValue(m.ask.question)
 	m.ask.input.CursorEnd()
@@ -122,6 +126,14 @@ func (m *Model) askTick(seq int) tea.Cmd {
 
 // closeAsk closes the modal, stopping a run.
 func (m *Model) closeAsk() {
+	if m.modal == modalAsk {
+		m.closeModal()
+	}
+}
+
+// endAsk is what closing Ask takes: a run stopped, and its search and
+// field put away. Its stage is read only while Ask shows.
+func (m *Model) endAsk() {
 	m.askHist.search = askSearch{}
 	if m.ask.cancel != nil {
 		m.ask.cancel()
@@ -406,4 +418,12 @@ func askErrForLog(err error) string {
 		return "claude failed (what it said is left out: it may hold the question or its answer)"
 	}
 	return err.Error()
+}
+
+// askUIState is the state of the screen while Ask shows, by its stage.
+func (m Model) askUIState() uiState {
+	if m.ask.stage == askTyping && m.askHist.search.open {
+		return uiAskSearch
+	}
+	return map[askStage]uiState{askTyping: uiAskTyping, askRunning: uiAskRunning, askAnswered: uiAskAnswered, askFailed: uiAskFailed}[m.ask.stage]
 }

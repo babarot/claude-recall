@@ -51,8 +51,8 @@ func TestConversationSearch(t *testing.T) {
 		t.Fatalf("the hit should be highlighted")
 	}
 	// ? is typed, not the key list.
-	if m = typeText(t, m, "?"); m.helpOpen || m.conv.input.Value() != "Message 05?" {
-		t.Fatalf("? while typing: help %v, value %q", m.helpOpen, m.conv.input.Value())
+	if m = typeText(t, m, "?"); (m.modal == modalHelp) || m.conv.input.Value() != "Message 05?" {
+		t.Fatalf("? while typing: help %v, value %q", (m.modal == modalHelp), m.conv.input.Value())
 	}
 
 	// Enter keeps the search; n and N go through the hits, wrapping.

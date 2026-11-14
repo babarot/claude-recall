@@ -162,8 +162,6 @@ type Model struct {
 	scroll    [numFocus]int
 	scrollFor string
 
-	helpOpen bool // the key list is showing
-
 	// settling holds off drawing until the terminal's size settles; sizes
 	// counts the size reports so far.
 	settling bool
@@ -178,6 +176,8 @@ type Model struct {
 	// read and the place among them.
 	askStore askStore
 	askHist  askHistory
+	// modal is the modal that shows, if any (see uistate.go).
+	modal modalKind
 	// updated is set when this run is the first after an update, and
 	// newSettings are the settings it added, told of then.
 	updated     bool
@@ -189,9 +189,8 @@ type Model struct {
 	reasons  map[string]string
 	asked    map[string]int
 	askedFor string
-	// sortMenu is set while the sort menu shows, sortSel its highlight.
-	sortMenu bool
-	sortSel  int
+	// sortSel is the sort menu's highlight.
+	sortSel int
 
 	toast     string
 	toastKind toastKind
@@ -551,18 +550,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.MouseClickMsg:
-		if m.helpOpen || m.whatsNew.open {
-			m.helpOpen, m.whatsNew.open = false, false
+		if m.modal == modalHelp || m.modal == modalWhatsNew {
+			m.closeModal()
 			return m, nil
 		}
-		if m.ask.stage != askClosed || m.recall.open {
+		if m.modal == modalAsk || m.modal == modalRecall {
 			return m, nil
 		}
-		if m.sortMenu {
+		if m.modal == modalSort {
 			if i := m.sortMenuAt(msg.X, msg.Y); i >= 0 {
 				m.applySort(i)
 			} else {
-				m.sortMenu = false
+				m.closeModal()
 			}
 			return m, nil
 		}
@@ -590,7 +589,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Button == tea.MouseWheelUp {
 			step = -1
 		}
-		if m.whatsNew.open {
+		if m.modal == modalWhatsNew {
 			m.scrollWhatsNew(3 * step)
 		} else if r, _, _, _, ok := m.suggestRect(); ok && r.contains(msg.X, msg.Y) {
 			m.scrollSuggestions(step)
@@ -658,9 +657,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		// ctrl+c quits from anywhere, a running ask stopped first.
 		if msg.String() == "ctrl+c" {
-			if m.ask.stage != askClosed {
-				m.closeAsk()
-			}
+			m.closeModal() // a running ask stopped
 			return m, m.imagesQuit()
 		}
 		// The field reads the clipboard here, not in textinput, whose
@@ -684,7 +681,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.logger().Debug("key", logging.KeyOp, op, logging.KeySession, m.currentID())
 		}
 		if st.opensHelp() && key.Matches(msg, m.km.Global.Help) {
-			m.helpOpen = true
+			m.openModalKind(modalHelp)
 			return m, nil
 		}
 		return m.updateList(msg)

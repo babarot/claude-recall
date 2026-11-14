@@ -73,3 +73,25 @@ func TestModalFieldsTypeNavLetters(t *testing.T) {
 		t.Errorf("left did not reach the field: %q", got)
 	}
 }
+
+// One field holds the modal that shows, and opening one closes the one
+// that shows first, with what closing it takes: a running ask is stopped,
+// not left running under another modal.
+func TestOpeningAModalClosesTheOther(t *testing.T) {
+	f := &fakeAsk{block: make(chan struct{})}
+	m := askModel(t, f, config.Default().TUI)
+	m = press(t, m, "a", "x")
+	next, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = asModel(t, next)
+	if m.uiState() != uiAskRunning || m.ask.cancel == nil {
+		t.Fatalf("not running: %v", m.uiState())
+	}
+	seq := m.ask.seq
+	m.openSortMenu()
+	if m.modal != modalSort || m.uiState() != uiSort {
+		t.Fatalf("the sort menu did not take the screen: %v", m.uiState())
+	}
+	if m.ask.cancel != nil || m.ask.seq == seq {
+		t.Error("the ask was left running under the sort menu")
+	}
+}

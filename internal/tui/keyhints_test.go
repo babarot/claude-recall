@@ -54,7 +54,7 @@ func footerCases(t *testing.T) []footerCase {
 	add("filter, key term", typeText(t, press(t, m, "/"), "title:"))
 	for _, st := range []askStage{askTyping, askRunning, askAnswered, askFailed} {
 		a := base()
-		a.ask.stage = st
+		a.ask.stage, a.modal = st, modalAsk
 		add("ask "+[]string{"closed", "typing", "running", "answered", "failed"}[st], a)
 	}
 	{
@@ -114,7 +114,7 @@ func TestKeyHints(t *testing.T) {
 	topLine("what's new top edge", press(t, m, "w"), "What's new")
 	for _, st := range []askStage{askTyping, askRunning, askFailed} {
 		a := base()
-		a.ask.stage = st
+		a.ask.stage, a.modal = st, modalAsk
 		topLine("ask box top edge "+[]string{"closed", "typing", "running", "answered", "failed"}[st], a, "Ask Claude")
 	}
 

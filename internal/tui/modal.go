@@ -27,9 +27,9 @@ type modalSpec struct {
 	// own are the modal's own keys, read after typed characters and before
 	// its parts.
 	own []modalKey
-	// recall goes through what was typed in the field before, on nav's up
+	// history goes through what was typed in the field before, on nav's up
 	// and down, which it claims from the field.
-	recall *modalRecall
+	history *modalHistory
 	// edited is called when the field's text changes.
 	edited func(m *Model)
 	// esc is what esc does, the only key that closes a modal.
@@ -46,8 +46,8 @@ type modalList struct {
 	choose modalKey
 }
 
-// modalRecall goes through the texts typed in a field before.
-type modalRecall struct {
+// modalHistory goes through the texts typed in a field before.
+type modalHistory struct {
 	older, newer func(m *Model)
 	// leave is called when the field is edited: a text recalled and
 	// changed is the user's.
@@ -92,7 +92,7 @@ func (m Model) openModal() (modalSpec, bool) {
 // state over which the panes do not take keys and that is not a field of
 // the screen is one of them; a test checks it.
 var modalSpecs = map[uiState]modalSpec{
-	uiHelp:        {esc: closeKey(func(m *Model) { m.helpOpen = false })},
+	uiHelp:        {esc: closeKey(func(m *Model) { m.closeModal() })},
 	uiSort:        sortSpec,
 	uiAskTyping:   askTypingSpec,
 	uiAskSearch:   askSearchSpec,
@@ -125,7 +125,7 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		}
 	}
 	nav := m.km.Nav
-	if r := s.recall; r != nil {
+	if r := s.history; r != nil {
 		switch {
 		case key.Matches(msg, nav.Up):
 			r.older(&m)
@@ -199,7 +199,7 @@ func (m Model) typeInModal(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 	var cmd tea.Cmd
 	*in, cmd = in.Update(msg)
 	if in.Value() != before {
-		if r := s.recall; r != nil {
+		if r := s.history; r != nil {
 			r.leave(&m)
 		}
 		if s.edited != nil {
@@ -243,7 +243,7 @@ func (s modalSpec) hints(m Model, edge bool) [][2]string {
 	}
 	// The questions asked before show on the box's edge too, where the eye
 	// goes, before the way out.
-	if r := s.recall; r != nil && r.any(m) {
+	if r := s.history; r != nil && r.any(m) {
 		word := "earlier questions"
 		if edge {
 			word = "earlier"
@@ -288,7 +288,7 @@ func (s modalSpec) navOps() []string {
 		return []string{"up", "down", "page_up", "page_down"}
 	case s.list != nil || s.body != nil:
 		return modalNavOps
-	case s.recall != nil:
+	case s.history != nil:
 		return []string{"up", "down"}
 	}
 	return nil
@@ -306,7 +306,7 @@ var sortSpec = modalSpec{
 			do: func(m *Model) tea.Cmd { m.applySort(m.sortSel); return nil }},
 	},
 	own: sortNumberKeys(),
-	esc: closeKey(func(m *Model) { m.sortMenu = false }),
+	esc: closeKey(func(m *Model) { m.closeModal() }),
 }
 
 // sortNumberKeys choose an order by its number, 1 for the first.
@@ -322,7 +322,7 @@ func sortNumberKeys() []modalKey {
 
 var askTypingSpec = modalSpec{
 	field: func(m *Model) *textinput.Model { return &m.ask.input },
-	recall: &modalRecall{
+	history: &modalHistory{
 		older: func(m *Model) { m.recallOlder() },
 		newer: func(m *Model) { m.recallNewer() },
 		leave: func(m *Model) { m.askHist.recall.Leave() },
@@ -399,5 +399,5 @@ var whatsNewSpec = modalSpec{
 		scroll: func(m *Model, step int) { m.scrollWhatsNew(step) },
 		page:   func(m Model) int { return max(1, m.whatsNewRows()-1) },
 	},
-	esc: closeKey(func(m *Model) { m.whatsNew.open = false }),
+	esc: closeKey(func(m *Model) { m.closeModal() }),
 }

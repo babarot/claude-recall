@@ -17,7 +17,7 @@ What a modal is in `internal/tui`, the words used for the parts of the screen ar
 | suggestions | The list the filter opens under its line while a `folder:` (or `branch:`, `worktree:`) term is typed. It is overlaid but takes no keys of its own beyond the field's, so it is part of the field, not a modal | `suggestRect`, `suggestBox` in query.go |
 | toast | A line that tells something for a moment (copied, updated, a failure), drawn in place of the status line, not over the screen. It is not a modal and takes no keys | `toast`, `showToast`, `renderStatus` in [view.go](../../internal/tui/view.go) |
 
-The state of the screen, which of these takes the keys, is `uiState` in [uistate.go](../../internal/tui/uistate.go): a modal first, then a field, then the focused pane.
+The state of the screen, which of these takes the keys, is `uiState` in [uistate.go](../../internal/tui/uistate.go): a modal first, then a field, then the focused pane. Which modal shows is one field, `Model.modal` (a `modalKind`), so two never show at once. A modal is opened through `openModalKind`, which closes the one that shows first, with what closing it takes (`closeModal`: a running ask stopped, a field put away), and Ask's stage and search are read only while Ask shows (`askUIState` in ask.go).
 
 ## The modals
 
@@ -33,7 +33,7 @@ The state of the screen, which of these takes the keys, is `uiState` in [uistate
 | before recalling | `uiRecall` | `recall` | field; own key `enter` | the third row | up to 96 |
 | what's new | `uiWhatsNew` | `whats_new` | body | centered top to bottom | up to 76 |
 
-A width is the most a box takes, a constant; a narrower terminal narrows it, and a terminal too narrow for the key list or the sort menu leaves them undrawn, with the footer still saying how out (`esc` first).
+A width is the most a box takes, a constant; a narrower terminal narrows it, and a terminal narrower than a box can be (30 columns, 24 for the sort menu) leaves it undrawn, with the footer still saying how out (`esc` first).
 
 The Ask box keeps one height from typing to running: its body is five rows in both, and the search of the questions fills the same five. The box of the answer grows to the height of the screen, which is why it sits near the top.
 

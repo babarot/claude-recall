@@ -118,19 +118,19 @@ func TestRemappedKeys(t *testing.T) {
 	m.km.Global.Help = keys("H")
 	m.km.Global.Sort = keys("o")
 	m = press(t, m, "H")
-	if !m.helpOpen || !strings.Contains(m.render(), "esc close") {
+	if m.modal != modalHelp || !strings.Contains(m.render(), "esc close") {
 		t.Fatal("H should open the key list, and its edge should say how out")
 	}
-	if m = press(t, m, "H"); !m.helpOpen {
+	if m = press(t, m, "H"); m.modal != modalHelp {
 		t.Fatal("H closed the key list")
 	}
-	if m = press(t, m, "esc", "?"); m.helpOpen {
+	if m = press(t, m, "esc", "?"); m.modal == modalHelp {
 		t.Fatal("? no longer opens it")
 	}
-	if m = press(t, m, "o"); !m.sortMenu {
+	if m = press(t, m, "o"); m.modal != modalSort {
 		t.Fatal("o should open the sort menu")
 	}
-	if m = press(t, m, "o", "s"); !m.sortMenu {
+	if m = press(t, m, "o", "s"); m.modal != modalSort {
 		t.Fatal("o or s closed the sort menu")
 	}
 }
