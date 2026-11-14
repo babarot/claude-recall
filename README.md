@@ -310,4 +310,4 @@ For the plugin's hooks module, `claude --plugin-dir plugin` loads it from the ch
 
 ## License
 
-MIT
+[MIT](LICENSE)
