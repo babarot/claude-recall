@@ -15,7 +15,7 @@ In scope: the keyboard in the TUI (`recall` / `recall tui`). Out of scope: the m
 
 | Term | Meaning |
 |---|---|
-| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`), the Ask Claude box (`a`), the box before recalling a session (`c`) and what's new (`w`) |
+| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`), the Ask Claude box (`a`), the box before recalling a session (`c`) and what's new (`w`). The user-facing docs call it a box. [modals.md](modals.md) has the words for the parts of the screen around it and how a modal is drawn |
 | Field | Where text is typed: the filter (`/`), the folder search, the conversation search and Ask's question |
 | Pane | An area that can have the focus: the session list, the folder list, the detail frames (Conversation, What was done, Details) and the reading view |
 | Global | Keys that work whatever pane has the focus |
