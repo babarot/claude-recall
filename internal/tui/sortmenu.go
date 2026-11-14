@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -39,34 +38,10 @@ func (m *Model) applySort(i int) {
 	m.cursor, m.offset = 0, 0
 }
 
-// sortMenuRect is where the menu is drawn: centered, a line per order
-// between its borders.
-func (m Model) sortMenuRect() rect {
-	w := min(sortMenuWidth, m.width-2)
-	h := len(sorts) + 2
-	return rect{(m.width - w) / 2, max(0, (m.height-h)/2), w, h}
-}
-
-// sortMenuAt returns the order under a screen cell, or -1.
-func (m Model) sortMenuAt(x, y int) int {
-	r := m.sortMenuRect()
-	if !r.contains(x, y) || y == r.y || y == r.y+r.h-1 {
-		return -1
-	}
-	return y - r.y - 1
-}
-
-// withSortMenu lays the menu over the screen.
-func (m Model) withSortMenu(screen string) string {
-	r := m.sortMenuRect()
-	if r.w < 24 {
-		return screen
-	}
-	b := m.st.rule
-	inner := r.w - 4
-	title, hint := " Sort by ", " "+m.edgeHint(sortSpec())+" "
-	fill := max(0, r.w-4-len(title)-ansi.StringWidth(hint))
-	box := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
+// sortLines are the sort menu's rows: an order a row, by number, the one
+// in use marked, the one highlighted on the selection's background.
+func (m Model) sortLines(inner int) []boxLine {
+	out := make([]boxLine, len(sorts))
 	for i, s := range sorts {
 		mark := "  "
 		if i == m.sortIdx {
@@ -77,21 +52,9 @@ func (m Model) withSortMenu(screen string) string {
 		if i == m.sortSel {
 			line = m.st.bar.Render("▎") + m.st.on(m.st.key, true).Render(name) + m.st.selected.Render(" ") + m.st.on(m.st.muted, true).Render(sortNotes[s.name])
 		}
-		line = ansi.Truncate(line, inner, ellipsis)
-		pad := strings.Repeat(" ", max(0, inner-ansi.StringWidth(line)))
-		if i == m.sortSel {
-			pad = m.st.selected.Render(pad)
-		}
-		box = append(box, b.Render("│ ")+line+pad+b.Render(" │"))
+		out[i] = boxLine{text: ansi.Truncate(line, inner, ellipsis), selected: i == m.sortSel}
 	}
-	box = append(box, b.Render("╰"+strings.Repeat("─", r.w-2)+"╯"))
-	lines := strings.Split(screen, "\n")
-	for i, l := range box {
-		if j := r.y + i; j < len(lines) {
-			lines[j] = overlay(lines[j], l, r.x)
-		}
-	}
-	return strings.Join(lines, "\n")
+	return out
 }
 
 // sortSpec declares the sort menu: a list of the orders, chosen by number too.
@@ -107,6 +70,12 @@ func sortSpec() modalSpec {
 		},
 		own: sortNumberKeys(),
 		esc: closeKey(func(m *Model) { m.closeModal() }),
+		box: &modalBox{
+			title: func(Model) string { return "Sort by" },
+			width: sortMenuWidth, margin: 2, minWidth: 24,
+			place: placeCenter, click: clickList,
+			lines: func(m Model, inner, _ int) []boxLine { return m.sortLines(inner) },
+		},
 	}
 }
 

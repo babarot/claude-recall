@@ -100,14 +100,25 @@ func TestOpeningAModalClosesTheOther(t *testing.T) {
 }
 
 // modal.go is the mechanism every modal shares, and knows none of them:
-// it reaches a Model only for the keymap, the key hints and its own
-// methods, never a modal's fields. The test reads names, not types: it
+// it reaches a Model only for the keymap, the key hints, the screen's size
+// and styles, closing the modal that shows and its own methods, never a
+// modal's fields. The test reads names, not types: it
 // follows the parameters and receivers declared as Model or *Model, in
 // functions, func literals and package variables alike, and would miss a
 // Model reached through another name, which review is left to catch. A modal declares itself in its own
 // file, and uistate.go says which state is which modal.
 func TestModalGoKnowsNoModal(t *testing.T) {
-	allowed := map[string]bool{"km": true, "hintKeys": true, "modalKeyFor": true, "typeInModal": true, "edgeHint": true}
+	allowed := map[string]bool{
+		// The keymap and the key hints, for the keys a modal reads.
+		"km": true, "hintKeys": true,
+		// The screen's size and the styles, to draw and place a box.
+		"width": true, "height": true, "st": true,
+		// Closing whatever modal shows, on a click.
+		"closeModal": true,
+		// modal.go's own methods.
+		"modalKeyFor": true, "typeInModal": true, "edgeHint": true,
+		"boxRows": true, "boxWidth": true, "boxRect": true, "drawBox": true, "drawModal": true, "clickModal": true,
+	}
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "modal.go", nil, 0)
 	if err != nil {

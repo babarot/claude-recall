@@ -550,20 +550,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.MouseClickMsg:
-		if m.modal == modalHelp || m.modal == modalWhatsNew {
-			m.closeModal()
-			return m, nil
-		}
-		if m.modal == modalAsk || m.modal == modalRecall {
-			return m, nil
-		}
-		if m.modal == modalSort {
-			if i := m.sortMenuAt(msg.X, msg.Y); i >= 0 {
-				m.applySort(i)
-			} else {
-				m.closeModal()
-			}
-			return m, nil
+		if s, ok := m.openModal(); ok {
+			return m.clickModal(s, msg.X, msg.Y), nil
 		}
 		if msg.Button == tea.MouseLeft && m.mode == modeList {
 			m.click(msg.X, msg.Y)

@@ -170,49 +170,29 @@ func (m Model) helpBody(inner int) []helpLine {
 	return body
 }
 
-// helpBox draws the key list in a rounded box at most w cells wide and h
-// lines tall.
-func (m Model) helpBox(w, h int) []string {
-	inner := w - 4
-	b := m.st.rule
-	body := m.helpBody(inner)
-	if len(body) > h-2 {
-		body = append(body[:max(0, h-3)], helpLine{text: m.st.muted.Render("… a taller terminal shows the rest")})
-	}
-	title := " Keys "
-	hint := " " + m.edgeHint(helpSpec()) + " "
-	fill := max(0, w-4-len(title)-ansi.StringWidth(hint))
-	out := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
-	for _, l := range body {
-		pad := strings.Repeat(" ", max(0, inner-ansi.StringWidth(l.text)))
-		if l.here {
-			out = append(out, b.Render("│")+m.st.bar.Render("▎")+l.text+m.st.selected.Render(pad)+b.Render(" │"))
-			continue
-		}
-		out = append(out, b.Render("│ ")+l.text+pad+b.Render(" │"))
-	}
-	return append(out, b.Render("╰"+strings.Repeat("─", w-2)+"╯"))
-}
-
-// withHelp lays the key list over the screen, centered.
-func (m Model) withHelp(screen string) string {
-	lines := strings.Split(screen, "\n")
-	w := min(64, m.width-2)
-	if w < 30 {
-		return screen
-	}
-	box := m.helpBox(w, m.height-2)
-	top := max(0, (len(lines)-len(box))/2)
-	x := (m.width - w) / 2
-	for i, l := range box {
-		if j := top + i; j < len(lines) {
-			lines[j] = overlay(lines[j], l, x)
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
 // helpSpec declares the key list: nothing to read keys for but esc.
 func helpSpec() modalSpec {
-	return modalSpec{esc: closeKey(func(m *Model) { m.closeModal() })}
+	return modalSpec{
+		esc: closeKey(func(m *Model) { m.closeModal() }),
+		box: &modalBox{
+			title: func(Model) string { return "Keys" },
+			width: 64, margin: 2, minWidth: 30,
+			place: placeCenter, click: clickCloses,
+			lines: func(m Model, inner, rows int) []boxLine { return m.helpLines(inner, rows) },
+		},
+	}
+}
+
+// helpLines are the key list's rows, the group of the pane it was opened
+// from marked; past rows, the last says a taller terminal shows the rest.
+func (m Model) helpLines(inner, rows int) []boxLine {
+	body := m.helpBody(inner)
+	if len(body) > rows {
+		body = append(body[:max(0, rows-1)], helpLine{text: m.st.muted.Render("… a taller terminal shows the rest")})
+	}
+	out := make([]boxLine, len(body))
+	for i, l := range body {
+		out[i] = boxLine{text: l.text, bar: l.here, selected: l.here}
+	}
+	return out
 }

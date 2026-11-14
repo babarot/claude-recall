@@ -63,12 +63,9 @@ func (m *Model) closeRecall() {
 	}
 }
 
-// withRecall lays the box over the screen.
-func (m Model) withRecall(screen string) string {
-	w := min(askWidth, m.width-4)
-	if w < 30 {
-		return screen
-	}
+// recallLines are the rows of the modal before recalling: the session,
+// the field for what to recall about it, and where claude will run.
+func (m Model) recallLines() []boxLine {
 	var body []string
 	for i := range m.rows {
 		if r := &m.rows[i]; r.s.ID == m.recall.id {
@@ -86,7 +83,11 @@ func (m Model) withRecall(screen string) string {
 		where += ", in " + worktree.TildePath(m.startDir, m.home)
 	}
 	body = append(body, m.st.dim.Render(where))
-	return m.boxOver(screen, w, "Recall in a new claude", m.edgeHint(recallSpec()), body)
+	out := make([]boxLine, len(body))
+	for i, l := range body {
+		out[i] = boxLine{text: l}
+	}
+	return out
 }
 
 // recallSpec declares the modal before recalling a session: what to recall about it.
@@ -99,5 +100,11 @@ func recallSpec() modalSpec {
 			return m.imagesQuit()
 		}}},
 		esc: closeKey(func(m *Model) { m.closeRecall() }),
+		box: &modalBox{
+			title: func(Model) string { return "Recall in a new claude" },
+			width: askWidth, margin: 4, minWidth: 30,
+			frame: frameAccent, place: placeTop,
+			lines: func(m Model, _, _ int) []boxLine { return m.recallLines() },
+		},
 	}
 }

@@ -267,23 +267,44 @@ func (m Model) reasonLine(id string, w int) string {
 	return ansi.Truncate(m.st.worktree.Render("↳ ")+m.st.subtle.Render(why), w, ellipsis)
 }
 
-// withAsk lays the box over the screen.
-func (m Model) withAsk(screen string) string {
-	w := min(askWidth, m.width-4)
-	if w < 30 {
-		return screen
+// askBox is how Ask is drawn in every stage: near the top, as its answer
+// grows to the height of the screen.
+func askBox() *modalBox {
+	return &modalBox{
+		title: func(m Model) string {
+			if m.ask.stage == askAnswered {
+				return fmt.Sprintf("Ask Claude · %d sessions", len(m.ask.hits))
+			}
+			return "Ask Claude"
+		},
+		width: askWidth, margin: 4, minWidth: 30,
+		frame: frameAccent, place: placeTop,
+		lines: func(m Model, inner, rows int) []boxLine {
+			body := m.askLines(inner, rows)
+			out := make([]boxLine, len(body))
+			for i, l := range body {
+				out[i] = boxLine{text: l}
+			}
+			return out
+		},
+		edgeText: func(m Model) string {
+			if m.ask.stage == askAnswered {
+				return m.askSummary()
+			}
+			return ""
+		},
 	}
-	inner := w - 4
-	var title, hint string
+}
+
+// askLines are Ask's rows in the stage it is in, inner cells wide, at most
+// rows of them.
+func (m Model) askLines(inner, rows int) []string {
 	var body []string
 	q := m.st.filter.Render("› " + m.ask.question)
 	switch m.ask.stage {
 	case askTyping:
-		title, hint = "Ask Claude", m.edgeHint(askTypingSpec())
 		if m.askHist.search.open {
-			title, hint = "Ask Claude", m.edgeHint(askSearchSpec())
-			body = m.askSearchBody(inner)
-			break
+			return m.askSearchBody(inner)
 		}
 		body = []string{m.askFieldLine(),
 			m.st.muted.Render(`  e.g. "the session where we fixed the terraform state" · "who looked at PR #7427"`), "",
@@ -292,7 +313,6 @@ func (m Model) withAsk(screen string) string {
 	case askRunning:
 		elapsed := m.now().Sub(m.ask.started)
 		spin := string([]rune(spinFrames)[int(elapsed/(100*time.Millisecond))%len([]rune(spinFrames))])
-		title, hint = "Ask Claude", m.edgeHint(askRunningSpec())
 		body = []string{ansi.Truncate(q, inner, ellipsis),
 			m.st.id.Render(spin) + " " + m.st.subtle.Render("searching…") + m.st.muted.Render(fmt.Sprintf(" %ds", int(elapsed.Seconds())))}
 		// The last few searches, in rows kept for them from the start, so
@@ -307,13 +327,11 @@ func (m Model) withAsk(screen string) string {
 			body = append(body, line)
 		}
 	case askAnswered:
-		title = fmt.Sprintf("Ask Claude · %d sessions", len(m.ask.hits))
-		hint = m.askSummary()
 		body = []string{ansi.Truncate(q, inner, ellipsis), ""}
 		if len(m.ask.hits) == 0 {
 			body = append(body, m.st.muted.Render("  No session matched. r asks again."))
 		}
-		room := max(3, m.height-8-len(body))
+		room := max(3, rows-2-len(body))
 		var items [][]string
 		for i, h := range m.ask.hits {
 			items = append(items, m.askItem(h, inner, i == m.ask.sel))
@@ -331,35 +349,12 @@ func (m Model) withAsk(screen string) string {
 			body = append(body, items[i]...)
 		}
 	case askFailed:
-		title, hint = "Ask Claude", m.edgeHint(askFailedSpec())
 		body = []string{ansi.Truncate(q, inner, ellipsis), ""}
 		for _, l := range wrap(m.ask.err, inner) {
 			body = append(body, m.st.warn.Render(l))
 		}
 	}
-	return m.boxOver(screen, w, title, hint, body)
-}
-
-// boxOver lays a box w cells wide over the screen, near the top: title and
-// hint in its top edge, body inside.
-func (m Model) boxOver(screen string, w int, title, hint string, body []string) string {
-	inner := w - 4
-	b := m.st.id
-	fill := max(0, w-5-ansi.StringWidth(title)-ansi.StringWidth(hint)-2)
-	box := []string{b.Render("╭─ ") + m.st.key.Render(title) + b.Render(" "+strings.Repeat("─", fill)+" ") + m.st.muted.Render(hint) + b.Render(" ╮")}
-	for _, l := range body {
-		l = ansi.Truncate(l, inner, ellipsis)
-		box = append(box, b.Render("│ ")+l+strings.Repeat(" ", max(0, inner-ansi.StringWidth(l)))+b.Render(" │"))
-	}
-	box = append(box, b.Render("╰"+strings.Repeat("─", w-2)+"╯"))
-	lines := strings.Split(screen, "\n")
-	x := (m.width - w) / 2
-	for i, l := range box {
-		if j := 2 + i; j < len(lines) {
-			lines[j] = overlay(lines[j], l, x)
-		}
-	}
-	return strings.Join(lines, "\n")
+	return body
 }
 
 // askSummary says how an answer came: the model, how long it took and,
@@ -452,12 +447,13 @@ func askTypingSpec() modalSpec {
 				do:   func(m *Model) tea.Cmd { m.completeAsk(); return nil }},
 		},
 		esc: closeKey(func(m *Model) { m.closeAsk() }),
+		box: askBox(),
 	}
 }
 
 // askRunningSpec declares Ask while Claude searches: esc stops it.
 func askRunningSpec() modalSpec {
-	return modalSpec{esc: modalKey{keys: []string{"esc"}, word: "cancel", edge: true, do: func(m *Model) tea.Cmd { m.closeAsk(); return nil }}}
+	return modalSpec{esc: modalKey{keys: []string{"esc"}, word: "cancel", edge: true, do: func(m *Model) tea.Cmd { m.closeAsk(); return nil }}, box: askBox()}
 }
 
 // askAnsweredSpec declares Ask with its answer: the sessions found, to open or narrow the list to.
@@ -486,6 +482,7 @@ func askAnsweredSpec() modalSpec {
 			{keys: []string{"r"}, word: "ask again", do: func(m *Model) tea.Cmd { return m.openAsk() }},
 		},
 		esc: closeKey(func(m *Model) { m.closeAsk() }),
+		box: askBox(),
 	}
 }
 
@@ -494,5 +491,6 @@ func askFailedSpec() modalSpec {
 	return modalSpec{
 		own: []modalKey{{keys: []string{"r", "enter"}, hint: "r", word: "ask again", edge: true, do: func(m *Model) tea.Cmd { return m.openAsk() }}},
 		esc: closeKey(func(m *Model) { m.closeAsk() }),
+		box: askBox(),
 	}
 }
