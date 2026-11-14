@@ -182,6 +182,8 @@ type Model struct {
 	// placeModal).
 	modal    modalKind
 	modalTop int
+	// helpOffset is the first line of the key list shown.
+	helpOffset int
 	// updated is set when this run is the first after an update, and
 	// newSettings are the settings it added, told of then.
 	updated     bool
@@ -677,6 +679,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if st.opensHelp() && key.Matches(msg, m.km.Global.Help) {
 			m.openModalKind(modalHelp)
+			m.helpOffset = 0
 			return m, nil
 		}
 		return m.updateList(msg)

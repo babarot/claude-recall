@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -17,11 +18,15 @@ func TestQuestionMarkShowsTheKeys(t *testing.T) {
 		t.Fatal("the help line should mention ?")
 	}
 	m = press(t, m, "?")
-	s := screen(m)
-	for _, want := range []string{"Keys", "SESSIONS", "FOLDER LIST", "DETAIL FRAMES", "FILTER", "READING (SPACE)", "resume the session", "folder:bdot"} {
+	// The groups are all there, from its top and scrolled to its bottom.
+	s := screen(m) + screen(press(t, m, "G"))
+	for _, want := range []string{"Keys", "Sessions · works here", "Folder list", "Detail frames", "Filter · works here", "Reading (space)", "resume the session", "folder:bdot"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("key list lacks %q:\n%s", want, s)
 		}
+	}
+	if strings.Contains(s, "SESSIONS") || strings.Contains(s, "  here ") {
+		t.Errorf("the old upper-case headers or the here badge are still drawn:\n%s", s)
 	}
 	// Other keys do nothing while it shows, the key that opened it and q
 	// among them; esc alone closes it.
@@ -82,7 +87,7 @@ func TestHelpReadingFirst(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
 	m = press(t, m, "space", "?")
 	got := ansi.Strip(m.render())
-	for _, want := range []string{"READING (SPACE)", "search the conversation", "put the pane back", "bright rows work here too"} {
+	for _, want := range []string{"Reading (space) · works here", "search the conversation", "put the pane back", "Sessions · bright rows work here"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("no %q in the key list:\n%s", want, got)
 		}
@@ -98,5 +103,58 @@ func TestNarrowModalsSayHowOut(t *testing.T) {
 		if got := ansi.Strip(m.render()); !strings.Contains(got, want) {
 			t.Errorf("%s: no %q on the screen:\n%s", k, want, got)
 		}
+	}
+}
+
+// The key list tells the version and the homepage at its top, and a newer
+// release with how to update to it.
+func TestKeyListTellsTheVersion(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 40)
+	m.version = "1.16.0"
+	got := screen(press(t, m, "?"))
+	if !strings.Contains(got, "recall 1.16.0 · github.com/babarot/claude-recall") || strings.Contains(got, "is out") {
+		t.Errorf("no version, or a release that is not known:\n%s", got)
+	}
+	m = m.TellOfRelease(Release{Version: "1.17.0", How: "recall update", Command: true})
+	if got := screen(press(t, m, "?")); !strings.Contains(got, "1.17.0 is out · recall update") {
+		t.Errorf("no newer release:\n%s", got)
+	}
+}
+
+// On a terminal too short for it, the key list scrolls, telling where it
+// is on its bottom edge, and opens at its top again.
+func TestKeyListScrolls(t *testing.T) {
+	m, _ := newTestModel(t, config.Default().TUI, 140, 24)
+	m = press(t, m, "?")
+	n := len(m.helpBody(m.helpInner()))
+	rows := m.boxRows()
+	if n <= rows {
+		t.Fatalf("the key list fits in %d rows (%d lines); the test needs it not to", rows, n)
+	}
+	if got := screen(m); !strings.Contains(got, fmt.Sprintf(" 1-%d/%d ", rows, n)) || strings.Contains(got, "taller terminal") {
+		t.Fatalf("no position, or the old cut line:\n%s", got)
+	}
+	if m = press(t, m, "j", "j"); m.helpOffset != 2 {
+		t.Errorf("j j: offset %d", m.helpOffset)
+	}
+	if m = press(t, m, "G"); m.helpOffset != n-rows || !strings.Contains(screen(m), "put the pane back") {
+		t.Errorf("G: offset %d, want %d, or the last group not shown:\n%s", m.helpOffset, n-rows, screen(m))
+	}
+	m = update(t, m, tea.MouseWheelMsg{X: 1, Y: 1, Button: tea.MouseWheelUp})
+	if m.helpOffset != n-rows-3 {
+		t.Errorf("the wheel: offset %d, want %d", m.helpOffset, n-rows-3)
+	}
+	// Grown so the list fits, the first k moves from where it shows.
+	tall := update(t, m, tea.WindowSizeMsg{Width: 140, Height: 80})
+	if tall = press(t, tall, "G", "k"); tall.helpOffset != 0 {
+		t.Errorf("k on a terminal tall enough: offset %d", tall.helpOffset)
+	}
+	grown := update(t, press(t, m, "G"), tea.WindowSizeMsg{Width: 140, Height: 34})
+	most := len(grown.helpBody(grown.helpInner())) - grown.boxRows()
+	if grown = press(t, grown, "k"); grown.helpOffset != most-1 {
+		t.Errorf("k after growing: offset %d, want %d", grown.helpOffset, most-1)
+	}
+	if m = press(t, m, "esc", "?"); m.helpOffset != 0 {
+		t.Errorf("opened again at offset %d", m.helpOffset)
 	}
 }

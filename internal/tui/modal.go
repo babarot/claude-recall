@@ -69,12 +69,11 @@ const (
 	clickList             // chooses the row of the list clicked, closes outside
 )
 
-// boxLine is a row of a box: its text, whether the box's mark goes in the
-// left margin (the key list's here), and whether the rest of the row has
-// the selection's background.
+// boxLine is a row of a box: its text, and whether the rest of the row
+// has the selection's background.
 type boxLine struct {
-	text          string
-	bar, selected bool
+	text     string
+	selected bool
 }
 
 // modalList is a list to choose from, moved by nav's keys.
@@ -411,10 +410,6 @@ func (m Model) drawBox(s modalSpec, w, rows int) []string {
 		pad := strings.Repeat(" ", max(0, inner-ansi.StringWidth(text)))
 		if l.selected {
 			pad = m.st.selected.Render(pad)
-		}
-		if l.bar {
-			out = append(out, border.Render("│")+m.st.bar.Render("▎")+text+pad+border.Render(" │"))
-			continue
 		}
 		out = append(out, border.Render("│ ")+text+pad+border.Render(" │"))
 	}

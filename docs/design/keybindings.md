@@ -211,7 +211,7 @@ All as before.
 
 | Modal | Keys |
 |---|---|
-| The key list | Closes with `esc` |
+| The key list | `up` `down` `page_up` `page_down` `top` `bottom` scroll; closes with `esc` |
 | The sort menu | `up` `down` (`↑` `↓` `k` `j` `ctrl+p` `ctrl+n` by default) pick, `enter` `space` choose, `1` to `4` choose directly; closes with `esc` |
 | Ask, typing | `enter` asks, `up` `down` recall the questions asked before, `ctrl+r` searches them, `tab` (and `right` at the end of the text) fills in the question shown faint; closes with `esc` |
 | Ask, searching the questions | `up` `down` `page_up` `page_down` pick, `enter` puts the question in Ask's field; `esc` goes back to it. `home` and `end` move in the search's field |
