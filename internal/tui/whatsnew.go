@@ -140,9 +140,12 @@ func (m *Model) whatsNewLoaded(msg whatsNewLoaded) {
 	w.tag, w.notes, w.err = msg.tag, msg.notes, nil
 }
 
+// scrollWhatsNew moves the notes by step lines, from where they show:
+// after the terminal grew, the offset kept may be past what can be
+// scrolled to.
 func (m *Model) scrollWhatsNew(step int) {
-	n := len(m.whatsNewBody(m.whatsNewInner()))
-	m.whatsNew.offset = max(0, min(m.whatsNew.offset+step, n-m.whatsNewRows()))
+	most := max(0, len(m.whatsNewBody(m.whatsNewInner()))-m.whatsNewRows())
+	m.whatsNew.offset = max(0, min(min(m.whatsNew.offset, most)+step, most))
 }
 
 func (m Model) whatsNewWidth() int { return m.boxWidth(whatsNewSpec().box) }

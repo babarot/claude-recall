@@ -202,9 +202,11 @@ func (m Model) helpShown(inner, rows int) (shown []string, off, total int) {
 	return body[off:min(len(body), off+rows)], off, len(body)
 }
 
+// scrollHelp moves the key list by step lines, from where it shows: after
+// the terminal grew, the offset kept may be past what can be scrolled to.
 func (m *Model) scrollHelp(step int) {
-	n := len(m.helpBody(m.helpInner()))
-	m.helpOffset = max(0, min(m.helpOffset+step, n-max(1, m.boxRows())))
+	most := max(0, len(m.helpBody(m.helpInner()))-max(1, m.boxRows()))
+	m.helpOffset = max(0, min(min(m.helpOffset, most)+step, most))
 }
 
 // helpSpec declares the key list: a body to scroll, and esc.

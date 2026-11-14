@@ -25,8 +25,8 @@ func TestQuestionMarkShowsTheKeys(t *testing.T) {
 			t.Errorf("key list lacks %q:\n%s", want, s)
 		}
 	}
-	if strings.Contains(s, " here ") && strings.Contains(s, "SESSIONS") {
-		t.Errorf("the here badge is still drawn:\n%s", s)
+	if strings.Contains(s, "SESSIONS") || strings.Contains(s, "  here ") {
+		t.Errorf("the old upper-case headers or the here badge are still drawn:\n%s", s)
 	}
 	// Other keys do nothing while it shows, the key that opened it and q
 	// among them; esc alone closes it.
@@ -143,6 +143,16 @@ func TestKeyListScrolls(t *testing.T) {
 	m = update(t, m, tea.MouseWheelMsg{X: 1, Y: 1, Button: tea.MouseWheelUp})
 	if m.helpOffset != n-rows-3 {
 		t.Errorf("the wheel: offset %d, want %d", m.helpOffset, n-rows-3)
+	}
+	// Grown so the list fits, the first k moves from where it shows.
+	tall := update(t, m, tea.WindowSizeMsg{Width: 140, Height: 80})
+	if tall = press(t, tall, "G", "k"); tall.helpOffset != 0 {
+		t.Errorf("k on a terminal tall enough: offset %d", tall.helpOffset)
+	}
+	grown := update(t, press(t, m, "G"), tea.WindowSizeMsg{Width: 140, Height: 34})
+	most := len(grown.helpBody(grown.helpInner())) - grown.boxRows()
+	if grown = press(t, grown, "k"); grown.helpOffset != most-1 {
+		t.Errorf("k after growing: offset %d, want %d", grown.helpOffset, most-1)
 	}
 	if m = press(t, m, "esc", "?"); m.helpOffset != 0 {
 		t.Errorf("opened again at offset %d", m.helpOffset)
