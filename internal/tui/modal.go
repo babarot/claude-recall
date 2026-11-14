@@ -104,6 +104,20 @@ type modalList struct {
 	choose modalKey
 }
 
+// move moves the cursor step items, going round past an end by one item
+// when wrap is set, else stopping there.
+func (l *modalList) move(m *Model, step int, wrap bool) {
+	n := l.len(*m)
+	if n == 0 {
+		return
+	}
+	i := l.at(*m) + step
+	if wrap && (step == 1 || step == -1) {
+		i = (i + n) % n
+	}
+	l.set(m, max(0, min(i, n-1)))
+}
+
 // modalHistory goes through the texts typed in a field before.
 type modalHistory struct {
 	older, newer func(m *Model)
@@ -192,12 +206,8 @@ func (m Model) modalKeyFor(s modalSpec, msg tea.KeyPressMsg) (tea.Model, tea.Cmd
 		default:
 			taken = false
 		}
-		if step != 0 && n > 0 {
-			i := l.at(m) + step
-			if l.wrap && (step == 1 || step == -1) {
-				i = (i + n) % n
-			}
-			l.set(&m, max(0, min(i, n-1)))
+		if step != 0 {
+			l.move(&m, step, l.wrap)
 		}
 		if taken || s.field == nil {
 			return m, nil
@@ -432,6 +442,20 @@ func (m Model) clickModal(s modalSpec, x, y int) Model {
 		}
 		s.list.set(&m, i)
 		_ = s.list.choose.do(&m)
+	}
+	return m
+}
+
+// wheelModal is the mouse wheel turned step rows while the modal shows: it
+// reaches the modal alone, moving its list (without going round an end, as
+// a turned wheel would) or scrolling its body three rows a step, and does
+// nothing to a modal with neither.
+func (m Model) wheelModal(s modalSpec, step int) Model {
+	switch {
+	case s.list != nil:
+		s.list.move(&m, step, false)
+	case s.body != nil:
+		s.body.scroll(&m, 3*step)
 	}
 	return m
 }
