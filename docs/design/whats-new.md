@@ -20,7 +20,7 @@ tagpr writes `CHANGELOG.md` on every release, one section per version, newest fi
 - Do not let an import replace a newer one with stale content by @babarot in https://github.com/babarot/claude-recall/pull/71
 ```
 
-The TUI reads it from `https://raw.githubusercontent.com/babarot/claude-recall/<tag>/CHANGELOG.md`, where `<tag>` is the newer release when one is known (its file has every section up to it), else the running version. raw.githubusercontent.com is not subject to the API's limit of 60 requests an hour.
+The TUI reads it from `https://raw.githubusercontent.com/babarot/claude-recall/<tag>/CHANGELOG.md`, where `<tag>` is the newer release when one is known (its file has every section up to it), else the running version, with the `v` the repository's tags have (`v1.16.0`; tags without it stop at 1.8.1). raw.githubusercontent.com is not subject to the API's limit of 60 requests an hour.
 
 It is fetched when the view opens, with a 5 s timeout, and kept in memory for the rest of the run. While it loads the view says so; a failure says why and gives the releases page, `https://github.com/babarot/claude-recall/releases`.
 

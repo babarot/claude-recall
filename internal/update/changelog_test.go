@@ -62,7 +62,8 @@ func TestParseRealChangelog(t *testing.T) {
 
 func TestChangelog(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/1.7.2/CHANGELOG.md" {
+		// The tags have their v, as tagpr writes them.
+		if r.URL.Path != "/v1.7.2/CHANGELOG.md" {
 			http.NotFound(w, r)
 			return
 		}
@@ -70,9 +71,13 @@ func TestChangelog(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := &Client{}
-	notes, err := c.Changelog(context.Background(), srv.URL, "1.7.2")
-	if err != nil || len(notes) != 1 || notes[0].Categories[0].Entries[0] != "Fix it (#1)" {
-		t.Fatalf("got %+v, %v", notes, err)
+	// The running version comes without its v, a release found may come
+	// with it; both name the tag.
+	for _, tag := range []string{"1.7.2", "v1.7.2"} {
+		notes, err := c.Changelog(context.Background(), srv.URL, tag)
+		if err != nil || len(notes) != 1 || notes[0].Categories[0].Entries[0] != "Fix it (#1)" {
+			t.Fatalf("%s: got %+v, %v", tag, notes, err)
+		}
 	}
 	if _, err := c.Changelog(context.Background(), srv.URL, "9.9.9"); err == nil {
 		t.Error("a missing tag is an error")
