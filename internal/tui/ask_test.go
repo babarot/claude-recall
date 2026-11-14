@@ -81,7 +81,7 @@ func TestAskFindsSessions(t *testing.T) {
 	m := askModel(t, f, config.Default().TUI)
 	m = press(t, m, "a")
 	if m.ask.stage != askTyping || !strings.Contains(screen(m), "Ask Claude") || !strings.Contains(screen(m), "claude -p · claude-sonnet-5-5") {
-		t.Fatalf("a should open the box:\n%s", screen(m))
+		t.Fatalf("a should open the modal:\n%s", screen(m))
 	}
 	m = press(t, m, "esc")
 	m = ask(t, m, "parser work")
@@ -97,7 +97,7 @@ func TestAskFindsSessions(t *testing.T) {
 			t.Errorf("answer lacks %q:\n%s", want, s)
 		}
 	}
-	// Enter jumps to the picked session and closes the box.
+	// Enter jumps to the picked session and closes the modal.
 	m = press(t, m, "j", "enter")
 	if m.ask.stage != askClosed || m.current().s.ID != "aaaaaaaa-1111" {
 		t.Fatalf("enter: stage %v selected %s", m.ask.stage, m.current().s.ID)
@@ -158,9 +158,9 @@ func TestAskCancelAndFail(t *testing.T) {
 	}
 	// The canceled run's answer comes too late to matter.
 	if m = settleAsk(t, m, cmd); m.ask.stage != askClosed {
-		t.Fatalf("a canceled run reopened the box: %v", m.ask.stage)
+		t.Fatalf("a canceled run reopened the modal: %v", m.ask.stage)
 	}
-	// q does not cancel, nor quit: esc alone steps out of a box.
+	// q does not cancel, nor quit: esc alone steps out of a modal.
 	m = press(t, m, "a", "x")
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m = press(t, asModel(t, next), "q"); m.ask.stage != askRunning || m.Result != nil {

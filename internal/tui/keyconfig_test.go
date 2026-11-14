@@ -118,7 +118,7 @@ func TestWithKeysTakesOverDefaults(t *testing.T) {
 		t.Fatalf("folders.back is %q", got)
 	}
 	if r := press(t, m, "enter"); !r.recall.open || r.Result != nil {
-		t.Fatalf("enter should recall: box %v result %+v", r.recall.open, r.Result)
+		t.Fatalf("enter should recall: modal %v result %+v", r.recall.open, r.Result)
 	}
 	// resume, without a key, leaves the footer and the key list.
 	footer := ansi.Strip(m.renderHelp())

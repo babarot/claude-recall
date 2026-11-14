@@ -130,7 +130,7 @@ func TestAskKeepsAndRecallsQuestions(t *testing.T) {
 		t.Fatalf("writes %q", got)
 	}
 
-	// Opened again, the box holds the last question; up goes past it to
+	// Opened again, the modal holds the last question; up goes past it to
 	// the one before, and down back to it.
 	m = press(t, m, "esc")
 	next, cmd := m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})

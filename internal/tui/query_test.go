@@ -178,7 +178,7 @@ func manyFolders(t *testing.T) Model {
 func TestSuggestionsScrollAndClick(t *testing.T) {
 	m := typeFilter(t, manyFolders(t), "in:proj")
 	if s := screen(m); !strings.Contains(s, "proj-07") || strings.Contains(s, "proj-08") || !strings.Contains(s, "↓ 4 more") {
-		t.Fatalf("the box should show 8 of 12:\n%s", s)
+		t.Fatalf("the suggestions should show 8 of 12:\n%s", s)
 	}
 	r, _, _, _, _ := m.suggestRect()
 	wheel := tea.MouseWheelMsg{X: r.x + 5, Y: r.y + 2, Button: tea.MouseWheelDown}
@@ -187,7 +187,7 @@ func TestSuggestionsScrollAndClick(t *testing.T) {
 	}
 	s := screen(m)
 	if !strings.Contains(s, "proj-11") || strings.Contains(s, "proj-03") || !strings.Contains(s, "↑ 4 more") {
-		t.Fatalf("scrolled to the end, the box should show proj-04 to proj-11:\n%s", s)
+		t.Fatalf("scrolled to the end, the suggestions should show proj-04 to proj-11:\n%s", s)
 	}
 	// The first row shown is proj-04; clicking it completes the term.
 	m = update(t, m, tea.MouseClickMsg{X: r.x + 5, Y: r.y + 1, Button: tea.MouseLeft})
@@ -198,7 +198,7 @@ func TestSuggestionsScrollAndClick(t *testing.T) {
 		t.Fatalf("after the click the list shows %s", got)
 	}
 	if _, _, _, _, open := m.suggestRect(); open {
-		t.Fatal("the box should close once a folder is picked")
+		t.Fatal("the suggestions should close once a folder is picked")
 	}
 	// Typing again starts at the top.
 	m = typeFilter(t, manyFolders(t), "in:proj")
@@ -241,7 +241,7 @@ func TestKeysGoToTheSuggestions(t *testing.T) {
 	if got := visibleIDs(m); got != "s08" {
 		t.Fatalf("list shows %s", got)
 	}
-	// With the box closed, the keys are the list's again.
+	// With the suggestions closed, the keys are the list's again.
 	m = press(t, m, "enter")
 	if m.mode != modeList {
 		t.Fatal("a second enter applies the filter")
@@ -254,14 +254,14 @@ func TestKeysGoToTheSuggestions(t *testing.T) {
 		t.Fatalf("tab after two downs gave %q", v)
 	}
 
-	// Esc closes the box first, then clears the filter.
+	// Esc closes the suggestions first, then clears the filter.
 	m = typeFilter(t, manyFolders(t), "in:proj")
 	m = press(t, m, "esc")
 	if _, _, _, _, open := m.suggestRect(); open || m.filter.Value() != "in:proj" {
-		t.Fatalf("esc should close the box and keep the text: %q", m.filter.Value())
+		t.Fatalf("esc should close the suggestions and keep the text: %q", m.filter.Value())
 	}
 	if m = press(t, m, "down"); m.cursor != 1 {
-		t.Fatalf("with the box closed, down moves the list: %d", m.cursor)
+		t.Fatalf("with the suggestions closed, down moves the list: %d", m.cursor)
 	}
 	if m = press(t, m, "esc"); m.filter.Value() != "" || m.mode != modeList {
 		t.Fatal("a second esc clears the filter")

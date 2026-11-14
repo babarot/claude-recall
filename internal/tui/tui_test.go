@@ -328,9 +328,9 @@ func TestRecall(t *testing.T) {
 	m, _ := newTestModel(t, config.Default().TUI, 140, 30)
 	m = press(t, m, "c") // first row: bbbbbbbb, whose folder is gone
 	if !m.recall.open || !strings.Contains(screen(m), "Recall in a new claude") {
-		t.Fatalf("c should open the box:\n%s", screen(m))
+		t.Fatalf("c should open the modal:\n%s", screen(m))
 	}
-	// Keys go to the box, not the list: q is typed, not quit.
+	// Keys go to the modal, not the list: q is typed, not quit.
 	m = typeText(t, m, " the q docs ")
 	m = press(t, m, "enter")
 	if m.Recall == nil || *m.Recall != (Recall{SessionID: "bbbbbbbb-2222", Topic: "the q docs"}) {
@@ -348,7 +348,7 @@ func TestRecallEmptyTopicAndEsc(t *testing.T) {
 	}
 	r := press(t, m, "c", "esc")
 	if r.recall.open || r.Recall != nil {
-		t.Fatalf("esc should close the box: open %v recall %+v", r.recall.open, r.Recall)
+		t.Fatalf("esc should close the modal: open %v recall %+v", r.recall.open, r.Recall)
 	}
 }
 
@@ -1068,7 +1068,7 @@ func TestListPagesWithCtrlD(t *testing.T) {
 	}
 }
 
-// ctrl+c quits from every pane, box and field, a running ask stopped.
+// ctrl+c quits from every pane, modal and field, a running ask stopped.
 func TestCtrlCQuitsFromAnywhere(t *testing.T) {
 	ctrlC := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	quits := func(name string, m Model) {

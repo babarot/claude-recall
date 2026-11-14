@@ -112,7 +112,7 @@ func TestRemappedKeys(t *testing.T) {
 		t.Fatalf("space should resume: result %v expanded %v", r.Result, r.expanded)
 	}
 
-	// A box opens on its remapped key, and closes on esc alone, not on the
+	// A modal opens on its remapped key, and closes on esc alone, not on the
 	// key that opened it.
 	m, _ = newTestModel(t, config.Default().TUI, 140, 40)
 	m.km.Global.Help = keys("H")

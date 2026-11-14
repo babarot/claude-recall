@@ -40,7 +40,7 @@ func TestUIStatesCovered(t *testing.T) {
 
 // TestFootersSayWhereTheyAre checks that each state's footer says
 // something, and that no state but the list falls back to the list's
-// keys, which do not work over a box or in a field.
+// keys, which do not work over a modal or in a field.
 func TestFootersSayWhereTheyAre(t *testing.T) {
 	cases := footerCases(t)
 	list := ansi.Strip(cases[0].m.renderHelp())
