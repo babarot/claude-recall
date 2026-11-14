@@ -19,6 +19,12 @@ func (m Model) paste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 	case uiAskTyping:
 		var cmd tea.Cmd
 		m.ask.input, cmd = m.ask.input.Update(msg)
+		m.askHist.recall.Leave() // a question recalled and changed is the user's
+		return m, cmd
+	case uiAskSearch:
+		var cmd tea.Cmd
+		m.askHist.search.input, cmd = m.askHist.search.input.Update(msg)
+		m.askHist.search.at = 0
 		return m, cmd
 	case uiFilter:
 		return m.typeFilter(msg)

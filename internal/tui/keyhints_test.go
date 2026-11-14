@@ -7,8 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/babarot/claude-recall/internal/askhistory"
 	"github.com/babarot/claude-recall/internal/config"
 )
 
@@ -54,6 +56,13 @@ func footerCases(t *testing.T) []footerCase {
 		a := base()
 		a.ask.stage = st
 		add("ask "+[]string{"closed", "typing", "running", "answered", "failed"}[st], a)
+	}
+	{
+		a := base()
+		a.askHist.list = []askhistory.Entry{{ID: "1", Question: "parser work", Reply: "2 sessions · the parser"}}
+		a = press(t, a, "a")
+		next, _ := a.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+		add("ask search", asModel(t, next))
 	}
 	add("key list", press(t, m, "?"))
 	add("sort menu", press(t, m, "s"))

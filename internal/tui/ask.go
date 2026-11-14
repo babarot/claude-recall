@@ -121,6 +121,7 @@ func (m *Model) askTick(seq int) tea.Cmd {
 
 // closeAsk hides the box, stopping a run.
 func (m *Model) closeAsk() {
+	m.askHist.search = askSearch{}
 	if m.ask.cancel != nil {
 		m.ask.cancel()
 		m.ask.cancel = nil
@@ -263,6 +264,11 @@ func (m Model) withAsk(screen string) string {
 	switch m.ask.stage {
 	case askTyping:
 		title, hint = "Ask Claude", m.frameHint(askTypingSpec)
+		if m.askHist.search.open {
+			title, hint = "Ask Claude", m.frameHint(askSearchSpec)
+			body = m.askSearchBody(inner)
+			break
+		}
 		body = []string{m.inputView(uiAskTyping, m.ask.input),
 			m.st.muted.Render(`  e.g. "the session where we fixed the terraform state" · "who looked at PR #7427"`), "",
 			m.st.dim.Render(fmt.Sprintf("  claude -p · %s · searches with recall only (no files, no shell)", config.ModelID(m.cfg.AskModel))),
