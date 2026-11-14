@@ -45,12 +45,14 @@ The Ask box keeps one height from typing to running: its body is five rows in bo
 
 ## How a modal is drawn
 
-A modal's declaration holds its box (`modalBox` in modal.go): its title, how wide it gets and the margin it leaves, the narrowest it is drawn at, its frame, where it is placed, what a click does, and its rows (`lines`), with what goes on its edges when not the hint. The boxes differ where the user sees it, and those differences are values of the declaration, not code of their own:
+A modal's declaration holds its box (`modalBox` in modal.go): its title, how wide it gets, the narrowest it is drawn at, its frame's color, where it is placed, what a click does, and its rows (`lines`), with what goes on its edges when not the hint. The boxes differ where the user sees it, and those differences are values of the declaration, not code of their own:
 
-| | Frame | Edge end | Margin | Placed | Click |
-|---|---|---|---|---|---|
-| key list, sort menu, what's new | border color (`frameRule`) | `─╮` | 2 | centered (`placeCenter`) | the key list and what's new close; the sort menu chooses the row clicked and closes outside (`clickList`) |
-| Ask, before recalling | accent color (`frameAccent`) | ` ╮` | 4 | third row (`placeTop`) | nothing |
+| | Frame | Placed | Click |
+|---|---|---|---|
+| key list, sort menu, what's new | border color (`frameRule`) | centered (`placeCenter`) | the key list and what's new close; the sort menu chooses the row clicked and closes outside (`clickList`) |
+| Ask, before recalling | accent color (`frameAccent`), as boxes the user types in | third row (`placeTop`) | nothing |
+
+Every box has the same frame otherwise, its top edge ending in `─╮`, and leaves two cells of the terminal's width (`boxMargin`).
 
 A selected row is drawn by each modal in its rows, but for two things a row tells `drawBox`: the key list's mark goes in the left margin (`bar`), and the rest of the row may have the selection's background (`selected`).
 

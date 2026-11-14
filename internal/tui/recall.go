@@ -53,7 +53,7 @@ func (m *Model) openRecall(id string) tea.Cmd {
 	m.openModalKind(modalRecall)
 	m.recall.id = id
 	m.recall.input.SetValue("")
-	m.recall.input.SetWidth(min(askWidth, m.width-4) - 8)
+	m.recall.input.SetWidth(m.boxWidth(recallSpec().box) - 8)
 	return m.recall.input.Focus()
 }
 
@@ -102,7 +102,7 @@ func recallSpec() modalSpec {
 		esc: closeKey(func(m *Model) { m.closeRecall() }),
 		box: &modalBox{
 			title: func(Model) string { return "Recall in a new claude" },
-			width: askWidth, margin: 4, minWidth: 30,
+			width: askWidth, minWidth: 30,
 			frame: frameAccent, place: placeTop,
 			lines: func(m Model, _, _ int) []boxLine { return m.recallLines() },
 		},

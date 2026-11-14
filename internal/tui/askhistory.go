@@ -195,7 +195,7 @@ func (m *Model) openAskSearch() tea.Cmd {
 	in := newInput()
 	in.Prompt = "ctrl+r › "
 	in.Placeholder = "a word of a question asked before"
-	in.SetWidth(min(askWidth, m.width-4) - 8 - len(in.Prompt))
+	in.SetWidth(m.boxWidth(askBox()) - 8 - len(in.Prompt))
 	m.askHist.search = askSearch{open: true, input: in}
 	m.ask.input.Blur()
 	return m.askHist.search.input.Focus()

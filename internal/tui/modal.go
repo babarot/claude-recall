@@ -40,16 +40,16 @@ type modalSpec struct {
 }
 
 // modalBox is how a modal is drawn as a box, where it is placed and what a
-// click does. The boxes differ in a few ways the user sees (the frame, the
-// margin, a selected row); those are values here, drawn by one drawBox.
+// click does. The boxes differ in a few ways the user sees (the frame's
+// color, a selected row); those are values here, drawn by one drawBox.
 type modalBox struct {
 	title func(m Model) string
-	// width is the widest the box gets, margin what the terminal's width
-	// is narrowed by, and minWidth the narrowest it is drawn at.
-	width, margin, minWidth int
-	frame                   boxFrame
-	place                   boxPlace
-	click                   boxClick
+	// width is the widest the box gets, and minWidth the narrowest it is
+	// drawn at; it leaves boxMargin of the terminal's width.
+	width, minWidth int
+	frame           boxFrame
+	place           boxPlace
+	click           boxClick
 	// lines are the box's rows, inner cells wide, at most rows of them.
 	lines func(m Model, inner, rows int) []boxLine
 	// edgeText, if set and not empty, is on the top edge in place of the
@@ -59,8 +59,8 @@ type modalBox struct {
 	bottom func(m Model, inner, rows int) string
 }
 
-// boxFrame is how a box's frame is drawn: in the border color, its hint
-// closed by ─╮, or in the accent color, its hint closed by ╮.
+// boxFrame is the color a box's frame is drawn in: the border color, or
+// the accent color for a box the user types in.
 type boxFrame int
 
 const (
@@ -341,7 +341,10 @@ func (m Model) boxRows(p boxPlace) int {
 }
 
 // boxWidth is how wide the box is drawn on this terminal.
-func (m Model) boxWidth(b *modalBox) int { return min(b.width, m.width-b.margin) }
+func (m Model) boxWidth(b *modalBox) int { return min(b.width, m.width-boxMargin) }
+
+// boxMargin is how much of the terminal's width a box leaves.
+const boxMargin = 2
 
 // boxRect is where the modal's box is on the screen, and false when the
 // terminal is too narrow for it.
@@ -369,20 +372,13 @@ func (m Model) drawBox(s modalSpec, w, rows int) []string {
 			hint = t
 		}
 	}
-	title := b.title(m)
 	border := m.st.rule
-	var top string
-	switch b.frame {
-	case frameAccent:
+	if b.frame == frameAccent {
 		border = m.st.id
-		fill := max(0, w-5-ansi.StringWidth(title)-ansi.StringWidth(hint)-2)
-		top = border.Render("╭─ ") + m.st.key.Render(title) + border.Render(" "+strings.Repeat("─", fill)+" ") + m.st.muted.Render(hint) + border.Render(" ╮")
-	default:
-		title, hint = " "+title+" ", " "+hint+" "
-		fill := max(0, w-4-ansi.StringWidth(title)-ansi.StringWidth(hint))
-		top = border.Render("╭─") + m.st.key.Render(title) + border.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + border.Render("─╮")
 	}
-	out := []string{top}
+	title, hint := " "+b.title(m)+" ", " "+hint+" "
+	fill := max(0, w-4-ansi.StringWidth(title)-ansi.StringWidth(hint))
+	out := []string{border.Render("╭─") + m.st.key.Render(title) + border.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + border.Render("─╮")}
 	for _, l := range b.lines(m, inner, rows) {
 		text := ansi.Truncate(l.text, inner, ellipsis)
 		pad := strings.Repeat(" ", max(0, inner-ansi.StringWidth(text)))

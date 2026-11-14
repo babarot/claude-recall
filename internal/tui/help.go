@@ -176,7 +176,7 @@ func helpSpec() modalSpec {
 		esc: closeKey(func(m *Model) { m.closeModal() }),
 		box: &modalBox{
 			title: func(Model) string { return "Keys" },
-			width: 64, margin: 2, minWidth: 30,
+			width: 64, minWidth: 30,
 			place: placeCenter, click: clickCloses,
 			lines: func(m Model, inner, rows int) []boxLine { return m.helpLines(inner, rows) },
 		},

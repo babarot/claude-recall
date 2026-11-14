@@ -92,7 +92,7 @@ func (m *Model) openAsk() tea.Cmd {
 	m.ask.stage = askTyping
 	m.ask.input.SetValue(m.ask.question)
 	m.ask.input.CursorEnd()
-	m.ask.input.SetWidth(min(askWidth, m.width-4) - 8)
+	m.ask.input.SetWidth(m.boxWidth(askBox()) - 8)
 	m.askHist.recall.Leave()
 	return tea.Batch(m.ask.input.Focus(), m.loadAskHistory())
 }
@@ -277,7 +277,7 @@ func askBox() *modalBox {
 			}
 			return "Ask Claude"
 		},
-		width: askWidth, margin: 4, minWidth: 30,
+		width: askWidth, minWidth: 30,
 		frame: frameAccent, place: placeTop,
 		lines: func(m Model, inner, rows int) []boxLine {
 			body := m.askLines(inner, rows)

@@ -16,7 +16,7 @@ ADR-006 had each modal declare the keys it reads. The rest of a modal was writte
 - Each modal declares itself in its own file, as a function. The shared mechanism, [modal.go](../../internal/tui/modal.go), knows no modal: it reaches a Model only for the keymap, the key hints, the screen's size and styles, closing the modal that shows, and its own methods, which [modal_test.go](../../internal/tui/modal_test.go) checks by the names of the parameters it declares. Which state is which modal is said in one place, beside the list of states.
 - Declarations are functions, not package variables: a declaration's funcs reach the model's methods, and Go's initialization order follows them into a cycle once one reaches the place that says which modal shows.
 - Rejected: keeping each modal's drawing and placement in its own code with a shared helper. The places and margins would stay four kinds of code, and a click's hit-test would again repeat a modal's placement apart from its drawing.
-- Rejected: one way of drawing every box at once. The boxes differ in frame, edge, margin and the selected row, so drawing them one way would change what the user sees; that is left as its own decision.
+- Rejected: drawing every box one way in the same change. The boxes differed where the user sees it, so drawing them one way would change what the user sees; that is left as its own decision.
 
 ## Consequences
 
