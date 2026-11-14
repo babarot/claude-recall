@@ -113,17 +113,8 @@ func (m Model) draw() string {
 	if m.width == 0 || m.height == 0 || m.settling {
 		return ""
 	}
-	switch m.uiState() {
-	case uiRecall:
-		return m.withRecall(m.renderScreen())
-	case uiAskTyping, uiAskSearch, uiAskRunning, uiAskAnswered, uiAskFailed:
-		return m.withAsk(m.renderScreen())
-	case uiHelp:
-		return m.withHelp(m.renderScreen())
-	case uiSort:
-		return m.withSortMenu(m.renderScreen())
-	case uiWhatsNew:
-		return m.withWhatsNew(m.renderScreen())
+	if s, ok := m.openModal(); ok && s.box != nil {
+		return m.drawModal(s, m.renderScreen())
 	}
 	return m.renderScreen()
 }

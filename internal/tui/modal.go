@@ -7,6 +7,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // A modal opens over the screen, drawn as a box, and takes every key while
@@ -34,6 +35,63 @@ type modalSpec struct {
 	edited func(m *Model)
 	// esc is what esc does, the only key that closes a modal.
 	esc modalKey
+	// box is how the modal is drawn, placed and clicked.
+	box *modalBox
+}
+
+// modalBox is how a modal is drawn as a box, where it is placed and what a
+// click does. The boxes differ in a few ways the user sees (the frame, the
+// margin, a selected row); those are values here, drawn by one drawBox.
+type modalBox struct {
+	title func(m Model) string
+	// width is the widest the box gets, margin what the terminal's width
+	// is narrowed by, and minWidth the narrowest it is drawn at.
+	width, margin, minWidth int
+	frame                   boxFrame
+	place                   boxPlace
+	click                   boxClick
+	// lines are the box's rows, inner cells wide, at most rows of them.
+	lines func(m Model, inner, rows int) []boxLine
+	// edgeText, if set and not empty, is on the top edge in place of the
+	// hint.
+	edgeText func(m Model) string
+	// bottom, if set, is on the bottom edge, at its right.
+	bottom func(m Model, inner, rows int) string
+}
+
+// boxFrame is how a box's frame is drawn: in the border color, its hint
+// closed by ─╮, or in the accent color, its hint closed by ╮.
+type boxFrame int
+
+const (
+	frameRule boxFrame = iota
+	frameAccent
+)
+
+// boxPlace is where a box is placed: centered top to bottom, or on the
+// third row.
+type boxPlace int
+
+const (
+	placeCenter boxPlace = iota
+	placeTop
+)
+
+// boxClick is what a click does while the box shows.
+type boxClick int
+
+const (
+	clickIgnored boxClick = iota
+	clickCloses           // anywhere
+	clickList             // chooses the row of the list clicked, closes outside
+)
+
+// boxLine is a row of a box: its text, whether the box's mark goes in the
+// left margin (the key list's here), and whether the rest of the row has
+// the selection's background.
+type boxLine struct {
+	text          string
+	bar, selected bool
 }
 
 // modalList is a list to choose from, moved by nav's keys.
@@ -271,3 +329,113 @@ func (s modalSpec) navOps() []string {
 }
 
 var modalNavOps = []string{"up", "down", "page_up", "page_down", "top", "bottom"}
+
+// boxRows is how many rows a box placed at p may hold, decided from the
+// screen's height before the box is placed: a centered box's row depends
+// on its height.
+func (m Model) boxRows(p boxPlace) int {
+	if p == placeTop {
+		return m.height - 6
+	}
+	return m.height - 4
+}
+
+// boxWidth is how wide the box is drawn on this terminal.
+func (m Model) boxWidth(b *modalBox) int { return min(b.width, m.width-b.margin) }
+
+// boxRect is where the modal's box is on the screen, and false when the
+// terminal is too narrow for it.
+func (m Model) boxRect(s modalSpec) (rect, bool) {
+	b := s.box
+	if b == nil || m.boxWidth(b) < b.minWidth {
+		return rect{}, false
+	}
+	w := m.boxWidth(b)
+	h := len(b.lines(m, w-4, m.boxRows(b.place))) + 2
+	y := 2
+	if b.place == placeCenter {
+		y = max(0, (m.height-h)/2)
+	}
+	return rect{(m.width - w) / 2, y, w, h}, true
+}
+
+// drawBox draws the modal's box w cells wide, holding at most rows rows.
+func (m Model) drawBox(s modalSpec, w, rows int) []string {
+	b := s.box
+	inner := w - 4
+	hint := m.edgeHint(s)
+	if b.edgeText != nil {
+		if t := b.edgeText(m); t != "" {
+			hint = t
+		}
+	}
+	title := b.title(m)
+	border := m.st.rule
+	var top string
+	switch b.frame {
+	case frameAccent:
+		border = m.st.id
+		fill := max(0, w-5-ansi.StringWidth(title)-ansi.StringWidth(hint)-2)
+		top = border.Render("╭─ ") + m.st.key.Render(title) + border.Render(" "+strings.Repeat("─", fill)+" ") + m.st.muted.Render(hint) + border.Render(" ╮")
+	default:
+		title, hint = " "+title+" ", " "+hint+" "
+		fill := max(0, w-4-ansi.StringWidth(title)-ansi.StringWidth(hint))
+		top = border.Render("╭─") + m.st.key.Render(title) + border.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + border.Render("─╮")
+	}
+	out := []string{top}
+	for _, l := range b.lines(m, inner, rows) {
+		text := ansi.Truncate(l.text, inner, ellipsis)
+		pad := strings.Repeat(" ", max(0, inner-ansi.StringWidth(text)))
+		if l.selected {
+			pad = m.st.selected.Render(pad)
+		}
+		if l.bar {
+			out = append(out, border.Render("│")+m.st.bar.Render("▎")+text+pad+border.Render(" │"))
+			continue
+		}
+		out = append(out, border.Render("│ ")+text+pad+border.Render(" │"))
+	}
+	if b.bottom != nil {
+		label := b.bottom(m, inner, rows)
+		return append(out, border.Render("╰"+strings.Repeat("─", max(0, w-3-len(label))))+m.st.muted.Render(label)+border.Render("─╯"))
+	}
+	return append(out, border.Render("╰"+strings.Repeat("─", w-2)+"╯"))
+}
+
+// drawModal lays the modal's box over the screen, where boxRect places
+// it; a terminal too narrow for it leaves it undrawn, and the footer says
+// how out.
+func (m Model) drawModal(s modalSpec, screen string) string {
+	r, ok := m.boxRect(s)
+	if !ok {
+		return screen
+	}
+	lines := strings.Split(screen, "\n")
+	for i, l := range m.drawBox(s, r.w, m.boxRows(s.box.place)) {
+		if j := r.y + i; j < len(lines) {
+			lines[j] = overlay(lines[j], l, r.x)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// clickModal is a click at x, y while the modal shows.
+func (m Model) clickModal(s modalSpec, x, y int) Model {
+	if s.box == nil {
+		return m
+	}
+	switch s.box.click {
+	case clickCloses:
+		m.closeModal()
+	case clickList:
+		r, ok := m.boxRect(s)
+		i := y - r.y - 1
+		if !ok || !r.contains(x, y) || i < 0 || i >= s.list.len(m) {
+			m.closeModal()
+			return m
+		}
+		s.list.set(&m, i)
+		_ = s.list.choose.do(&m)
+	}
+	return m
+}

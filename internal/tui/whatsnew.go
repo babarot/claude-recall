@@ -145,12 +145,12 @@ func (m *Model) scrollWhatsNew(step int) {
 	m.whatsNew.offset = max(0, min(m.whatsNew.offset+step, n-m.whatsNewRows()))
 }
 
-func (m Model) whatsNewWidth() int { return min(whatsNewWidth, m.width-2) }
+func (m Model) whatsNewWidth() int { return m.boxWidth(whatsNewSpec().box) }
 
 func (m Model) whatsNewInner() int { return m.whatsNewWidth() - 4 }
 
 // whatsNewRows is how many lines of notes the box shows at once.
-func (m Model) whatsNewRows() int { return max(1, m.height-4) }
+func (m Model) whatsNewRows() int { return max(1, m.boxRows(placeCenter)) }
 
 // whatsNewBody is every line of the box's content, at inner columns.
 func (m Model) whatsNewBody(inner int) []string {
@@ -229,43 +229,13 @@ func (m Model) noteEntry(e string, inner int) []string {
 	return out
 }
 
-// withWhatsNew lays the box over the screen, centered. A terminal too
-// narrow for it leaves it undrawn; the footer says how out.
-func (m Model) withWhatsNew(screen string) string {
-	w := m.whatsNewWidth()
-	if w < 30 {
-		return screen
-	}
-	inner := w - 4
+// whatsNewShown is the part of the notes the box shows, inner cells wide,
+// rows at a time from where it is scrolled to, and where that part starts.
+func (m Model) whatsNewShown(inner, rows int) (shown []string, off, total int) {
 	body := m.whatsNewBody(inner)
-	rows := min(len(body), m.whatsNewRows())
-	off := max(0, min(m.whatsNew.offset, len(body)-rows))
-	shown := body[off : off+rows]
-
-	b := m.st.rule
-	title := " What's new "
-	hint := " " + m.edgeHint(whatsNewSpec()) + " "
-	fill := max(0, w-4-len(title)-ansi.StringWidth(hint))
-	box := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
-	for _, l := range shown {
-		l = ansi.Truncate(l, inner, ellipsis)
-		box = append(box, b.Render("│ ")+l+strings.Repeat(" ", max(0, inner-ansi.StringWidth(l)))+b.Render(" │"))
-	}
-	pos := ""
-	if len(body) > rows {
-		pos = fmt.Sprintf(" %d-%d/%d ", off+1, off+rows, len(body))
-	}
-	box = append(box, b.Render("╰"+strings.Repeat("─", max(0, w-3-len(pos))))+m.st.muted.Render(pos)+b.Render("─╯"))
-
-	lines := strings.Split(screen, "\n")
-	top := max(0, (len(lines)-len(box))/2)
-	x := (m.width - w) / 2
-	for i, l := range box {
-		if j := top + i; j < len(lines) {
-			lines[j] = overlay(lines[j], l, x)
-		}
-	}
-	return strings.Join(lines, "\n")
+	rows = min(len(body), max(1, rows))
+	off = max(0, min(m.whatsNew.offset, len(body)-rows))
+	return body[off : off+rows], off, len(body)
 }
 
 // TellOfNewSettings has an update tell of the settings it added, in the
@@ -317,5 +287,26 @@ func whatsNewSpec() modalSpec {
 			page:   func(m Model) int { return max(1, m.whatsNewRows()-1) },
 		},
 		esc: closeKey(func(m *Model) { m.closeModal() }),
+		box: &modalBox{
+			title: func(Model) string { return "What's new" },
+			width: whatsNewWidth, margin: 2, minWidth: 30,
+			place: placeCenter, click: clickCloses,
+			lines: func(m Model, inner, rows int) []boxLine {
+				shown, _, _ := m.whatsNewShown(inner, rows)
+				out := make([]boxLine, len(shown))
+				for i, l := range shown {
+					out[i] = boxLine{text: l}
+				}
+				return out
+			},
+			// Where the part shown is in the notes, when they are longer.
+			bottom: func(m Model, inner, rows int) string {
+				shown, off, total := m.whatsNewShown(inner, rows)
+				if total <= len(shown) {
+					return ""
+				}
+				return fmt.Sprintf(" %d-%d/%d ", off+1, off+len(shown), total)
+			},
+		},
 	}
 }

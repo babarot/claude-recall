@@ -352,5 +352,6 @@ func askSearchSpec() modalSpec {
 		edited: func(m *Model) { m.askHist.search.at = 0 },
 		esc: modalKey{keys: []string{"esc"}, word: "back", edge: true,
 			do: func(m *Model) tea.Cmd { return m.closeAskSearch() }},
+		box: askBox(),
 	}
 }

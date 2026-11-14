@@ -179,7 +179,10 @@ func TestSortMenu(t *testing.T) {
 	}
 	// A click on an order applies it.
 	m = press(t, m, "s")
-	r := m.sortMenuRect()
+	r, ok := m.boxRect(sortSpec())
+	if !ok {
+		t.Fatal("no sort menu drawn")
+	}
 	m = update(t, m, tea.MouseClickMsg{X: r.x + 4, Y: r.y + 2, Button: tea.MouseLeft})
 	if sorts[m.sortIdx].name != "Started" || (m.modal == modalSort) {
 		t.Fatalf("click: sort %s", sorts[m.sortIdx].name)
