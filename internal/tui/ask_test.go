@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -228,5 +229,43 @@ func TestAskShowsModelAndCost(t *testing.T) {
 	// The box names the model it will use, as claude takes it.
 	if s := screen(press(t, askModel(t, f, config.Default().TUI), "a")); !strings.Contains(s, "claude -p · claude-sonnet-5-5") {
 		t.Fatalf("typing:\n%s", s)
+	}
+}
+
+// askBoxHeight is how many rows the Ask box takes on the screen.
+func askBoxHeight(t *testing.T, m Model) int {
+	t.Helper()
+	top := -1
+	for i, l := range strings.Split(screen(m), "\n") {
+		switch {
+		case top < 0 && strings.Contains(l, "╭─ Ask Claude"):
+			top = i
+		case top >= 0 && strings.Contains(l, "╰"):
+			return i - top + 1
+		}
+	}
+	t.Fatalf("no Ask box:\n%s", screen(m))
+	return 0
+}
+
+// A running ask's box is as tall as the box the question was typed in,
+// however many searches it has made: the newest push the oldest out.
+func TestAskBoxKeepsItsHeight(t *testing.T) {
+	m := askModel(t, &fakeAsk{}, config.Default().TUI)
+	m = press(t, m, "a")
+	typing := askBoxHeight(t, m)
+	m.ask.stage, m.ask.question = askRunning, "q"
+	for n := range 6 {
+		m.ask.steps = nil
+		for i := range n {
+			m.ask.steps = append(m.ask.steps, fmt.Sprintf("search %d", i))
+		}
+		if h := askBoxHeight(t, m); h != typing {
+			t.Errorf("%d searches: the box is %d rows, %d while typing", n, h, typing)
+		}
+	}
+	s := screen(m)
+	if strings.Contains(s, "search 1") || !strings.Contains(s, "search 2") || !strings.Contains(s, "search 4") {
+		t.Errorf("not the last three searches:\n%s", s)
 	}
 }

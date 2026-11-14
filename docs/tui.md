@@ -62,7 +62,7 @@ claude -p <question> --model <ask_model> --no-session-persistence \
 
 It runs signed in as you, a Claude plan included, so recall needs no API key. It runs from a directory of its own, so no project's settings apply, and no session is saved.
 
-- While it works, the box shows each search it makes; `Esc` cancels.
+- While it works, the box shows the last three searches it made, in a box as tall as the one the question was typed in; `Esc` cancels.
 - The answer lists the sessions found with why each matched, the model, the time taken and the cost claude reports.
 - `↑` `↓` (or `j` `k`) pick a session and `Enter` jumps to it (clearing a folder or filter that hides it), `f` narrows the list to all of them in Claude's order with the reason under each row, and `r` asks again. `Esc` clears the narrowed list.
 - The reason stays in Conversation for a session Claude picked.
