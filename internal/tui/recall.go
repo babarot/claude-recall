@@ -44,7 +44,7 @@ type recallState struct {
 }
 
 func newRecallInput() textinput.Model {
-	in := textinput.New()
+	in := newInput()
 	in.Prompt = "› "
 	in.Placeholder = "what to recall about it (empty: pick up where it left off)"
 	return in
@@ -96,7 +96,7 @@ func (m Model) withRecall(screen string) string {
 			body = append(body, m.st.title.Render(r.title)+m.st.muted.Render(meta), "")
 		}
 	}
-	body = append(body, m.recall.input.View(), "")
+	body = append(body, m.inputView(uiRecall, m.recall.input), "")
 	where := "  claude with recall's MCP server"
 	if m.startDir != "" {
 		where += ", in " + worktree.TildePath(m.startDir, m.home)

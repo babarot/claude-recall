@@ -220,11 +220,11 @@ func New(sessions []db.Session, source Source, cfg config.TUI) Model {
 		rows[i] = newRow(s, home, resolver)
 	}
 
-	fi := textinput.New()
+	fi := newInput()
 	fi.Prompt = "/ "
 	fi.Placeholder = "filter by title, folder, branch, ID or what was said · folder:name · text:word"
 
-	ss := textinput.New()
+	ss := newInput()
 	ss.Prompt = "/ "
 	ss.Placeholder = "search folders"
 	ss.SetWidth(sidebarWidth - 12)

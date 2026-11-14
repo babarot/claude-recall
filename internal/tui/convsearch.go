@@ -75,7 +75,7 @@ type convLoaded struct {
 }
 
 func newConvSearchInput() textinput.Model {
-	in := textinput.New()
+	in := newInput()
 	in.Prompt = "/ "
 	in.Placeholder = "search the conversation"
 	in.SetWidth(40)
@@ -337,7 +337,7 @@ func (m Model) convSearchLine() string {
 		count = ""
 	}
 	if m.conv.typing {
-		return m.conv.input.View() + count
+		return m.inputView(uiConvSearch, m.conv.input) + count
 	}
 	return m.st.filter.Render("/ "+m.conv.input.Value()) + count
 }
