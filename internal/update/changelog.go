@@ -65,10 +65,13 @@ func ParseChangelog(src string) []Release {
 	return out
 }
 
-// Changelog fetches CHANGELOG.md as of tag, which has every release up to
-// it, and parses it.
+// Changelog fetches CHANGELOG.md as of release tag, which has every
+// release up to it, and parses it. tag is a version, with or without its
+// v; the repository's tags have it (tagpr's vPrefix), and a version
+// without it names no tag since 1.8.1.
 func (c *Client) Changelog(ctx context.Context, rawURL, tag string) ([]Release, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL+"/"+tag+"/CHANGELOG.md", nil)
+	ref := "v" + strings.TrimPrefix(tag, "v")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL+"/"+ref+"/CHANGELOG.md", nil)
 	if err != nil {
 		return nil, err
 	}
