@@ -6,9 +6,9 @@ What a modal is in `internal/tui`, the words used for the parts of the screen ar
 
 | Word | What it is | In the code |
 |---|---|---|
-| modal | A box drawn over the screen that takes every key while it shows, until `esc` closes it. The user-facing docs call it a box (the Ask box, the sort menu) and never a modal; the two words are one thing | `modalSpec`, `openModal`, `modalSpecs` in [modal.go](../../internal/tui/modal.go) |
+| modal | A box drawn over the screen that takes every key while it shows, until `esc` closes it, but `ctrl+c`, which quits from anywhere (a running ask stopped first). The user-facing docs call it a box (the Ask box, the sort menu) and never a modal; the two words are one thing | `modalSpec`, `openModal`, `modalSpecs` in [modal.go](../../internal/tui/modal.go) |
 | box | What a modal is drawn as: its lines inside a rounded frame, with a title and a hint on the top edge. Used of a modal as the user sees it, not of any frame | `boxOver` in [ask.go](../../internal/tui/ask.go); the key list, the sort menu and what's new draw their own |
-| edge | The top line of a box, which holds its title and the hint made from the modal's declaration (`frameHint`) | `frameHint` in modal.go |
+| edge | The top line of a box, which holds its title and the hint made from the modal's declaration (`frameHint`); Ask's answer holds the model, the time taken and the cost there instead (`askSummary`) | `frameHint` in modal.go |
 | overlay | Drawing lines over the screen's lines from a cell on, keeping the screen left and right of them. It is how a modal is put on the screen, and how the filter's suggestions are; it is not a modal | `overlay` in [query.go](../../internal/tui/query.go) |
 | field | Where text is typed: the filter, the folder search, the conversation search, and the fields inside modals (Ask's question, the search of Ask's questions, the topic before recalling) | `textinput.Model` made by `newInput` in [input.go](../../internal/tui/input.go) |
 | pane | An area that can have the focus: the session list, the folder list, the detail frames and the reading view | `focus`, `keyContext` |
@@ -40,7 +40,7 @@ The Ask box keeps one height from typing to running: its body is five rows in bo
 ## How a modal is drawn
 
 1. `draw` in view.go draws the screen as if no modal were open (`renderScreen`).
-2. The modal of the state, if any, builds its lines and its box (`withAsk`, `withRecall`, `withHelp`, `withSortMenu`, `withWhatsNew`), with the hint on its edge from `frameHint`.
+2. The modal of the state, if any, builds its lines and its box (`withAsk`, `withRecall`, `withHelp`, `withSortMenu`, `withWhatsNew`), with the hint on its edge from `frameHint`, or, on Ask's answer, what the answer took (`askSummary`).
 3. It overlays its box on the screen's lines with `overlay`, from the row and column it is placed at. The screen under it is not dimmed.
 4. `View` takes the cursor's mark out of the drawn screen and puts the terminal's cursor there, when a field is typed in ([input.go](../../internal/tui/input.go)).
 
@@ -48,7 +48,7 @@ Each modal places itself in step 3; the places differ, and no part of the code m
 
 ## How a modal reads keys
 
-`update` in model.go gives a key to the modal of the state through `modalKeyFor` in modal.go, before any field or pane. The order, the parts and why are in [keybindings.md](keybindings.md#6-a-modals-keys-and-closing-it) and ADR-006. The footer while a modal shows, and the hint on its edge, are made from the same declaration (`hints`), so they never name a key the modal does not read.
+`update` in model.go reads `ctrl+c` first, which quits from anywhere, and then gives a key to the modal of the state through `modalKeyFor` in modal.go, before any field or pane. The order, the parts and why are in [keybindings.md](keybindings.md#6-a-modals-keys-and-closing-it) and ADR-006. The footer while a modal shows, and the hint on its edge (but on Ask's answer), are made from the same declaration (`hints`), so they never name a key the modal does not read.
 
 ## Not modals
 
