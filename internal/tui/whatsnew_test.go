@@ -72,10 +72,11 @@ func TestWhatsNew(t *testing.T) {
 		t.Errorf("fetched %v, want the newer release's", *tags)
 	}
 
-	// Closed by w, esc and q; open again without fetching again.
-	for _, k := range []string{"w", "esc", "q"} {
-		if got := press(t, m, k).uiState(); got == uiWhatsNew {
-			t.Errorf("%s did not close it", k)
+	// Closed by esc alone, not by w or q; open again without fetching
+	// again.
+	for _, k := range []string{"w", "q"} {
+		if got := press(t, m, k).uiState(); got != uiWhatsNew {
+			t.Errorf("%s closed it", k)
 		}
 	}
 	m = press(t, m, "esc")

@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -63,22 +62,6 @@ func (m *Model) closeRecall() {
 	m.recall.input.Blur()
 }
 
-// updateRecall handles a key while the box shows.
-func (m Model) updateRecall(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "enter":
-		m.Recall = &Recall{SessionID: m.recall.id, Topic: strings.TrimSpace(m.recall.input.Value())}
-		m.closeRecall()
-		return m, m.imagesQuit()
-	case "esc":
-		m.closeRecall()
-		return m, nil
-	}
-	var cmd tea.Cmd
-	m.recall.input, cmd = m.recall.input.Update(msg)
-	return m, cmd
-}
-
 // withRecall lays the box over the screen.
 func (m Model) withRecall(screen string) string {
 	w := min(askWidth, m.width-4)
@@ -102,5 +85,5 @@ func (m Model) withRecall(screen string) string {
 		where += ", in " + worktree.TildePath(m.startDir, m.home)
 	}
 	body = append(body, m.st.dim.Render(where))
-	return m.boxOver(screen, w, "Recall in a new claude", "enter start · esc close", body)
+	return m.boxOver(screen, w, "Recall in a new claude", m.frameHint(recallSpec), body)
 }

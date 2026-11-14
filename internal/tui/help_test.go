@@ -23,21 +23,14 @@ func TestQuestionMarkShowsTheKeys(t *testing.T) {
 			t.Errorf("key list lacks %q:\n%s", want, s)
 		}
 	}
-	// Other keys do nothing while it shows; ?, esc and q close it.
+	// Other keys do nothing while it shows, the key that opened it and q
+	// among them; esc alone closes it.
 	cursor := m.cursor
-	if m = press(t, m, "j", "s"); m.cursor != cursor || !m.helpOpen {
-		t.Fatal("keys should not reach the list behind the key list")
+	if m = press(t, m, "j", "s", "?", "q"); m.cursor != cursor || !m.helpOpen || m.Result != nil {
+		t.Fatal("keys should not reach the list behind the key list, nor close it")
 	}
-	for _, k := range []string{"?", "esc", "q"} {
-		if !m.helpOpen {
-			m = press(t, m, "?")
-		}
-		if m = press(t, m, k); m.helpOpen {
-			t.Errorf("%s should close the key list", k)
-		}
-	}
-	if m.Result != nil {
-		t.Fatal("q closed the list, it should not quit")
+	if m = press(t, m, "esc"); m.helpOpen {
+		t.Error("esc should close the key list")
 	}
 	// In the filter, ? is a character to type.
 	m = press(t, m, "/", "?")
@@ -99,7 +92,7 @@ func TestHelpReadingFirst(t *testing.T) {
 // TestNarrowModalsSayHowOut checks that on a terminal too narrow to draw
 // the key list or the sort menu, the footer still says how to close it.
 func TestNarrowModalsSayHowOut(t *testing.T) {
-	for k, want := range map[string]string{"?": "esc q close", "s": "esc close"} {
+	for k, want := range map[string]string{"?": "esc close", "s": "esc close"} {
 		m, _ := newTestModel(t, config.Default().TUI, 25, 20)
 		m = press(t, m, k)
 		if got := ansi.Strip(m.render()); !strings.Contains(got, want) {

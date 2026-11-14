@@ -651,21 +651,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == pasteKey && st.typing() {
 			return m, readClipboard
 		}
+		if s, ok := m.openModal(); ok {
+			return m.modalKeyFor(s, msg)
+		}
 		switch st {
-		case uiRecall:
-			return m.updateRecall(msg)
-		case uiAskTyping, uiAskRunning, uiAskAnswered, uiAskFailed:
-			return m.updateAsk(msg)
-		case uiSort:
-			return m.updateSortMenu(msg)
-		case uiWhatsNew:
-			return m.updateWhatsNew(msg)
-		case uiHelp:
-			// The key list closes on esc, q or the key that opened it.
-			if s := msg.String(); s == "esc" || s == "q" || key.Matches(msg, m.km.Global.Help) {
-				m.helpOpen = false
-			}
-			return m, nil
 		case uiFilter:
 			return m.updateFilter(msg)
 		case uiFolderSearch:

@@ -18,8 +18,8 @@ import (
 // The keymap holds the keys of every operation a pane or the whole TUI
 // offers. Each operation's keys are ordered: the key hints name them by
 // position ({down.1} is j), so the order is part of how they show. esc,
-// the keys inside boxes and the keys of a field being typed in are fixed
-// and not in it.
+// a modal's own keys and the keys of a field being typed in are fixed and
+// not in it; a modal moves and scrolls on nav's keys (see modal.go).
 
 // globalKeys work in any pane.
 type globalKeys struct {
@@ -227,20 +227,30 @@ func (k keyMap) keyScopes() []struct {
 	fixed []string
 } {
 	all := k.byName()
-	return []struct {
+	type scope = struct {
 		name  string
 		ops   []namedKey
 		fixed []string
-	}{
+	}
+	out := []scope{
 		{"the session list", pick(all, opsIn(ctxList)...), []string{"esc"}},
 		{"a frame or the reading view", pick(all, opsIn(ctxFrame)...), []string{"esc"}},
 		{"the folder list", pick(all, opsIn(ctxFolders)...), []string{"esc"}},
-		// Boxes close on the key that opened them, beside their own keys.
-		{"the key list", pick(all, "help"), []string{"esc", "q"}},
-		{"the sort menu", pick(all, "sort"), []string{"down", "j", "ctrl+n", "tab", "up", "k", "ctrl+p", "shift+tab",
-			"enter", "space", "esc", "q", "1", "2", "3", "4"}},
-		{"what's new", pick(all, "whats_new", "up", "down", "page_up", "page_down", "top", "bottom"), []string{"esc", "q"}},
 	}
+	// A modal reads nav's keys if it has a list or a body, beside the keys
+	// it reads as written (see modal.go); it reads no other operation.
+	for st := range numUIStates {
+		s, ok := modalSpecs[st]
+		if !ok {
+			continue
+		}
+		var ops []namedKey
+		if s.readsNav() {
+			ops = pick(all, modalNavOps...)
+		}
+		out = append(out, scope{"the " + st.String(), ops, s.fixedKeys()})
+	}
+	return out
 }
 
 // conflict is a key two operations, or an operation and a fixed key

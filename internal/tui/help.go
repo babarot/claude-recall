@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// ? shows every key, grouped by where it works, over the screen; ?, Esc or
-// q closes it. The group of the pane it was opened from comes first, marked
+// ? shows every key, grouped by where it works, over the screen; Esc
+// closes it. The group of the pane it was opened from comes first, marked
 // as the selected row is, and keys that do not work there are muted.
 
 // helpRow is a key hint template (see hintKeys) and what it does, which may
@@ -180,7 +180,7 @@ func (m Model) helpBox(w, h int) []string {
 		body = append(body[:max(0, h-3)], helpLine{text: m.st.muted.Render("… a taller terminal shows the rest")})
 	}
 	title := " Keys "
-	hint := " " + m.hintKeys("{help.0} esc q close") + " "
+	hint := " " + m.frameHint(modalSpecs[uiHelp]) + " "
 	fill := max(0, w-4-len(title)-ansi.StringWidth(hint))
 	out := []string{b.Render("╭─") + m.st.key.Render(title) + b.Render(strings.Repeat("─", fill)) + m.st.muted.Render(hint) + b.Render("─╮")}
 	for _, l := range body {

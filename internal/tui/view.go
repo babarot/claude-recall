@@ -350,6 +350,9 @@ func (m Model) renderHelp() string {
 	// esc and the keys of a box or a field being typed in are written as
 	// they are, since they cannot be remapped.
 	var pairs [][2]string
+	if s, ok := m.openModal(); ok {
+		pairs = s.hints(false)
+	}
 	switch m.uiState() {
 	case uiFilter:
 		pairs = [][2]string{{"enter", "apply"}, {"esc", "clear"}, {"↑↓", "move"}}
@@ -360,24 +363,6 @@ func (m Model) renderHelp() string {
 		} else if _, _, _, _, ok := m.keyTerm(); !ok {
 			pairs = append(pairs, [2]string{"folder: text: title: branch: worktree: id:", "one field"})
 		}
-	case uiRecall:
-		pairs = [][2]string{{"enter", "start claude"}, {"esc", "close"}}
-	// The key list and the sort menu take every key, and a terminal too
-	// narrow for them leaves them undrawn; the footer says how out, first.
-	case uiHelp:
-		pairs = [][2]string{{"{help.0} esc q", "close"}}
-	case uiWhatsNew:
-		pairs = [][2]string{{"{whats_new.0} esc q", "close"}, {"{up.0}{down.0}", "scroll"}, {"{page_down.0} {page_up.0}", "page"}}
-	case uiSort:
-		pairs = [][2]string{{"esc", "close"}, {"enter", "apply"}, {"↑↓", "pick"}, {fmt.Sprintf("1-%d", len(sorts)), "apply that one"}}
-	case uiAskTyping:
-		pairs = [][2]string{{"enter", "ask"}, {"esc", "close"}}
-	case uiAskRunning:
-		pairs = [][2]string{{"esc", "cancel"}}
-	case uiAskAnswered:
-		pairs = [][2]string{{"↑↓", "pick"}, {"enter", "open"}, {"f", "filter the list to these"}, {"r", "ask again"}, {"esc", "close"}}
-	case uiAskFailed:
-		pairs = [][2]string{{"r", "ask again"}, {"esc", "close"}}
 	case uiFolderSearch:
 		pairs = [][2]string{{"↑↓", "folder"}, {"enter", "done"}, {"esc", "clear"}}
 	case uiFolders:

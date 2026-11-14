@@ -159,12 +159,13 @@ func TestAskCancelAndFail(t *testing.T) {
 	if m = settleAsk(t, m, cmd); m.ask.stage != askClosed {
 		t.Fatalf("a canceled run reopened the box: %v", m.ask.stage)
 	}
-	// q cancels too, as it closes the other boxes.
+	// q does not cancel, nor quit: esc alone steps out of a box.
 	m = press(t, m, "a", "x")
 	next, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m = press(t, asModel(t, next), "q"); m.ask.stage != askClosed {
-		t.Fatalf("q should cancel: %v", m.ask.stage)
+	if m = press(t, asModel(t, next), "q"); m.ask.stage != askRunning || m.Result != nil {
+		t.Fatalf("q should do nothing while Claude is asked: %v", m.ask.stage)
 	}
+	m = press(t, m, "esc")
 
 	f = &fakeAsk{err: errors.New("claude (Claude Code) is not on PATH")}
 	m = ask(t, askModel(t, f, config.Default().TUI), "q")

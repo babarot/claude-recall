@@ -23,7 +23,7 @@ The title is the session's `/rename` name, or else the title Claude Code generat
 | `+` `-` | Make the detail pane taller or shorter |
 | `Tab` `Shift+Tab` (or `]` `[`) | Move focus along the folder list (when shown), the sessions and the detail pane's frames, in the order they are laid out; `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` then scroll it, `Esc` returns to the list |
 | `Esc` | Go back a step: clear the filter, the search or Claude's answer, return to the list, put the pane back |
-| `?` | Show every key, grouped by where it works. The group of the pane you are in comes first and keys that do not work there are dimmed; `?`, `Esc` or `q` closes the list |
+| `?` | Show every key, grouped by where it works. The group of the pane you are in comes first and keys that do not work there are dimmed; `Esc` closes the list |
 | `q` | Quit; with the focus in the reading view, close it |
 
 Every key but `ctrl+c` and `Esc` can be changed; see [Changing keys](#changing-keys).
@@ -62,9 +62,9 @@ claude -p <question> --model <ask_model> --no-session-persistence \
 
 It runs signed in as you, a Claude plan included, so recall needs no API key. It runs from a directory of its own, so no project's settings apply, and no session is saved.
 
-- While it works, the box shows each search it makes; `Esc` or `q` cancels.
+- While it works, the box shows each search it makes; `Esc` cancels.
 - The answer lists the sessions found with why each matched, the model, the time taken and the cost claude reports.
-- `Enter` jumps to one (clearing a folder or filter that hides it), `f` narrows the list to all of them in Claude's order with the reason under each row, and `r` asks again. `Esc` clears the narrowed list.
+- `↑` `↓` (or `j` `k`) pick a session and `Enter` jumps to it (clearing a folder or filter that hides it), `f` narrows the list to all of them in Claude's order with the reason under each row, and `r` asks again. `Esc` clears the narrowed list.
 - The reason stays in Conversation for a session Claude picked.
 
 ## Recalling in a new claude
@@ -123,7 +123,7 @@ When a newer release of recall is out, the line above the footer says so, how to
 
 ## What's new
 
-`w` shows the release notes, every release newest first, from the `CHANGELOG.md` of the repository at the latest release recall knows of. A release newer than the running one is marked `not installed`, with how to update; the running one `installed`. They are fetched from GitHub the first time the box opens and kept until the TUI quits; if they cannot be, the box says why and where they are. `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` scroll it, the wheel too; `w`, `Esc` or `q` closes it.
+`w` shows the release notes, every release newest first, from the `CHANGELOG.md` of the repository at the latest release recall knows of. A release newer than the running one is marked `not installed`, with how to update; the running one `installed`. They are fetched from GitHub the first time the box opens and kept until the TUI quits; if they cannot be, the box says why and where they are. `↑` `↓`, `j` `k`, PgUp, PgDn, `g` and `G` scroll it, the wheel too; `Esc` closes it.
 
 The first time the TUI starts after recall is updated, it says `Updated to 1.8.0 · w what's new` for a few seconds. It remembers the version of the last run in `~/.local/state/claude-recall/last_version`.
 
@@ -163,7 +163,7 @@ An operation that works in one pane only goes in that pane's table, `[keys.list]
 | `copy_command` | `Y` | Copy the resume command, or the recall command when it cannot be resumed |
 | `grow` | `+` `=` | Make the detail pane taller |
 | `shrink` | `-` | Make the detail pane shorter |
-| `up` `down` | `up` `k` `ctrl+p`, `down` `j` `ctrl+n` | Move in a list, scroll a frame |
+| `up` `down` | `up` `k` `ctrl+p`, `down` `j` `ctrl+n` | Move in a list, the sort menu and Ask's answer, scroll a frame and what's new |
 | `page_up` `page_down` | `pgup` `ctrl+b` `ctrl+u`, `pgdown` `ctrl+f` `ctrl+d` | A page up or down |
 | `top` `bottom` | `home` `g`, `end` `G` | The first, the last |
 | `search` | `/` | Search what has focus: the list's filter, the folder search, the conversation search |
@@ -178,7 +178,7 @@ Keys are written as key presses are read:
 - A named key: `enter`, `space`, `tab`, `backspace`, `up`, `down`, `left`, `right`, `home`, `end`, `pgup`, `pgdown`, `insert`, `delete`, `f1` to `f12`.
 - With modifiers in the order `ctrl+`, `alt+`, `shift+`, and a letter lower-cased: `ctrl+d`, `ctrl+shift+y`, `alt+enter`, `shift+tab`.
 
-`ctrl+c` and `esc` cannot be given to an operation, and neither can the keys inside the sort menu and the Ask box, or those of a field being typed in. An unknown operation, a key written another way and two operations set in the file that would share a key in one place (`resume = "j"` with `down = "j"`) are reported when `recall` starts, with the line they are on, rather than ignored.
+`ctrl+c` and `esc` cannot be given to an operation, nor can the keys of a field being typed in. The moves (`up`, `down`, `page_up`, `page_down`, `top`, `bottom`) cannot take a key a box over the screen reads as written: `enter`, `space` and `1` to `4` in the sort menu, `enter`, `f` and `r` on Ask's answer. A box over the screen closes with `Esc` alone. An unknown operation, a key written another way and two operations set in the file that would share a key in one place (`resume = "j"` with `down = "j"`) are reported when `recall` starts, with the line they are on, rather than ignored.
 
 ## Settings
 

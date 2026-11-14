@@ -15,7 +15,7 @@ In scope: the keyboard in the TUI (`recall` / `recall tui`). Out of scope: the m
 
 | Term | Meaning |
 |---|---|
-| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`) and the Ask Claude box (`a`) |
+| Modal | Something that opens over the screen and takes every key until it closes: the key list (`?`), the sort menu (`s`), the Ask Claude box (`a`), the box before recalling a session (`c`) and what's new (`w`) |
 | Field | Where text is typed: the filter (`/`), the folder search, the conversation search and Ask's question |
 | Pane | An area that can have the focus: the session list, the folder list, the detail frames (Conversation, What was done, Details) and the reading view |
 | Global | Keys that work whatever pane has the focus |
@@ -54,7 +54,7 @@ Keys are looked up from the top layer down. A key a layer takes does not go to t
 | Order | Layer | Takes |
 |---|---|---|
 | 1 | Fixed | `ctrl+c` (quit, anywhere) |
-| 2 | Modal | Every key, while a modal is open |
+| 2 | Modal | Every key, while a modal is open, read by the parts it holds (see 6) |
 | 3 | Field | Every key, while a field is being typed in (typed as text, except its submit, cancel and own helper keys) |
 | 4 | Pane | The keys the focused pane declares |
 | 5 | Global | Keys no pane took |
@@ -108,11 +108,17 @@ The last line keeps the old behavior (`/` in a frame opens the filter) as a rule
 | A modal | Close it | | |
 | A field | Cancel (per field, in the table below) | | |
 
-### 6. Closing a modal
+### 6. A modal's keys and closing it
 
-- Every modal closes with `esc`
-- One without a field also closes with `q` ★ (`q` is added to a running ask)
-- The key that opened it closes it too (`help` for the key list, `sort` for the sort menu). When stage 2 changes that key, the key that closes changes with it. Ask's `a` is left out, since it is a letter while the question is typed
+A modal declares the parts it holds (`modalSpec` in `internal/tui/modal.go`): a list to choose from, a body to read, a field, keys of its own, and what `esc` does. One layer reads their keys, in this order ([ADR-006](../adr/006-a-modal-reads-the-keys-of-what-it-holds.md)):
+
+1. `esc` steps out: it closes the modal, or cancels a running ask
+2. In a field, a key that types a character is typed
+3. The modal's own keys (`1` to `4` in the sort menu, `f` and `r` on Ask's answer, `enter` that asks or starts claude)
+4. A list moves on nav's `up`, `down`, `page_up`, `page_down`, `top` and `bottom`, and chooses on its choose keys; a body scrolls on the same nav keys
+5. What is left goes to the field (←→, backspace and the like)
+
+Nothing else is read: `quit`, `help`, `sort` and the other keys of the panes do nothing over a modal. `esc` alone closes it, not `q` and not the key that opened it, so a key works the same in every modal and a `q` pressed once too often never quits. The hints on the box's edge, its footer and the conflict check are made from the same declaration.
 
 ### 7. Keys that cannot change
 
@@ -121,9 +127,9 @@ These are fixed, and the config file in stage 2 cannot change them either:
 - `ctrl+c`
 - `esc` (back), so that it means "go back a step" everywhere
 - The keys of a field being typed in (submit with `enter`, cancel with `esc`, the letters themselves, a field's own helper keys)
-- The keys inside a modal, except the ones that close it with the key that opened it (`help` and `sort`), which follow that operation's keys
+- A modal's own keys and its list's choose keys (`enter`, and `space` in the sort menu)
 
-What can change are the global keys, the session panes' keys, the folder list's keys and the shared verbs (but `esc`). Modals and fields do not read the list's keymap, so `resume = "a"`, for example, does not get in the way of typing or of Ask.
+What can change are the global keys, the session panes' keys, the folder list's keys and the shared verbs (but `esc`). A modal moves and scrolls on the shared verbs as the config file sets them, as the panes do; it reads no other operation. A field takes every key that types a character before anything else, so `resume = "a"` or `down = ["n"]`, for example, does not get in the way of typing or of Ask.
 
 ## Keys by place
 
@@ -205,11 +211,16 @@ All as before.
 
 | Modal | Keys |
 |---|---|
-| The key list | Closes with `esc` `q` and the `help` key (`?` by default) |
-| The sort menu | `j` `k` `↓` `↑` `ctrl+n` `ctrl+p` `tab` `shift+tab` pick, `enter` `space` choose, `1` to `4` choose directly; closes with `esc` `q` and the `sort` key (`s` by default) |
-| Ask, running | `esc` ★`q` cancel |
-| Ask, answered | `j` `k` `↓` `↑` `ctrl+n` `ctrl+p` `tab` `shift+tab` pick, `enter` jumps, `f` narrows the list, `r` asks again, `esc` `q` close |
-| Ask, failed | `r` `enter` ask again, `esc` `q` close |
+| The key list | Closes with `esc` |
+| The sort menu | `up` `down` (`↑` `↓` `k` `j` `ctrl+p` `ctrl+n` by default) pick, `enter` `space` choose, `1` to `4` choose directly; closes with `esc` |
+| Ask, typing | `enter` asks; closes with `esc` |
+| Ask, running | `esc` cancels |
+| Ask, answered | `up` `down` pick, `enter` jumps, `f` narrows the list, `r` asks again; closes with `esc` |
+| Ask, failed | `r` `enter` ask again; closes with `esc` |
+| Before recalling | `enter` starts claude; closes with `esc` |
+| What's new | `up` `down` `page_up` `page_down` `top` `bottom` scroll; closes with `esc` |
+
+The modals' keys were changed after stage 2 (see "Added since" at the end): before, a modal without a field closed with `q` and with the key that opened it, and the sort menu and Ask's answer moved on fixed keys, `tab` and `shift+tab` among them.
 
 ## What changes from the behavior before
 
@@ -229,12 +240,12 @@ All as before.
     - The `?` list's move line: `{up.0} {down.0}  {down.1} {up.1}` → `↑ ↓  j k` (with the default keys `up = [up, k, ...]`, `down = [down, j, ...]`; as before)
     - The footer's move in the list: `{up.0}{down.0}` → `↑↓`. Scrolling the reading view: `{down.1} {up.1}` → `j k`
     - Resizing: `{grow.0}/{shrink.0}` → `+/-` in the footer, `{grow.0} {shrink.0}` → `+ -` in the `?` list
-  - Fixed keys that cannot change (`esc`, the keys of fields and modals) are written in the template as they are: `tab  →` on the filter's completion line, `↑ ↓  enter` on the line for picking a suggestion, `{help.0} esc q close` on the key list's frame
+  - Fixed keys that cannot change (`esc`, the keys of fields and modals) are written in the template as they are: `tab  →` on the filter's completion line, `↑ ↓  enter` on the line for picking a suggestion
   - When a changed keymap has no key at the index a template names, that `{…}` is left out with the separator before it (after it, at the start). An entry with none of its keys left is left out whole
   - Key names are shown as symbols: `up` → `↑`, `down` → `↓`, `left` → `←`, `right` → `→`, `shift+tab` → `⇧tab`
   - A description is a string or a function returning one, given the model's state and the keymap (the current keys). So descriptions that change with the state (`.`'s this folder and all folders, `→ close folders` while the folder list is open, `esc clear search` during the folder search, `tab key <hint>` in the filter) and other keys named inside a description (the "`[` and `]` too" of `tab  ⇧tab`, the "g G top and bottom" of `move`) follow a changed key too
   - Lines that are not keys (the filter syntax in the `?` list, such as `folder:` `text:`, and the footer's `folder: text: title: ...`) are entries with a description only
-  - The hint on a modal's frame is built by the same rules. A hint with the key that opened the modal (the key list's `? esc q close`) comes from the template `{help.0} esc q close` and follows the `help` key. A hint with fixed keys only (the sort menu's `enter esc`, the Ask box's `enter ask · esc close`, `esc cancel`, `r ask again · esc close`) stays a fixed string. Keys are written into hints in these three places only: the footer, the `?` list and the modals' frames
+  - The hint on a modal's frame, and its footer, are made from the modal's declaration (see 6). Keys are written into hints in these three places only: the footer, the `?` list and the modals' frames
   - The default keymap orders each operation's keys so that these rules show what was shown before. Tests check that the `?` list and the footer show the same as before in every place
 - Fields and modals have keymaps too, but stage 2's config does not cover them
 - Tests
@@ -273,7 +284,7 @@ In each place keys are taken, the keys of the operations that work there do not 
 - The reading view: global + session panes + shared verbs
 - The folder list: global + shared verbs + the folder list's keys
 
-Inside a modal, the key that opened it (`help` and `sort`) does not overlap that modal's fixed keys either. `sort = ["1"]`, for example, is an error, since it overlaps the sort menu's "choose the first". `help` and `sort` cannot take `esc` or `q` (they are fixed keys, so the rule above rejects them first).
+Inside a modal with a list or a body, the shared verbs it moves on do not overlap its fixed keys (its own keys, its list's choose keys and `esc`). `down = ["1"]` is an error, since it overlaps the sort menu's "choose the first", and so is `down = ["enter"]`, since it overlaps the key that opens a session from Ask's answer, even though `enter` is no longer `resume` once a key is written for `down` (see below). The checks are made from the modals' declarations, so a key a modal adds is checked too.
 
 The folder list's `enter` (back to the sessions) and the sessions' `enter` (resume) never show up in the same place, so they do not conflict. Swapping `resume = ["space"]` and `read = ["enter"]` overlaps nowhere, so it is valid.
 
@@ -295,5 +306,6 @@ Added since:
 - A mistake under `[keys]` is reported with where it is in the config file (#44)
 - `c` recalls the session in a new claude, and a key written in the config file takes over from the default operation that has it, rather than being a conflict (#48)
 - `c` was named `continue` in #48 and renamed `recall` before a release: `claude --continue` resumes the same session, the opposite of a new claude that reads the old one back, and recall is what the new claude is asked to do
+- A modal reads the keys of the parts it holds and closes with `esc` alone ([ADR-006](../adr/006-a-modal-reads-the-keys-of-what-it-holds.md)): `q` and the key that opened it no longer close it, the sort menu and Ask's answer move on the shared verbs as the config file sets them, and `tab` and `shift+tab` no longer move in them. In the footer over a modal, `esc` comes first
 
 For users, the keys are described in [docs/tui.md](../tui.md#changing-keys).
