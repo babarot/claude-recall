@@ -68,7 +68,7 @@ func build(root, envPath string, lang language, claudeVersion, apiAddr string, n
 
 	projects := filepath.Join(root, "claude", "projects")
 	for _, s := range lang.sessions {
-		if err := writeTranscript(projects, home, lang, s, now); err != nil {
+		if err := writeTranscript(projects, home, lang, claudeVersion, s, now); err != nil {
 			return err
 		}
 	}
@@ -214,7 +214,7 @@ func sessionID(s session) string {
 
 type obj = map[string]any
 
-func writeTranscript(projects, home string, lang language, s session, now time.Time) error {
+func writeTranscript(projects, home string, lang language, claudeVersion string, s session, now time.Time) error {
 	id := sessionID(s)
 	cwd := filepath.Join(home, s.dir)
 	// Messages come in bursts with pauses between them, as real work does,
@@ -243,15 +243,23 @@ func writeTranscript(projects, home string, lang language, s session, now time.T
 		n++
 		return t.UTC().Format("2006-01-02T15:04:05.000Z")
 	}
+	// The sessions were made by the Claude Code the demo runs, so the details
+	// show the version of today's, not one that ages with each release.
+	line := func(o obj) obj {
+		if claudeVersion != "" {
+			o["version"] = claudeVersion
+		}
+		return o
+	}
 	user := func(content any) {
-		lines = append(lines, obj{"type": "user", "uuid": fmt.Sprintf("%s-%d", id[:8], len(lines)), "sessionId": id,
-			"timestamp": at(), "cwd": cwd, "gitBranch": s.branch, "version": "2.1.87",
-			"message": obj{"role": "user", "content": content}})
+		lines = append(lines, line(obj{"type": "user", "uuid": fmt.Sprintf("%s-%d", id[:8], len(lines)), "sessionId": id,
+			"timestamp": at(), "cwd": cwd, "gitBranch": s.branch,
+			"message": obj{"role": "user", "content": content}}))
 	}
 	assistant := func(blocks ...obj) {
-		lines = append(lines, obj{"type": "assistant", "uuid": fmt.Sprintf("%s-%d", id[:8], len(lines)), "sessionId": id,
-			"timestamp": at(), "cwd": cwd, "gitBranch": s.branch, "version": "2.1.87",
-			"message": obj{"role": "assistant", "content": blocks}})
+		lines = append(lines, line(obj{"type": "assistant", "uuid": fmt.Sprintf("%s-%d", id[:8], len(lines)), "sessionId": id,
+			"timestamp": at(), "cwd": cwd, "gitBranch": s.branch,
+			"message": obj{"role": "assistant", "content": blocks}}))
 	}
 	text := func(t string) obj { return obj{"type": "text", "text": t} }
 
