@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.16.2](https://github.com/babarot/claude-recall/compare/v1.16.1...v1.16.2) - 2026-11-28
+### Bug fixes
+- Fetch the release notes from the tag with its v by @babarot in https://github.com/babarot/claude-recall/pull/168
+
 ## [v1.16.1](https://github.com/babarot/claude-recall/compare/v1.16.0...v1.16.1) - 2026-11-14
 ### Improvements
 - Draw every modal's frame the same way, in the accent color where the user types by @babarot in https://github.com/babarot/claude-recall/pull/162
